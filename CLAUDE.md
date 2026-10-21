@@ -67,6 +67,22 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Body: goal, scope as checkboxes, acceptance criteria, and a separate checklist of manual steps
   for the owner (accounts, keys, console settings) when there are any.
 
+## Code style
+
+- Eloquent models declare their settings as explicit properties (`$fillable`, `$hidden`, `$guarded`, `$table`,
+  `$appends`, etc.) with docblocks, not with PHP attributes such as `#[Fillable]` or `#[Hidden]`.
+
+## Branches
+
+- One branch per issue, created from an up-to-date `main` and named exactly `KB-<issue number>`, e.g. `KB-2`.
+- Switch to the branch before starting the task; all commits for the issue go there.
+
+## Tests
+
+- Tests run on PostgreSQL database `kadrobit_testing` (see `phpunit.xml`), never on SQLite: migrations use jsonb, GIN and tsvector.
+- Before every run: `php artisan config:clear` and make sure `bootstrap/cache/config.php` does not exist.
+  `Tests\TestCase` refuses to boot unless the database name ends with `_testing`.
+
 ## Commits
 
 - Format: `KB-<issue number> - <title>`, e.g. `KB-3 - Add Passport personal access token cookie`.
