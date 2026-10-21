@@ -17,6 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Assets Disk
+    |--------------------------------------------------------------------------
+    |
+    | Disk for users' asset files (originals, previews, thumbnails).
+    | The "s3" disk pointed at Cloudflare R2.
+    |
+    */
+
+    'assets_disk' => env('ASSETS_DISK', 's3'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
@@ -47,6 +59,9 @@ return [
             'report' => false,
         ],
 
+        // Cloudflare R2 via the S3 driver (AWS_* env namespace).
+        // Originals are served via temporary URLs, derived files (previews, thumbnails)
+        // via the CDN domain in AWS_URL.
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -56,7 +71,8 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            'visibility' => 'private',
+            'throw' => true,
             'report' => false,
         ],
 
