@@ -33,7 +33,7 @@ const submit = () => {
                 type="email"
                 size="large"
                 name="email"
-                autocomplete="username"
+                autocomplete="email"
                 autofocus
             />
         </FormField>

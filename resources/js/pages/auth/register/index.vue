@@ -39,9 +39,9 @@ const submit = () => {
         </div>
 
         <!--
-            The login is the email, so the email field is marked autocomplete="username", as on the login page.
-            The public handle avoids "username" in id/name: browsers and password managers would take it
-            for the login and fill in the email.
+            The login is the email; it uses autocomplete="email", as on the login page, so browsers offer
+            saved addresses. The public handle avoids "username" in id/name: browsers and password managers
+            would take it for the login and fill in the email.
         -->
         <FormField
             :label="$t('auth.fields.username')"
@@ -53,7 +53,7 @@ const submit = () => {
         </FormField>
 
         <FormField :label="$t('auth.fields.email')" for="email" :error="form.errors.email">
-            <el-input id="email" v-model="form.email" type="email" size="large" name="email" autocomplete="username" />
+            <el-input id="email" v-model="form.email" type="email" size="large" name="email" autocomplete="email" />
         </FormField>
 
         <FormField
