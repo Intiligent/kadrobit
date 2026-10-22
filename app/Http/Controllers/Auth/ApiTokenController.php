@@ -16,7 +16,7 @@ class ApiTokenController extends Controller
      */
     public function store(Request $request, ApiTokenCookie $tokens): Response
     {
-        Cookie::queue($tokens->issue($request->user(), $request->session()));
+        Cookie::queue($tokens->issue($request->user(), $request));
 
         return response()->noContent();
     }

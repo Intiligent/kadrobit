@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import FormField from '@/components/form/FormField.vue';
+import { LOGIN_URL, REGISTER_URL } from '@/config/constant';
 
 defineOptions({ layout: AuthLayout });
 
@@ -14,7 +15,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post('/register', {
+    form.post(REGISTER_URL, {
         onFinish: () => form.reset('password'),
     });
 };
@@ -79,7 +80,7 @@ const submit = () => {
 
     <p class="mt-6 text-center text-sm text-[#706f6c] dark:text-[#A1A09A]">
         {{ $t('auth.register.has_account') }}
-        <Link href="/login" class="font-medium text-[var(--el-color-primary)] hover:underline">
+        <Link :href="LOGIN_URL" class="font-medium text-[var(--el-color-primary)] hover:underline">
             {{ $t('auth.register.login_link') }}
         </Link>
     </p>

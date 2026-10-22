@@ -64,6 +64,16 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     }
 
     /**
+     * Store the email lowercase: PostgreSQL compares case-sensitively, and login looks it up lowercase.
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value === null ? null : strtolower(trim($value)),
+        );
+    }
+
+    /**
      * Store the username as a canonical lowercase handle.
      */
     protected function username(): Attribute

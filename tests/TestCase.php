@@ -25,4 +25,15 @@ abstract class TestCase extends BaseTestCase
 
         return $app;
     }
+
+    /**
+     * In the app every request starts with an empty cookie queue; in tests the app, and its cookie jar,
+     * is shared between requests, so cookies queued by one request would leak into the next response.
+     */
+    public function call($method, $uri, $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
+    {
+        $this->app['cookie']->flushQueuedCookies();
+
+        return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+    }
 }

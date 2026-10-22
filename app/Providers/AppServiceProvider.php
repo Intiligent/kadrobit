@@ -25,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * API tokens are personal access tokens issued on login and kept in an HttpOnly cookie.
+     * They live as long as the web session: renewed while the user is active, expired when the
+     * session would be, so a forgotten browser does not keep API access after logout by timeout.
      */
     protected function configurePassport(): void
     {
@@ -32,9 +34,10 @@ class AppServiceProvider extends ServiceProvider
 
         Passport::loadKeysFrom(str_starts_with($keyPath, '/') ? $keyPath : base_path($keyPath));
 
-        Passport::personalAccessTokensExpireIn(now()->addDay());
-        Passport::tokensExpireIn(now()->addDay());
+        $lifetime = now()->addMinutes((int) config('session.lifetime'));
+
+        Passport::personalAccessTokensExpireIn($lifetime);
+        Passport::tokensExpireIn($lifetime);
         Passport::refreshTokensExpireIn(now()->addDays(7));
-        Passport::cookie('api_token');
     }
 }

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import { LOGIN_URL, LOGOUT_URL, REGISTER_URL } from '@/config/constant';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -14,13 +15,13 @@ const user = computed(() => page.props.auth.user);
             <nav class="flex items-center gap-4">
                 <template v-if="user">
                     <span class="text-[#706f6c] dark:text-[#A1A09A]">{{ user.username }}</span>
-                    <Link href="/logout" method="post" as="button" class="cursor-pointer hover:underline">
+                    <Link :href="LOGOUT_URL" method="post" as="button" class="cursor-pointer hover:underline">
                         {{ $t('auth.logout') }}
                     </Link>
                 </template>
                 <template v-else>
-                    <Link href="/login" class="hover:underline">{{ $t('auth.login.title') }}</Link>
-                    <Link href="/register" class="hover:underline">{{ $t('auth.register.title') }}</Link>
+                    <Link :href="LOGIN_URL" class="hover:underline">{{ $t('auth.login.title') }}</Link>
+                    <Link :href="REGISTER_URL" class="hover:underline">{{ $t('auth.register.title') }}</Link>
                 </template>
             </nav>
         </header>

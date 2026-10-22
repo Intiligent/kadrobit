@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Services\Auth\ApiTokenCookie;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 
 /**
@@ -11,15 +12,15 @@ use Illuminate\Support\Facades\Cookie;
  */
 class LogoutListener
 {
-    public function __construct(protected ApiTokenCookie $tokens) {}
+    public function __construct(protected ApiTokenCookie $tokens, protected Request $request) {}
 
     public function handle(Logout $event): void
     {
-        if ($event->guard !== 'web') {
+        if ($event->guard !== 'web' || ! $this->request->hasSession()) {
             return;
         }
 
-        $this->tokens->revoke(request()->session());
+        $this->tokens->revoke($this->request);
 
         Cookie::queue($this->tokens->forget());
     }
