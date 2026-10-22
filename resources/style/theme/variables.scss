@@ -1,0 +1,22 @@
+// Element Plus theme variables.
+// Injected into every SCSS file (css.preprocessorOptions in vite.config.js), so Element Plus
+// component styles compile with these values. Configuration only: this file emits no CSS.
+// Available keys: node_modules/element-plus/theme-chalk/src/common/var.scss
+@forward 'element-plus/theme-chalk/src/common/var.scss' with (
+    $colors: (
+        'primary': (
+            'base': #f53003,
+        ),
+    ),
+    $text-color: (
+        'primary': #1b1b18,
+        'regular': #1b1b18,
+        'secondary': #706f6c,
+    ),
+    $font-family: (
+        '': "'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
+    ),
+    $border-radius: (
+        'base': 6px,
+    ),
+);
