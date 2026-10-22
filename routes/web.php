@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Auth\ApiTokenController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
@@ -7,3 +10,19 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 // Touching any web route renews the XSRF-TOKEN cookie; the API client calls this after a 419.
 Route::get('csrf-token', fn () => response()->noContent())->name('csrf.refresh');
+
+Route::middleware('guest')->group(function () {
+    Route::get('login', [LoginController::class, 'create'])->name('login');
+    Route::post('login', [LoginController::class, 'store']);
+
+    Route::get('register', [RegisterController::class, 'create'])->name('register');
+    Route::post('register', [RegisterController::class, 'store'])->middleware('throttle:6,1');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::post('auth/token', [ApiTokenController::class, 'store'])
+        ->middleware('throttle:30,1')
+        ->name('auth.token');
+});

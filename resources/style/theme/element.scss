@@ -3,8 +3,24 @@
 @use 'element-plus/theme-chalk/src/base.scss';
 @use 'element-plus/theme-chalk/src/dark/css-vars.scss';
 
-// Component overrides, grouped by component:
-//
-// .el-notification {
-//     --el-notification-radius: 10px;
-// }
+// Component overrides, grouped by component.
+// Element Plus component styles load after this file (app.scss and on-demand imports from JS),
+// so an override needs a more specific selector than the rule it replaces, not just the same one.
+
+// ElInput
+// Show/hide password toggle. Element Plus: `.el-input .el-input__password`.
+.el-input .el-input__wrapper .el-input__password {
+    font-size: 18px;
+}
+
+// Browser autofill paints the inner <input> light blue, leaving the wrapper's padding white.
+// The browser style wins over background-color, so the fill is covered with an inset shadow
+// in the input's own background, and the text colour is set through -webkit-text-fill-color.
+.el-input__inner:is(:-webkit-autofill, :autofill) {
+    -webkit-box-shadow: 0 0 0 1000px var(--el-input-bg-color, var(--el-fill-color-blank)) inset;
+    box-shadow: 0 0 0 1000px var(--el-input-bg-color, var(--el-fill-color-blank)) inset;
+    -webkit-text-fill-color: var(--el-input-text-color, var(--el-text-color-regular));
+    caret-color: var(--el-input-text-color, var(--el-text-color-regular));
+    // Delays the browser's own background so it never shows, even for a frame.
+    transition: background-color 600000s 0s;
+}

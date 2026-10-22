@@ -55,6 +55,15 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     }
 
     /**
+     * The framework default mails a signed link to the `verification.verify` route.
+     * Email confirmation by code replaces it in KB-6; until then nothing is sent.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        //
+    }
+
+    /**
      * Store the username as a canonical lowercase handle.
      */
     protected function username(): Attribute

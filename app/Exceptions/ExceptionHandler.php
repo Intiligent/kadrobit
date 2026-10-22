@@ -46,6 +46,15 @@ class ExceptionHandler
                 return Inertia::flash('error', __('errors.page_expired'))->back();
             }
 
+            // A throttled Inertia form submit would show a bare 429 page in a modal.
+            if ($response->getStatusCode() === Response::HTTP_TOO_MANY_REQUESTS && $request->hasHeader('X-Inertia')) {
+                $retryAfter = $response->headers->get('Retry-After');
+
+                return Inertia::flash('error', $retryAfter
+                    ? __('errors.too_many_requests', ['seconds' => (int) $retryAfter])
+                    : __('errors.too_many_requests_later'))->back();
+            }
+
             return $response;
         });
     }
