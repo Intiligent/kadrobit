@@ -34,7 +34,7 @@ class ExceptionHandlerTest extends TestCase
 
         // CSRF verification is skipped in tests, so the mismatch is thrown directly.
         Route::middleware('web')->group(function () {
-            Route::post('test/csrf', fn () => throw new TokenMismatchException('CSRF token mismatch.'));
+            Route::match(['post', 'put'], 'test/csrf', fn () => throw new TokenMismatchException('CSRF token mismatch.'));
         });
     }
 
@@ -135,7 +135,15 @@ class ExceptionHandlerTest extends TestCase
         $this->from('/')
             ->post('/test/csrf', [], ['X-Inertia' => 'true'])
             ->assertRedirect('/')
-            ->assertSessionHas('error', __('errors.page_expired'));
+            ->assertSessionHas('inertia.flash_data', ['error' => __('errors.page_expired')]);
+    }
+
+    public function test_csrf_mismatch_on_inertia_put_redirects_with_303(): void
+    {
+        $this->from('/')
+            ->put('/test/csrf', [], ['X-Inertia' => 'true'])
+            ->assertStatus(303)
+            ->assertRedirect('/');
     }
 
     public function test_frontend_error_codes_match_the_enum(): void

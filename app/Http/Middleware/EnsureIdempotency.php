@@ -13,14 +13,21 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Throwable;
 
 /**
  * Makes mutating requests safe to retry. A request carrying an Idempotency-Key header
  * runs once; repeating it with the same key replays the stored response.
  *
+ * One cache entry per key serves as both the "in progress" marker and the stored response:
+ * an atomic add() claims the key, then put() stores the response or forget() releases it.
+ *
  * - Keys are scoped to the user (or session, or IP for guests), method and path.
- * - Only successful (2xx/3xx) responses are stored, so a failed request can be retried.
+ * - Only successful (2xx/3xx) responses up to `idempotency.max_body_size` are stored,
+ *   so a failed request can be retried.
  * - Reusing a key with a different payload is rejected with 422, a concurrent duplicate with 409.
+ *
+ * Settings: config/idempotency.php.
  */
 class EnsureIdempotency
 {
@@ -28,13 +35,11 @@ class EnsureIdempotency
 
     public const REPLAYED_HEADER = 'Idempotent-Replayed';
 
-    /** How long a stored response is replayed, in seconds. */
-    public const TTL = 86400;
-
-    /** Upper bound for holding the lock while the request runs, in seconds. */
-    protected const LOCK_SECONDS = 60;
-
     protected const METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+    protected const PROCESSING = 'processing';
+
+    protected const COMPLETED = 'completed';
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -48,54 +53,60 @@ class EnsureIdempotency
             throw new BadRequestHttpException(__('errors.idempotency.invalid_key'));
         }
 
-        $cacheKey = 'idempotency:'.hash('sha256', implode('|', [
-            $this->scope($request), $request->getMethod(), $request->path(), $key,
-        ]));
+        $cache = Cache::store(config('idempotency.store'));
+        $cacheKey = static::cacheKey($this->scope($request), $request->getMethod(), $request->path(), $key);
         $fingerprint = $this->fingerprint($request);
 
-        if ($replay = $this->replay($cacheKey, $fingerprint)) {
-            return $replay;
-        }
+        $claimed = $cache->add(
+            $cacheKey,
+            ['state' => self::PROCESSING, 'fingerprint' => $fingerprint],
+            config('idempotency.processing_timeout'),
+        );
 
-        $lock = Cache::lock($cacheKey.':lock', self::LOCK_SECONDS);
-
-        if (! $lock->get()) {
-            throw new ConflictHttpException(__('errors.idempotency.in_progress'));
+        if (! $claimed) {
+            return $this->replay($cache->get($cacheKey), $fingerprint);
         }
 
         try {
-            // The first request may have finished between the check above and taking the lock.
-            if ($replay = $this->replay($cacheKey, $fingerprint)) {
-                return $replay;
-            }
-
             $response = $next($request);
+        } catch (Throwable $e) {
+            $cache->forget($cacheKey);
 
-            if ($this->shouldStore($response)) {
-                Cache::put($cacheKey, [
-                    'fingerprint' => $fingerprint,
-                    'status' => $response->getStatusCode(),
-                    'headers' => $response->headers->allPreserveCaseWithoutCookies(),
-                    'content' => $response->getContent(),
-                ], self::TTL);
-            }
-
-            return $response;
-        } finally {
-            $lock->release();
+            throw $e;
         }
+
+        if ($this->shouldStore($response)) {
+            $cache->put($cacheKey, [
+                'state' => self::COMPLETED,
+                'fingerprint' => $fingerprint,
+                'status' => $response->getStatusCode(),
+                'headers' => $response->headers->allPreserveCaseWithoutCookies(),
+                'content' => $response->getContent(),
+            ], config('idempotency.ttl'));
+        } else {
+            $cache->forget($cacheKey);
+        }
+
+        return $response;
     }
 
-    protected function replay(string $cacheKey, string $fingerprint): ?Response
+    public static function cacheKey(string $scope, string $method, string $path, string $key): string
     {
-        $stored = Cache::get($cacheKey);
+        return 'idempotency:'.hash('sha256', implode('|', [$scope, $method, $path, $key]));
+    }
 
-        if ($stored === null) {
-            return null;
+    /**
+     * @param  array<string, mixed>|null  $stored
+     */
+    protected function replay(?array $stored, string $fingerprint): Response
+    {
+        if ($stored !== null && ! hash_equals($stored['fingerprint'], $fingerprint)) {
+            throw new UnprocessableEntityHttpException(__('errors.idempotency.key_reused'));
         }
 
-        if (! hash_equals($stored['fingerprint'], $fingerprint)) {
-            throw new UnprocessableEntityHttpException(__('errors.idempotency.key_reused'));
+        // Null: the entry expired between add() and get(); treat the key as still in use.
+        if ($stored === null || $stored['state'] === self::PROCESSING) {
+            throw new ConflictHttpException(__('errors.idempotency.in_progress'));
         }
 
         $response = new Response($stored['content'], $stored['status'], $stored['headers']);
@@ -108,7 +119,8 @@ class EnsureIdempotency
     {
         return $response->getStatusCode() < 400
             && ! $response instanceof StreamedResponse
-            && ! $response instanceof BinaryFileResponse;
+            && ! $response instanceof BinaryFileResponse
+            && strlen((string) $response->getContent()) <= config('idempotency.max_body_size');
     }
 
     protected function scope(Request $request): string
@@ -126,13 +138,16 @@ class EnsureIdempotency
 
     /**
      * Hash of the payload. Files are represented by name, size and content hash,
-     * so a retried upload of the same file matches.
+     * so a retried upload of the same file matches. Failed uploads have no file to hash:
+     * they are represented by their error code and left to validation.
      */
     protected function fingerprint(Request $request): string
     {
         $files = collect($request->allFiles())
             ->flatten()
-            ->map(fn (UploadedFile $file) => [$file->getClientOriginalName(), $file->getSize(), hash_file('sha256', $file->getRealPath())])
+            ->map(fn (UploadedFile $file) => $file->isValid()
+                ? [$file->getClientOriginalName(), $file->getSize(), hash_file('sha256', $file->getRealPath())]
+                : [$file->getClientOriginalName(), 'error' => $file->getError()])
             ->all();
 
         return hash('sha256', json_encode([

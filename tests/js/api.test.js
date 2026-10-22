@@ -93,6 +93,25 @@ describe('request id and idempotency', () => {
         expect(sent[0].headers.get('Idempotency-Key')).toBe(requestId);
     });
 
+    it('rejects a request id that is already running', async () => {
+        const requestId = newRequestId();
+        let release;
+        responders.push(() => new Promise((resolve) => {
+            release = () => resolve({ status: 200, data: {}, headers: {} });
+        }));
+
+        const first = api.post('/api/a', {}, { requestId });
+
+        await expect(api.post('/api/a', {}, { requestId })).rejects.toThrow(/already running/);
+        await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+        release();
+        await first;
+
+        expect(sent).toHaveLength(1);
+        respond(200, {});
+        await expect(api.post('/api/a', {}, { requestId })).resolves.toEqual({});
+    });
+
     it('resolves to the response body', async () => {
         respond(200, { data: [1, 2] });
 
@@ -247,6 +266,20 @@ describe('csrf retry', () => {
     });
 });
 
+describe('csrf retry with parallel requests', () => {
+    it('renews the token once for parallel 419 responses', async () => {
+        respond(419, { code: ERROR_CODE.CSRF });
+        respond(419, { code: ERROR_CODE.CSRF });
+        respond(204);
+        respond(200, {});
+        respond(200, {});
+
+        await Promise.all([api.post('/api/a'), api.post('/api/b')]);
+
+        expect(sent.filter((c) => c.url === CSRF_REFRESH_URL)).toHaveLength(1);
+    });
+});
+
 describe('token refresh', () => {
     it('retries once after the refresher renews the token', async () => {
         setTokenRefresher(vi.fn().mockResolvedValue(true));
@@ -343,6 +376,24 @@ describe('upload and download helpers', () => {
         expect(form.get('meta[editorial]')).toBe('1');
         expect(form.get('photo')).toBeInstanceOf(Blob);
         expect(form.has('skip')).toBe(false);
+    });
+
+    it('serializes arrays of objects with indexes', () => {
+        const form = toFormData({ items: [{ id: 1, qty: 2 }, { id: 3, tags: ['x'] }], matrix: [[1, 2]] });
+
+        expect(form.get('items[0][id]')).toBe('1');
+        expect(form.get('items[0][qty]')).toBe('2');
+        expect(form.getAll('items[1][tags][]')).toEqual(['x']);
+        expect(form.getAll('matrix[0][0]')).toEqual(['1']);
+    });
+
+    it('sends PUT uploads as POST with _method', async () => {
+        respond(200, {});
+
+        await api.upload('/api/assets/5', { title: 'A' }, { method: 'put' });
+
+        expect(sent[0].method).toBe('post');
+        expect(sent[0].data.get('_method')).toBe('PUT');
     });
 
     it('uploads as multipart without timeout and reports progress', async () => {

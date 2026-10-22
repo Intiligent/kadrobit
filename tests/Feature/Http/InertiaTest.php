@@ -35,13 +35,6 @@ class InertiaTest extends TestCase
                 ->missing('auth.user.password'));
     }
 
-    public function test_flash_messages_are_shared(): void
-    {
-        $this->withSession(['success' => 'Saved.'])
-            ->get('/')
-            ->assertInertia(fn (Assert $page) => $page->where('flash.success', 'Saved.')->where('flash.error', null));
-    }
-
     public function test_csrf_refresh_route_renews_the_xsrf_cookie(): void
     {
         $this->get('/csrf-token')

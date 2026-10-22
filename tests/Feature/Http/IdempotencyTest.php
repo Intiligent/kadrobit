@@ -108,15 +108,45 @@ class IdempotencyTest extends TestCase
     public function test_concurrent_duplicate_is_rejected_with_conflict(): void
     {
         $key = (string) Str::uuid();
-        $lock = Cache::lock($this->cacheKeyFor('ip:127.0.0.1', 'api/test/orders', $key).':lock', 10);
-        $lock->get();
+        $this->markInProgress($key, ['qty' => 1]);
 
-        $this->postJson('/api/test/orders', [], ['Idempotency-Key' => $key])
+        $this->postJson('/api/test/orders', ['qty' => 1], ['Idempotency-Key' => $key])
             ->assertConflict()
             ->assertJsonPath('code', ErrorCode::Conflict->value);
 
-        $lock->release();
         $this->assertSame(0, $this->calls);
+    }
+
+    public function test_concurrent_request_with_different_payload_is_rejected_as_key_reuse(): void
+    {
+        $key = (string) Str::uuid();
+        $this->markInProgress($key, ['qty' => 1]);
+
+        $this->postJson('/api/test/orders', ['qty' => 2], ['Idempotency-Key' => $key])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', __('errors.idempotency.key_reused'));
+    }
+
+    public function test_key_is_released_after_a_failed_request(): void
+    {
+        $key = (string) Str::uuid();
+
+        $this->postJson('/api/test/failing', [], ['Idempotency-Key' => $key])->assertUnprocessable();
+
+        $this->assertNull(Cache::get(EnsureIdempotency::cacheKey('ip:127.0.0.1', 'POST', 'api/test/failing', $key)));
+    }
+
+    public function test_large_response_is_not_stored(): void
+    {
+        config(['idempotency.max_body_size' => 10]);
+        $key = (string) Str::uuid();
+
+        $this->postJson('/api/test/orders', [], ['Idempotency-Key' => $key])->assertCreated();
+        $this->postJson('/api/test/orders', [], ['Idempotency-Key' => $key])
+            ->assertCreated()
+            ->assertHeaderMissing(EnsureIdempotency::REPLAYED_HEADER);
+
+        $this->assertSame(2, $this->calls);
     }
 
     public function test_invalid_key_is_rejected(): void
@@ -156,6 +186,16 @@ class IdempotencyTest extends TestCase
         $this->assertSame(2, $this->calls);
     }
 
+    public function test_failed_upload_does_not_break_fingerprinting(): void
+    {
+        $file = new UploadedFile(__FILE__, 'huge.jpg', 'image/jpeg', UPLOAD_ERR_INI_SIZE, true);
+
+        $this->post('/api/test/upload', ['photo' => $file], ['Idempotency-Key' => (string) Str::uuid(), 'Accept' => 'application/json'])
+            ->assertOk();
+
+        $this->assertSame(1, $this->calls);
+    }
+
     public function test_retried_upload_of_the_same_file_is_replayed(): void
     {
         $key = (string) Str::uuid();
@@ -169,8 +209,19 @@ class IdempotencyTest extends TestCase
         $this->assertSame(1, $this->calls);
     }
 
-    protected function cacheKeyFor(string $scope, string $path, string $key): string
+    /**
+     * Simulates a first request with the same key that is still running.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    protected function markInProgress(string $key, array $payload): void
     {
-        return 'idempotency:'.hash('sha256', implode('|', [$scope, 'POST', $path, $key]));
+        $fingerprint = hash('sha256', json_encode([[], $payload, []]));
+
+        Cache::put(
+            EnsureIdempotency::cacheKey('ip:127.0.0.1', 'POST', 'api/test/orders', $key),
+            ['state' => 'processing', 'fingerprint' => $fingerprint],
+            60,
+        );
     }
 }

@@ -17,7 +17,8 @@ import notify from './notify';
  * - Network failures and 502/503/504 are retried for GET/HEAD (or when `retry` is set).
  *
  * Request config options on top of axios:
- * @property {string}   requestId     Own request id; generated when omitted.
+ * @property {string}   requestId     Own request id; generated when omitted. It is also the Idempotency-Key,
+ *                                    so use a new id for every submission: a reused id replays the earlier response.
  * @property {object}   loadingState  Object from useLoading() or a reactive object; holds the request while it runs.
  *                                    Supported by the `api` methods, not by the raw `http` instance.
  * @property {boolean}  notify        Show a success notification with the response `message`.
@@ -54,6 +55,12 @@ export const http = axios.create({
 let tokenRefresher = null;
 let tokenRefreshInFlight = null;
 
+/**
+ * Parallel 419 responses share one CSRF renewal: separate calls could each start a new session
+ * and overwrite the XSRF cookie the others just received.
+ */
+let csrfRefreshInFlight = null;
+
 export function setTokenRefresher(refresher) {
     tokenRefresher = refresher;
 }
@@ -63,6 +70,11 @@ export function setTokenRefresher(refresher) {
  * axios deep-copies plain objects when merging configs, which would detach a reactive state.
  */
 const loadingTargets = new Map();
+
+/**
+ * Request ids of `api` calls that have not settled yet, marked synchronously at call time.
+ */
+const activeRequestIds = new Set();
 
 function markPending(config) {
     const entry = { method: config.method, url: config.url, startedAt: Date.now() };
@@ -127,7 +139,7 @@ http.interceptors.response.use(
         // The server rejected the request without running it, so repeating it is safe.
         if (apiError.code === ERROR_CODE.CSRF && !config.csrfRetried) {
             config.csrfRetried = true;
-            await http.get(CSRF_REFRESH_URL, { silent: true, untracked: true }).catch(() => null);
+            await refreshCsrfToken();
             return http.request(config);
         }
 
@@ -154,6 +166,16 @@ http.interceptors.response.use(
         throw apiError;
     },
 );
+
+function refreshCsrfToken() {
+    csrfRefreshInFlight ??= http.get(CSRF_REFRESH_URL, { silent: true, untracked: true })
+        .catch(() => null)
+        .finally(() => {
+            csrfRefreshInFlight = null;
+        });
+
+    return csrfRefreshInFlight;
+}
 
 function refreshToken() {
     tokenRefreshInFlight ??= Promise.resolve()
@@ -333,7 +355,10 @@ export function parseContentDisposition(header) {
 }
 
 /**
- * Plain object to FormData; arrays become `key[]`, nested objects `key[sub]`. FormData passes through.
+ * Plain object to FormData. FormData passes through.
+ * - nested objects: `meta[editorial]`
+ * - arrays of scalars or files: `tags[]`
+ * - arrays of objects or arrays: `items[0][id]`
  */
 export function toFormData(data, form = new FormData(), prefix = '') {
     if (data instanceof FormData) {
@@ -348,8 +373,14 @@ export function toFormData(data, form = new FormData(), prefix = '') {
         }
 
         if (Array.isArray(value)) {
-            value.forEach((item) => appendValue(form, `${name}[]`, item));
-        } else if (value !== null && typeof value === 'object' && !(value instanceof Blob) && !(value instanceof Date)) {
+            value.forEach((item, index) => {
+                if (isNested(item)) {
+                    toFormData(item, form, `${name}[${index}]`);
+                } else {
+                    appendValue(form, `${name}[]`, item);
+                }
+            });
+        } else if (isNested(value)) {
             toFormData(value, form, name);
         } else {
             appendValue(form, name, value);
@@ -357,6 +388,10 @@ export function toFormData(data, form = new FormData(), prefix = '') {
     });
 
     return form;
+}
+
+function isNested(value) {
+    return value !== null && typeof value === 'object' && !(value instanceof Blob) && !(value instanceof Date);
 }
 
 function appendValue(form, name, value) {
@@ -404,11 +439,21 @@ const api = {
     request({ loadingState = null, ...config }) {
         config.requestId ??= newRequestId();
 
-        if (loadingState) {
-            loadingTargets.set(config.requestId, loadingState.state ?? loadingState);
+        const { requestId } = config;
+
+        if (activeRequestIds.has(requestId)) {
+            return Promise.reject(new Error(`[api] Request ${requestId} is already running; use a new request id for each request.`));
         }
 
-        return http.request(config).then((response) => response.data);
+        activeRequestIds.add(requestId);
+
+        if (loadingState) {
+            loadingTargets.set(requestId, loadingState.state ?? loadingState);
+        }
+
+        return http.request(config)
+            .then((response) => response.data)
+            .finally(() => activeRequestIds.delete(requestId));
     },
 
     get(url, params = null, config = {}) {
@@ -433,14 +478,21 @@ const api = {
 
     /**
      * Multipart upload. `onProgress` receives 0–100; uploads have no timeout by default.
+     * PHP parses multipart bodies only for POST, so PUT/PATCH/DELETE are sent as POST with `_method`.
      */
     upload(url, data, { onProgress, method = 'post', ...config } = {}) {
+        const form = toFormData(data);
+
+        if (method.toLowerCase() !== 'post') {
+            form.set('_method', method.toUpperCase());
+        }
+
         return api.request({
             timeout: 0,
             ...config,
-            method,
+            method: 'post',
             url,
-            data: toFormData(data),
+            data: form,
             onUploadProgress: (event) => {
                 if (onProgress && event.total) {
                     onProgress(Math.round((event.loaded * 100) / event.total));

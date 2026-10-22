@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
@@ -39,9 +40,10 @@ class ExceptionHandler
         });
 
         // An Inertia visit with an expired CSRF token would otherwise show the raw 419 page in a modal.
+        // Inertia's global EnsureGetOnRedirect turns this 302 into a 303 for PUT/PATCH/DELETE visits.
         $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
             if ($response->getStatusCode() === 419 && $request->hasHeader('X-Inertia')) {
-                return back()->with('error', __('errors.page_expired'));
+                return Inertia::flash('error', __('errors.page_expired'))->back();
             }
 
             return $response;

@@ -7,7 +7,7 @@ import { computed, reactive } from 'vue';
  *
  * @example
  * const loading = useLoading();
- * const requestId = newRequestId();
+ * const requestId = newRequestId(); // new id for every submission: it is also the Idempotency-Key
  * api.post('/assets', data, { loadingState: loading, requestId });
  * loading.is(requestId); // this request
  * loading.any.value;     // any request using this state
