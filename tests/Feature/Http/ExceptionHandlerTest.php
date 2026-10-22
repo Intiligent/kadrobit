@@ -146,6 +146,17 @@ class ExceptionHandlerTest extends TestCase
             ->assertRedirect('/');
     }
 
+    public function test_throttled_inertia_get_visit_is_not_redirected_back(): void
+    {
+        Route::middleware(['web', 'throttle:1,1'])->get('test/throttled-page', fn () => 'ok');
+
+        $this->get('/test/throttled-page')->assertOk();
+
+        $this->from('/test/throttled-page')
+            ->get('/test/throttled-page', ['X-Inertia' => 'true'])
+            ->assertTooManyRequests();
+    }
+
     public function test_frontend_error_codes_match_the_enum(): void
     {
         preg_match('/ERROR_CODE = \{(.*?)\};/s', file_get_contents(resource_path('js/config/constant.js')), $block);

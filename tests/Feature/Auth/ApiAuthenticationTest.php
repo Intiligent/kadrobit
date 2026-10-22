@@ -51,7 +51,7 @@ class ApiAuthenticationTest extends TestCase
         $result = $user->createToken('API Token');
 
         $this->assertEqualsWithDelta(
-            now()->addDay()->timestamp,
+            now()->addMinutes(config('session.lifetime'))->timestamp,
             $result->token->expires_at->timestamp,
             60,
         );

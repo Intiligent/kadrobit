@@ -17,6 +17,13 @@ class UserTest extends TestCase
         $this->assertSame('john.smith', $user->fresh()->username);
     }
 
+    public function test_email_is_stored_lowercase_and_trimmed(): void
+    {
+        $user = User::factory()->create(['email' => ' John@Example.COM ']);
+
+        $this->assertSame('john@example.com', $user->fresh()->email);
+    }
+
     public function test_generate_username_strips_unsafe_characters(): void
     {
         $this->assertSame('john.smith', User::generateUsername('John.Smith!#'));

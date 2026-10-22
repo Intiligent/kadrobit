@@ -4,8 +4,13 @@ export const API_DEFAULT_TIMEOUT = 20000;
 // Route that renews the XSRF-TOKEN cookie after a 419
 export const CSRF_REFRESH_URL = '/csrf-token';
 
-// Login page the user is sent to on 401
+// Issues a new API token cookie for the logged-in session
+export const API_TOKEN_REFRESH_URL = '/auth/token';
+
+// Auth pages. The API client sends the user to LOGIN_URL on 401.
 export const LOGIN_URL = '/login';
+export const REGISTER_URL = '/register';
+export const LOGOUT_URL = '/logout';
 
 // Automatic retries of idempotent requests on network failures and 502/503/504
 export const RETRY = {

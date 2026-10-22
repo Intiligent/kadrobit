@@ -2,6 +2,8 @@ import { createInertiaApp, router } from '@inertiajs/vue3';
 import { i18nVue } from 'laravel-vue-i18n';
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
 import notify from '@/core/notify';
+import { http, setTokenRefresher } from '@/core/api';
+import { API_TOKEN_REFRESH_URL } from '@/config/constant';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Kadrobit';
 
@@ -57,6 +59,11 @@ router.on('flash', (event) => {
         notify.error({ message: error });
     }
 });
+
+// A 401 from /api/* while the web session is alive means the API token expired or was revoked:
+// get a new token cookie and let the API client retry. Fails with 401 when the session is gone too.
+setTokenRefresher(() => http.post(API_TOKEN_REFRESH_URL, null, { silent: true, untracked: true, authRetried: true })
+    .then(() => true, () => false));
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
