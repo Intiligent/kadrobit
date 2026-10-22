@@ -69,6 +69,9 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 
 ## Code style
 
+- Middleware configuration lives in `App\Http\Middleware\MiddlewareHandler`, exception handling in
+  `App\Exceptions\ExceptionHandler`; `bootstrap/app.php` only wires them.
+- Routes point to controller actions, not closures returning pages.
 - Eloquent models declare their settings as explicit properties (`$fillable`, `$hidden`, `$guarded`, `$table`,
   `$appends`, etc.) with docblocks, not with PHP attributes such as `#[Fillable]` or `#[Hidden]`.
 
@@ -77,11 +80,21 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - One branch per issue, created from an up-to-date `main` and named exactly `KB-<issue number>`, e.g. `KB-2`.
 - Switch to the branch before starting the task; all commits for the issue go there.
 
+## Frontend
+
+- Inertia 3 + Vue 3 + Element Plus; see `docs/frontend.md`.
+- Element Plus styles are compiled from its SCSS sources with the theme in `resources/style/theme/variables.scss`;
+  never import its prebuilt CSS (`element-plus/dist/index.css`, `.../style/css`).
+- HTTP requests outside Inertia visits go through `resources/js/core/api.js`, never a bare axios/fetch call.
+- User-facing texts on the frontend come from `lang/{locale}/*.php` via `laravel-vue-i18n` (`trans()`, `$t()`).
+- Error codes live in `App\Enums\ErrorCode` and `ERROR_CODE` in `resources/js/config/constant.js`; change both together.
+
 ## Tests
 
 - Tests run on PostgreSQL database `kadrobit_testing` (see `phpunit.xml`), never on SQLite: migrations use jsonb, GIN and tsvector.
 - Before every run: `php artisan config:clear` and make sure `bootstrap/cache/config.php` does not exist.
   `Tests\TestCase` refuses to boot unless the database name ends with `_testing`.
+- Frontend tests: `npm test` (Vitest, `tests/js`).
 
 ## Commits
 

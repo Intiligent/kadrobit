@@ -1,0 +1,12 @@
+@use 'theme/element';
+
+// Styles of Element Plus APIs called from JS (ElMessage, ElMessageBox, ElNotification, ElLoading).
+// The auto-import resolver adds styles only for components used in templates, so these are
+// loaded explicitly. ElMessageBox renders buttons and an input, hence their styles too.
+@use 'element-plus/theme-chalk/src/overlay.scss';
+@use 'element-plus/theme-chalk/src/button.scss';
+@use 'element-plus/theme-chalk/src/input.scss';
+@use 'element-plus/theme-chalk/src/message.scss';
+@use 'element-plus/theme-chalk/src/message-box.scss';
+@use 'element-plus/theme-chalk/src/notification.scss';
+@use 'element-plus/theme-chalk/src/loading.scss';

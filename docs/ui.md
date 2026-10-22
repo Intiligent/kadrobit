@@ -1,6 +1,6 @@
 # UI: типографика и стили
 
-Источник: основной контентный блок на `resources/views/welcome.blade.php` (строка ~51).
+Источник: основной контентный блок стартовой страницы Laravel (`welcome.blade.php`, удалена в KB-3). Сейчас эти стили использует `resources/js/pages/home/index.vue`, корневой шаблон — `resources/views/app.blade.php`.
 
 ## Шрифт
 
@@ -14,7 +14,7 @@
 Где настроено:
 
 - `vite.config.js`: `bunny('Instrument Sans', { weights: [400, 500, 600] })`
-- `resources/css/app.css`: токен темы Tailwind `--font-sans`
+- `resources/style/tailwind.css`: токен темы Tailwind `--font-sans`
 
 ```css
 @theme {
