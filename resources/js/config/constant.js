@@ -9,6 +9,8 @@ export const API_TOKEN_REFRESH_URL = '/auth/token';
 
 // Auth pages. The API client sends the user to LOGIN_URL on 401.
 export const LOGIN_URL = '/login';
+// A full page visit, not an Inertia one: the browser leaves for Google.
+export const GOOGLE_LOGIN_URL = '/oauth/google/redirect';
 export const REGISTER_URL = '/register';
 export const LOGOUT_URL = '/logout';
 export const FORGOT_PASSWORD_URL = '/forgot-password';

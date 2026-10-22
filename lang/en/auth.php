@@ -52,5 +52,13 @@ return [
         'request_new' => 'Request a new link',
     ],
 
+    'google' => [
+        'continue' => 'Continue with Google',
+        'or' => 'or',
+        'cancelled' => 'Google sign-in was cancelled.',
+        'failed' => 'Could not sign in with Google. Please try again.',
+        'unverified_email' => 'Google has not confirmed this email address. Log in with your password instead.',
+    ],
+
     'logout' => 'Log out',
 ];

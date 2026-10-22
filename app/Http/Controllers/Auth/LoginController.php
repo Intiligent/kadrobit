@@ -19,7 +19,7 @@ class LoginController extends Controller
             redirect()->setIntendedUrl(url($redirect));
         }
 
-        return Inertia::render('auth/login/index');
+        return Inertia::render('auth/login/index', ['googleEnabled' => OAuthController::googleEnabled()]);
     }
 
     public function store(LoginRequest $request): RedirectResponse

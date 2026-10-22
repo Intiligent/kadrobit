@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // "Continue with Google" (Socialite). The button and the routes stay off while the client is not set.
+    // A path redirect is resolved against the current host, so one value works locally and in production.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT', '/oauth/google/callback'),
+    ],
+
 ];

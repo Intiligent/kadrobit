@@ -2,9 +2,14 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import FormField from '@/components/form/FormField.vue';
+import GoogleButton from '@/components/auth/GoogleButton.vue';
 import { LOGIN_URL, REGISTER_URL } from '@/config/constant';
 
 defineOptions({ layout: AuthLayout });
+
+defineProps({
+    googleEnabled: { type: Boolean, default: false },
+});
 
 const form = useForm({
     first_name: '',
@@ -26,6 +31,8 @@ const submit = () => {
 
     <h1 class="mb-1 text-2xl font-semibold">{{ $t('auth.register.title') }}</h1>
     <p class="mb-6 text-sm text-[#706f6c] dark:text-[#A1A09A]">{{ $t('auth.register.subtitle') }}</p>
+
+    <GoogleButton v-if="googleEnabled" />
 
     <form class="space-y-5" novalidate @submit.prevent="submit">
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">

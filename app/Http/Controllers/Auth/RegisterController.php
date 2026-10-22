@@ -15,7 +15,7 @@ class RegisterController extends Controller
 {
     public function create(): Response
     {
-        return Inertia::render('auth/register/index');
+        return Inertia::render('auth/register/index', ['googleEnabled' => OAuthController::googleEnabled()]);
     }
 
     public function store(RegisterRequest $request): RedirectResponse

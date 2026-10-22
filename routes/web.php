@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\ApiTokenController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
@@ -26,6 +27,9 @@ Route::middleware('guest')->group(function () {
     Route::post('forgot-password', [ForgotPasswordController::class, 'store'])
         ->middleware('throttle:auth-forms')
         ->name('password.email');
+
+    Route::get('oauth/google/redirect', [OAuthController::class, 'redirectToGoogle'])->name('oauth.google.redirect');
+    Route::get('oauth/google/callback', [OAuthController::class, 'handleGoogleCallback'])->name('oauth.google.callback');
 });
 
 // The confirmation link from the email: signed, works with or without a login (e.g. opened on a phone).

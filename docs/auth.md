@@ -87,8 +87,39 @@
 - **Смена email:** ошибка «адрес занят» сформулирована нейтрально, чтобы форма не подсказывала, какие адреса зарегистрированы.
 - Истёкшие коды удаляет `model:prune` раз в сутки (`routes/console.php`).
 - **Подтверждение** (`markVerified()`) — атомарный `UPDATE … WHERE email_verified_at IS NULL`: код и ссылка, использованные одновременно, отправят событие `Verified` один раз.
-- `EmailVerificationService::markVerified()` пригодится для входа через Google ([KB-7](https://github.com/Intiligent/kadrobit/issues/7)): там адрес подтверждает сам Google.
+- `markVerified()` использует и вход через Google: там адрес подтверждает сам Google.
 
-### Пока не сделано
+## Вход через Google
 
-- Вход через Google — [KB-7](https://github.com/Intiligent/kadrobit/issues/7).
+`laravel/socialite`, драйвер `google`, stateful (state OAuth хранится в сессии, intended URL переживает поход в Google).
+
+| Метод | Путь | Middleware | Что делает |
+|---|---|---|---|
+| GET | `/oauth/google/redirect` | guest | Уводит на экран согласия Google |
+| GET | `/oauth/google/callback` | guest | Возврат из Google: вход или создание аккаунта |
+
+- **Включение:** кнопка «Continue with Google» на страницах входа и регистрации и оба маршрута работают, только когда заданы `GOOGLE_CLIENT_ID` и `GOOGLE_CLIENT_SECRET` (`OAuthController::googleEnabled()`, проп `googleEnabled`). Без них маршруты отвечают 404, кнопки нет.
+- **Redirect URI:** `GOOGLE_REDIRECT` по умолчанию `/oauth/google/callback`. Путь Socialite достраивает от текущего хоста, поэтому одно значение подходит и локально, и в продакшене. В Google Cloud нужно прописать полные адреса для каждого хоста.
+- **Сопоставление аккаунтов** — по email (`GoogleAccountResolver`):
+
+| Аккаунт с этим email | Google подтвердил email (`email_verified`) | Результат |
+|---|---|---|
+| нет | да | Создаём (имя, фамилия, `username` из email, аватар), сразу подтверждён, вход |
+| нет | нет | Создаём, код подтверждения как при обычной регистрации, вход и экран ввода кода |
+| есть, подтверждён | да | Вход, данные аккаунта не меняются |
+| есть, не подтверждён | да | Подтверждаем, **меняем пароль и remember token**, отзываем токены (`PasswordReset`), вход |
+| есть | нет | Отказ: «войдите по паролю» |
+
+- **Почему меняется пароль:** неподтверждённый аккаунт мог заранее зарегистрировать кто-то другой на чужой адрес и ждать, пока владелец войдёт через Google. Google доказывает владельца, поэтому тот, кто задал пароль, теряет доступ: `AuthenticateSession` завершает его сессии, `PasswordResetListener` отзывает API-токены.
+- **Отказ без подтверждения:** иначе любой, кто добавит чужой адрес в Google-аккаунт без подтверждения, получил бы чужой аккаунт.
+- **Пароль нового аккаунта** — случайный, его никто не знает. Войти по паролю можно, задав его через «Forgot password?».
+- **Ошибки:** отказ на экране согласия (`?error=…`), устаревший state и сбой связи с Google возвращают на `/login` с flash-сообщением; сбой пишется в лог.
+
+### Что нужно сделать владельцу
+
+1. В [Google Cloud Console](https://console.cloud.google.com/) создать проект (или взять существующий).
+2. **APIs & Services → OAuth consent screen:** тип External, название приложения, email поддержки, логотип и домен `kadrobit.net`; scopes `openid`, `email`, `profile`. Опубликовать приложение (In production), иначе войти смогут только тестовые пользователи.
+3. **Credentials → Create credentials → OAuth client ID**, тип Web application. Authorized redirect URIs:
+   - `https://kadrobit.net/oauth/google/callback`;
+   - локальный адрес, например `http://kadrobit.loc/oauth/google/callback`.
+4. Client ID и Client secret прописать в `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
