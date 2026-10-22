@@ -63,66 +63,31 @@
   - `PasswordResetListener` сразу отзывает токены веб-сессий (`name = web`), чтобы API перестал отвечать ещё до следующего запроса страницы. Токены других видов (например, для интеграций) — отдельные ключи, их сброс пароля не трогает.
 - Пароль — не короче 8 символов, с подтверждением.
 
+## Подтверждение email
+
+Задача [KB-6](https://github.com/Intiligent/kadrobit/issues/6).
+
+Мягкий барьер: сайт открыт неподтверждённому пользователю, в шапке — баннер «Confirm now». Только маршруты с middleware `verified` отправляют его на `/verify-email` (стандартный `EnsureEmailIsVerified` ведёт на `verification.notice`).
+
+| Метод | Путь | Middleware | Что делает |
+|---|---|---|---|
+| GET | `/verify-email` | auth | Экран ввода кода (`verification.notice`) |
+| POST | `/verify-email` | auth, `throttle:verify-email` | Проверка кода |
+| POST | `/verify-email/resend` | auth, `throttle:verify-email-send` | Новый код |
+| PUT | `/verify-email/email` | auth, `throttle:verify-email-send` | Смена email, пока он не подтверждён, и новый код |
+| GET | `/verify-email/{id}/{hash}` | `signed`, `throttle:verify-email` | Ссылка из письма; работает и без входа |
+
+- **После регистрации** событие `Registered` отправляет код (`User::sendEmailVerificationNotification()` → `EmailVerificationService::issue()`), пользователь попадает на экран ввода кода.
+- **Код:** 6 цифр, живёт 15 минут, 5 попыток. У пользователя один живой код: новый удаляет старый. Код привязан к адресу, на который отправлен, — после смены email старый код не работает.
+- **Хранение:** в `email_verification_codes` лежит только HMAC-SHA256 кода с ключом приложения. Без `APP_KEY` утёкшую таблицу не перебрать.
+- **Попытки** засчитываются атомарно до сравнения кода: параллельные запросы не проскочат лимит.
+- **Повторная отправка:** не чаще раза в 60 секунд и не больше 10 писем в сутки на пользователя. Смена email на новый адрес не ждёт 60 секунд, но входит в суточный лимит.
+- **Ссылка в письме:** подписанная (`URL::temporarySignedRoute`), живёт столько же, сколько код. `hash` — `sha1` адреса, поэтому ссылка на прежний адрес не сработает. Подпись доказывает владение адресом, поэтому вход не нужен: открытая на телефоне, ссылка подтверждает email и ведёт на страницу входа; в той же сессии — возвращает на исходную страницу.
+- **Письмо** — `VerifyEmailNotification`, через очередь и **зашифровано** в ней (`ShouldBeEncrypted`): пока письмо не отправлено, код лежит в задаче. Код стоит и в теме письма, чтобы его было видно в списке писем.
+- **Смена email:** ошибка «адрес занят» сформулирована нейтрально, чтобы форма не подсказывала, какие адреса зарегистрированы.
+- Истёкшие коды удаляет `model:prune` раз в сутки (`routes/console.php`).
+- `EmailVerificationService::markVerified()` пригодится для входа через Google ([KB-7](https://github.com/Intiligent/kadrobit/issues/7)): там адрес подтверждает сам Google.
+
 ### Пока не сделано
 
-- Письмо для подтверждения email не отправляется: стандартное письмо Laravel ссылается на ещё не существующий маршрут. Подтверждение кодом — [KB-6](https://github.com/Intiligent/kadrobit/issues/6).
 - Вход через Google — [KB-7](https://github.com/Intiligent/kadrobit/issues/7).
-
-## Модель пользователя
-
-| Поле | Тип | Примечание |
-|---|---|---|
-| `first_name` | string | обязательное |
-| `last_name` | string, nullable | |
-| `username` | string(32), unique | хранится в нижнем регистре |
-| `avatar` | string, nullable | URL |
-| `email` | string, unique | |
-| `email_verified_at` | timestamp, nullable | `User` реализует `MustVerifyEmail` |
-
-- `User::generateUsername($seed)` — уникальный username из произвольной строки (для регистрации через Google): только `a-z0-9_.-`, не короче 3 и не длиннее 20 символов, при совпадении добавляется числовой суффикс.
-- Миграция `split_name_on_users_table` переносит старое `name` целиком в `first_name` и выдаёт username вида `user<id>`.
-
-## Ключи Passport
-
-| Переменная | По умолчанию | Назначение |
-|---|---|---|
-| `PASSPORT_KEY_PATH` | `storage` | Каталог с `oauth-private.key` и `oauth-public.key`. Относительный путь считается от корня проекта, можно указать абсолютный. |
-| `PASSPORT_PRIVATE_KEY` | — | Содержимое приватного ключа. Если задано, файл не читается. |
-| `PASSPORT_PUBLIC_KEY` | — | Содержимое публичного ключа. Если задано, файл не читается. |
-
-`PASSPORT_KEY_PATH` задаётся в `config/passport.php` → `key_path` и применяется в `AppServiceProvider` через `Passport::loadKeysFrom()`, поэтому его используют и guard, и `php artisan passport:keys`.
-
-Сгенерировать ключи: `php artisan passport:keys` (с `--force` — перезаписать; все выданные токены станут недействительными).
-
-## Первичная настройка
-
-```sh
-php artisan migrate
-php artisan db:seed --class=OauthSeeder   # или php artisan db:seed — вызывает его сам
-```
-
-`OauthSeeder` можно запускать повторно:
-
-- создаёт ключи `oauth-private.key` и `oauth-public.key` в каталоге `PASSPORT_KEY_PATH`, только если их нет и не заданы `PASSPORT_PRIVATE_KEY` / `PASSPORT_PUBLIC_KEY`;
-- создаёт personal access client для провайдера `users`, только если активного клиента ещё нет.
-
-Без ключей и клиента guard `api` отвечает 500, а `createToken()` падает с ошибкой «Personal access client not found».
-
-## Прод
-
-- Ключи генерируются один раз и хранятся вне репозитория (`/storage/*.key` в `.gitignore`), права `600`. Если ключи лежат вне `storage`, укажите каталог в `PASSPORT_KEY_PATH`.
-- При деплое ключи не перегенерировать: все выданные токены станут недействительными.
-- Вместо файлов можно передать ключи через `PASSPORT_PRIVATE_KEY` и `PASSPORT_PUBLIC_KEY`.
-
-## API
-
-| Метод | Путь | Guard | Ответ |
-|---|---|---|---|
-| GET | `/api/user` | `auth:api` | `UserResource`: id, first_name, last_name, username, email, avatar, email_verified |
-
-## Тесты
-
-- Тесты идут на отдельной базе PostgreSQL `kadrobit_testing` (задано в `phpunit.xml`): миграции используют jsonb, GIN-индексы и tsvector, SQLite не подходит.
-- Создать базу один раз: `createdb kadrobit_testing`.
-- `Tests\TestCase` не запускается, если имя базы не заканчивается на `_testing`: так закешированный конфиг не даст `RefreshDatabase` снести рабочую базу. Перед прогоном — `php artisan config:clear`.
-- Для запросов к `/api/*` в тестах нужен `$this->seed(OauthSeeder::class)` или `Passport::actingAs($user)`.

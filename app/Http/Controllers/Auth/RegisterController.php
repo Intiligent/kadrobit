@@ -30,6 +30,7 @@ class RegisterController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('home'));
+        // The code was sent through the Registered event; the intended URL survives for after confirmation.
+        return redirect()->route('verification.notice');
     }
 }

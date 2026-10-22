@@ -38,10 +38,15 @@ overmind start          # Procfile.dev указан в .overmind.env
 | Письмо | Адрес |
 |---|---|
 | Сброс пароля | `/dev/emails/reset-password` |
+| Подтверждение email | `/dev/emails/verify-email` |
 
 - Группа маршрутов `dev/emails` в `routes/web.php`, контроллер `App\Http\Controllers\Dev\EmailPreviewController`. Вне `APP_ENV=local` адреса отвечают 404 (middleware `local.only`).
 - Превью рендерит настоящее письмо через `toMail()` уведомления, поэтому совпадает с тем, что уходит пользователю.
 - Получатель — вошедший пользователь, а без входа — несохранённый тестовый (Jane Doe): превью ничего не пишет в базу.
 - `?locale=xx` — письмо на другом языке.
 - Новое письмо: метод в `EmailPreviewController` и маршрут в группе `dev/emails`; в списке оно появится само.
+
+## База данных и часовой пояс
+
+Соединение с PostgreSQL работает в UTC, как приложение (`config/database.php` → `pgsql.timezone`, `DB_TIMEZONE`). Laravel пишет время без смещения, и если часовой пояс сервера БД другой (например, `Asia/Tbilisi`), PostgreSQL сдвигал бы все значения `timestampTz`. Тест `DatabaseTest` следит за этим.
 

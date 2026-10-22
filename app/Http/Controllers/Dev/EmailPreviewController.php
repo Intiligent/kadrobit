@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Dev;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
+use App\Notifications\VerifyEmailNotification;
+use App\Services\Auth\EmailVerificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -37,6 +39,18 @@ class EmailPreviewController extends Controller
 
         return $this->render(
             (new ResetPasswordNotification(str_repeat('0', 64)))->toMail($this->recipient($request)),
+        );
+    }
+
+    public function verifyEmail(Request $request): Response
+    {
+        $this->applyLocale($request);
+
+        $user = $this->recipient($request);
+        $user->id ??= 1;
+
+        return $this->render(
+            (new VerifyEmailNotification('123456', app(EmailVerificationService::class)->signedUrl($user)))->toMail($user),
         );
     }
 

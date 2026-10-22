@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Every login and token renewal creates a token; drop revoked and expired ones.
 Schedule::command('passport:purge')->daily();
+
+// Expired email confirmation codes and other prunable models.
+Schedule::command('model:prune')->daily();

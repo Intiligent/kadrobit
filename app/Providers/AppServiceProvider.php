@@ -36,6 +36,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth-forms', fn (Request $request) => Limit::perMinute(6)
             ->by(($request->route()?->getName() ?? $request->path()).'|'.$request->ip()));
 
+        // Email confirmation: code attempts and link opens per user (or IP for the link without a login).
+        RateLimiter::for('verify-email', fn (Request $request) => Limit::perMinute(10)
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        // Anything that sends another confirmation email: resend and address change.
+        RateLimiter::for('verify-email-send', fn (Request $request) => Limit::perMinute(5)
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
         // API token re-issue: per user.
         RateLimiter::for('api-token', fn (Request $request) => Limit::perMinute(30)
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
