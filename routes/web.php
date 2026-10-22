@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Dev\EmailPreviewController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,4 +38,10 @@ Route::middleware('auth')->group(function () {
     Route::post('auth/token', [ApiTokenController::class, 'store'])
         ->middleware('throttle:30,1')
         ->name('auth.token');
+});
+
+// Development only: preview transactional emails in the browser (404 outside the local environment).
+Route::middleware('local.only')->prefix('dev/emails')->name('dev.emails.')->group(function () {
+    Route::get('/', [EmailPreviewController::class, 'index'])->name('index');
+    Route::get('reset-password', [EmailPreviewController::class, 'resetPassword'])->name('reset-password');
 });

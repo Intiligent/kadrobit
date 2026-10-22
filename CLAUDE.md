@@ -73,6 +73,8 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
   `App\Exceptions\ExceptionHandler`; `bootstrap/app.php` only wires them.
 - Routes point to controller actions, not closures returning pages.
 - Emails are sent through the queue: notifications implement `ShouldQueue`, mailables are queued, never sent inline.
+- Every email gets a browser preview: a method in `App\Http\Controllers\Dev\EmailPreviewController` rendering the real
+  notification's `toMail()`, and a route in the `dev/emails` group of `routes/web.php` (see `docs/development.md`).
 - Eloquent models declare their settings as explicit properties (`$fillable`, `$hidden`, `$guarded`, `$table`,
   `$appends`, etc.) with docblocks, not with PHP attributes such as `#[Fillable]` or `#[Hidden]`.
 

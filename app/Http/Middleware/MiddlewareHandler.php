@@ -30,6 +30,10 @@ class MiddlewareHandler
             ApiTokenCookie::COOKIE,
         ]);
 
+        $middleware->alias([
+            'local.only' => EnsureLocalEnvironment::class,
+        ]);
+
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(fn () => route('home'));
 
