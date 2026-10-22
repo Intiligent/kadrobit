@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dev;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -38,6 +39,18 @@ class EmailPreviewController extends Controller
         return $this->render(
             (new ResetPasswordNotification(str_repeat('0', 64)))->toMail($this->recipient($request)),
         );
+    }
+
+    public function verifyEmail(Request $request): Response
+    {
+        $this->applyLocale($request);
+
+        $user = $this->recipient($request);
+
+        // A real signed link would verify the logged-in user on a click: the preview's has no valid signature.
+        $url = route('verification.verify', ['id' => $user->id ?? 1, 'hash' => sha1($user->email), 'code' => 0, 'signature' => 'preview']);
+
+        return $this->render((new VerifyEmailNotification('123456', $url, 0))->toMail($user));
     }
 
     /**

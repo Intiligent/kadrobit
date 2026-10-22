@@ -62,4 +62,19 @@ class EmailPreviewTest extends TestCase
             ->get('/dev/emails/reset-password')
             ->assertSee('Hi Vitaliy,');
     }
+
+    public function test_verify_email_preview_link_does_not_verify_anyone(): void
+    {
+        $this->local();
+        $this->seed(OauthSeeder::class);
+        $user = User::factory()->unverified()->create();
+
+        $html = $this->actingAs($user)->get('/dev/emails/verify-email')->assertOk()->assertSee('123456')->getContent();
+
+        preg_match('~href="([^"]*/verify-email/'.$user->id.'/[^"]*)"~', $html, $match);
+        $this->assertNotEmpty($match);
+
+        $this->get(html_entity_decode($match[1]))->assertForbidden();
+        $this->assertFalse($user->fresh()->hasVerifiedEmail());
+    }
 }

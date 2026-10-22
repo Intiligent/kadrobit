@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
-import { LOGIN_URL, LOGOUT_URL, REGISTER_URL } from '@/config/constant';
+import { LOGIN_URL, LOGOUT_URL, REGISTER_URL, VERIFY_EMAIL_URL } from '@/config/constant';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -25,6 +25,16 @@ const user = computed(() => page.props.auth.user);
                 </template>
             </nav>
         </header>
+
+        <div
+            v-if="user && !user.email_verified"
+            class="mb-6 flex w-full max-w-[335px] flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--el-color-warning-light-9)] px-4 py-3 text-sm lg:max-w-4xl"
+        >
+            <span>{{ $t('verification.banner.text') }}</span>
+            <Link :href="VERIFY_EMAIL_URL" class="font-medium text-[var(--el-color-primary)] hover:underline">
+                {{ $t('verification.banner.action') }}
+            </Link>
+        </div>
 
         <main class="flex w-full max-w-[335px] flex-1 flex-col lg:max-w-4xl lg:justify-center">
             <slot />

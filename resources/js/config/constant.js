@@ -13,6 +13,7 @@ export const REGISTER_URL = '/register';
 export const LOGOUT_URL = '/logout';
 export const FORGOT_PASSWORD_URL = '/forgot-password';
 export const RESET_PASSWORD_URL = '/reset-password';
+export const VERIFY_EMAIL_URL = '/verify-email';
 
 // Automatic retries of idempotent requests on network failures and 502/503/504
 export const RETRY = {

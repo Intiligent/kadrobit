@@ -49,7 +49,7 @@ class RegisterTest extends TestCase
         Event::fake([Registered::class]);
 
         $this->post('/register', $this->payload())
-            ->assertRedirect('/')
+            ->assertRedirect('/verify-email')
             ->assertCookie(ApiTokenCookie::COOKIE, null, false);
 
         $user = User::where('email', 'jane@example.com')->firstOrFail();
@@ -61,7 +61,7 @@ class RegisterTest extends TestCase
 
     public function test_registration_runs_the_real_registered_listeners(): void
     {
-        $this->post('/register', $this->payload())->assertRedirect('/');
+        $this->post('/register', $this->payload())->assertRedirect('/verify-email');
 
         $this->assertAuthenticated();
     }

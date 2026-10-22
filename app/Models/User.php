@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Notifications\ResetPasswordNotification;
+use App\Services\Auth\EmailVerificationService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -66,12 +67,12 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     }
 
     /**
-     * The framework default mails a signed link to the `verification.verify` route.
-     * Email confirmation by code replaces it in KB-6; until then nothing is sent.
+     * Confirmation by a 6-digit code (with a signed link as a fallback) instead of the framework's link-only email.
+     * Called on registration through the Registered event.
      */
     public function sendEmailVerificationNotification(): void
     {
-        //
+        app(EmailVerificationService::class)->issue($this);
     }
 
     /**
