@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            OauthSeeder::class,
             MarketplaceSeeder::class,
             MarketplaceCategorySeeder::class,
         ]);
@@ -24,7 +25,9 @@ class DatabaseSeeder extends Seeder
 
         // if (! User::where('email', 'test@example.com')->exists()) {
         //     User::factory()->create([
-        //         'name' => 'Test User',
+        //         'first_name' => 'Test',
+        //         'last_name' => 'User',
+        //         'username' => 'test',
         //         'email' => 'test@example.com',
         //     ]);
         // }
