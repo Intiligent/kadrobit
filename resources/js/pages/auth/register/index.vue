@@ -37,17 +37,22 @@ const submit = () => {
             </FormField>
         </div>
 
+        <!--
+            The login is the email, so the email field is marked autocomplete="username", as on the login page.
+            The public handle avoids "username" in id/name: browsers and password managers would take it
+            for the login and fill in the email.
+        -->
         <FormField
             :label="$t('auth.fields.username')"
-            for="username"
+            for="handle"
             :error="form.errors.username"
             :hint="$t('auth.register.username_hint')"
         >
-            <el-input id="username" v-model="form.username" size="large" name="username" autocomplete="username" />
+            <el-input id="handle" v-model="form.username" size="large" name="handle" autocomplete="nickname" />
         </FormField>
 
         <FormField :label="$t('auth.fields.email')" for="email" :error="form.errors.email">
-            <el-input id="email" v-model="form.email" type="email" size="large" name="email" autocomplete="email" />
+            <el-input id="email" v-model="form.email" type="email" size="large" name="email" autocomplete="username" />
         </FormField>
 
         <FormField
