@@ -1,0 +1,4 @@
+queue: trap exit INT TERM; while true; do php artisan queue:listen --queue=default --tries=3 --timeout=120; sleep 1; done
+schedule: trap exit INT TERM; while true; do php artisan schedule:work; sleep 1; done
+logs: php artisan pail --timeout=0
+vite: npm run dev

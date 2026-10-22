@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -55,6 +56,16 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     }
 
     /**
+     * Send the branded password reset email instead of the framework default.
+     *
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+
+    /**
      * The framework default mails a signed link to the `verification.verify` route.
      * Email confirmation by code replaces it in KB-6; until then nothing is sent.
      */
@@ -69,8 +80,16 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     protected function email(): Attribute
     {
         return Attribute::make(
-            set: fn (?string $value) => $value === null ? null : strtolower(trim($value)),
+            set: fn (?string $value) => $value === null ? null : static::normalizeEmail($value),
         );
+    }
+
+    /**
+     * The stored form of an email; form requests normalize input the same way before lookups.
+     */
+    public static function normalizeEmail(string $email): string
+    {
+        return strtolower(trim($email));
     }
 
     /**

@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
 
@@ -21,6 +24,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configurePassport();
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * The plain `throttle:6,1` keys guests by IP only, so every throttled route would share one counter.
+     */
+    protected function configureRateLimiting(): void
+    {
+        // Guest auth forms (register, password reset): per form and IP.
+        RateLimiter::for('auth-forms', fn (Request $request) => Limit::perMinute(6)
+            ->by(($request->route()?->getName() ?? $request->path()).'|'.$request->ip()));
+
+        // API token re-issue: per user.
+        RateLimiter::for('api-token', fn (Request $request) => Limit::perMinute(30)
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
     }
 
     /**

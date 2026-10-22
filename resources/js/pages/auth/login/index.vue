@@ -2,7 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import FormField from '@/components/form/FormField.vue';
-import { LOGIN_URL, REGISTER_URL } from '@/config/constant';
+import { FORGOT_PASSWORD_URL, LOGIN_URL, REGISTER_URL } from '@/config/constant';
 
 defineOptions({ layout: AuthLayout });
 
@@ -34,7 +34,7 @@ const submit = () => {
                 size="large"
                 name="email"
                 autocomplete="username"
-                autofocus
+                v-autofocus
             />
         </FormField>
 
@@ -50,7 +50,12 @@ const submit = () => {
             />
         </FormField>
 
-        <el-checkbox v-model="form.remember" :label="$t('auth.login.remember')" />
+        <div class="flex items-center justify-between">
+            <el-checkbox v-model="form.remember" :label="$t('auth.login.remember')" />
+            <Link :href="FORGOT_PASSWORD_URL" class="text-sm font-medium text-[var(--el-color-primary)] hover:underline">
+                {{ $t('auth.forgot.link') }}
+            </Link>
+        </div>
 
         <el-button type="primary" size="large" native-type="submit" :loading="form.processing" class="w-full">
             {{ $t('auth.login.submit') }}
