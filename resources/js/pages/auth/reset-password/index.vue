@@ -77,7 +77,7 @@ const submit = () => {
 
     <p class="mt-6 text-center text-sm">
         <Link :href="FORGOT_PASSWORD_URL" class="font-medium text-[var(--el-color-primary)] hover:underline">
-            {{ $t('auth.forgot.submit') }}
+            {{ $t('auth.reset.request_new') }}
         </Link>
     </p>
 </template>

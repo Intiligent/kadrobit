@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -11,18 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
+    use NormalizesEmail;
+
     /** Failed attempts allowed per email and IP before the login is locked for a minute. */
     public const MAX_ATTEMPTS = 5;
-
-    /**
-     * Emails are stored lowercase at registration, and PostgreSQL compares case-sensitively.
-     */
-    protected function prepareForValidation(): void
-    {
-        if (is_string($this->email)) {
-            $this->merge(['email' => strtolower(trim($this->email))]);
-        }
-    }
 
     /**
      * @return array<string, mixed>

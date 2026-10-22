@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Http\Requests\Concerns\NormalizesEmail;
 use App\Rules\UsernameRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -9,15 +10,18 @@ use Illuminate\Validation\Rules\Password;
 
 class RegisterRequest extends FormRequest
 {
+    use NormalizesEmail;
+
     /**
      * Usernames are stored lowercase, so uniqueness is checked on the lowercased value.
      */
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'username' => is_string($this->username) ? strtolower(trim($this->username)) : $this->username,
-            'email' => is_string($this->email) ? strtolower(trim($this->email)) : $this->email,
-        ]);
+        $this->normalizeEmail();
+
+        if (is_string($this->input('username'))) {
+            $this->merge(['username' => strtolower(trim($this->input('username')))]);
+        }
     }
 
     /**

@@ -80,8 +80,16 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     protected function email(): Attribute
     {
         return Attribute::make(
-            set: fn (?string $value) => $value === null ? null : strtolower(trim($value)),
+            set: fn (?string $value) => $value === null ? null : static::normalizeEmail($value),
         );
+    }
+
+    /**
+     * The stored form of an email; form requests normalize input the same way before lookups.
+     */
+    public static function normalizeEmail(string $email): string
+    {
+        return strtolower(trim($email));
     }
 
     /**

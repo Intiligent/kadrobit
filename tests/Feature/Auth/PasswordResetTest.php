@@ -4,11 +4,11 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
+use App\Services\Auth\ApiTokenCookie;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\SendQueuedNotifications;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -193,18 +193,56 @@ class PasswordResetTest extends TestCase
         ]))->assertSessionHasErrors(['password']);
     }
 
-    public function test_reset_ends_other_sessions_and_api_tokens(): void
+    public function test_reset_revokes_web_session_tokens_but_not_other_tokens(): void
     {
-        $this->user->createToken('laptop');
-        config(['session.driver' => 'database']);
-        DB::table('sessions')->insert([
-            'id' => 'other-device', 'user_id' => $this->user->id, 'payload' => '', 'last_activity' => time(),
-        ]);
+        $this->user->createToken(ApiTokenCookie::TOKEN_NAME);
+        $integration = $this->user->createToken('integration');
 
         $this->post('/reset-password', $this->resetPayload($this->tokenFor($this->user)));
 
+        $active = Passport::token()->where('user_id', $this->user->id)->where('revoked', false)->pluck('id');
+        $this->assertSame([$integration->accessTokenId], $active->all());
+    }
+
+    public function test_sessions_on_other_devices_end_after_the_password_changes(): void
+    {
+        $this->post('/login', ['email' => 'jane@example.com', 'password' => 'password']);
+        $this->get('/')->assertOk();
+
+        // The reset happens elsewhere; this session still carries the old password hash.
+        $this->user->forceFill(['password' => 'changed-elsewhere'])->save();
+
+        // Each real request loads the user afresh; the test app would reuse the cached one.
+        $this->app['auth']->forgetGuards();
+
+        $this->get('/')->assertRedirect('/login');
+        $this->assertGuest();
         $this->assertSame(0, Passport::token()->where('user_id', $this->user->id)->where('revoked', false)->count());
-        $this->assertDatabaseMissing('sessions', ['id' => 'other-device']);
+    }
+
+    public function test_logged_in_user_can_use_the_reset_link(): void
+    {
+        $other = User::factory()->create();
+        $this->actingAs($other);
+
+        $this->get('/reset-password/abc?email=jane@example.com')->assertOk();
+
+        $this->post('/reset-password', $this->resetPayload($this->tokenFor($this->user)))
+            ->assertRedirect('/login')
+            ->assertSessionHas('inertia.flash_data', ['success' => __('passwords.reset')]);
+
+        $this->assertGuest();
+        $this->assertTrue(Hash::check('new-secret-pass', $this->user->fresh()->password));
+    }
+
+    public function test_auth_forms_have_separate_rate_limits(): void
+    {
+        for ($i = 0; $i < 6; $i++) {
+            $this->post('/register', ['email' => 'bad']);
+        }
+
+        $this->post('/register', ['email' => 'bad'])->assertTooManyRequests();
+        $this->post('/forgot-password', ['email' => 'jane@example.com'])->assertSessionHasNoErrors()->assertRedirect();
     }
 
     public function test_forms_are_rate_limited(): void
@@ -216,7 +254,7 @@ class PasswordResetTest extends TestCase
         $this->post('/forgot-password', ['email' => 'jane@example.com'])->assertTooManyRequests();
     }
 
-    public function test_logged_in_user_is_redirected_away(): void
+    public function test_logged_in_user_is_redirected_away_from_the_request_form(): void
     {
         $this->actingAs($this->user)->get('/forgot-password')->assertRedirect('/');
     }

@@ -49,6 +49,7 @@ return [
         'subtitle' => 'Choose a new password for your account.',
         'password_confirmation' => 'Confirm password',
         'submit' => 'Reset password',
+        'request_new' => 'Request a new link',
     ],
 
     'logout' => 'Log out',

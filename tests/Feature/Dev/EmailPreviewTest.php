@@ -44,6 +44,15 @@ class EmailPreviewTest extends TestCase
         $this->assertSame(0, User::count());
     }
 
+    public function test_preview_accepts_only_existing_locales(): void
+    {
+        $this->local();
+
+        $this->get('/dev/emails/reset-password?locale=en')->assertOk();
+        $this->get('/dev/emails/reset-password?locale=../en')->assertNotFound();
+        $this->get('/dev/emails/reset-password?locale=xx')->assertNotFound();
+    }
+
     public function test_preview_uses_the_logged_in_user(): void
     {
         $this->local();

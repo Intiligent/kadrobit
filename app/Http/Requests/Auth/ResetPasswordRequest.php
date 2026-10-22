@@ -2,17 +2,13 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
 class ResetPasswordRequest extends FormRequest
 {
-    protected function prepareForValidation(): void
-    {
-        if (is_string($this->email)) {
-            $this->merge(['email' => strtolower(trim($this->email))]);
-        }
-    }
+    use NormalizesEmail;
 
     /**
      * @return array<string, mixed>

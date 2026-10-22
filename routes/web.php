@@ -19,24 +19,25 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [LoginController::class, 'store']);
 
     Route::get('register', [RegisterController::class, 'create'])->name('register');
-    Route::post('register', [RegisterController::class, 'store'])->middleware('throttle:6,1');
+    Route::post('register', [RegisterController::class, 'store'])->middleware('throttle:auth-forms');
 
     Route::get('forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
     Route::post('forgot-password', [ForgotPasswordController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:auth-forms')
         ->name('password.email');
-
-    Route::get('reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
-    Route::post('reset-password', [ResetPasswordController::class, 'store'])
-        ->middleware('throttle:6,1')
-        ->name('password.update');
 });
+
+// Open to logged-in users too: the link from the email must work in a browser that is still logged in.
+Route::get('reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
+Route::post('reset-password', [ResetPasswordController::class, 'store'])
+    ->middleware('throttle:auth-forms')
+    ->name('password.update');
 
 Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::post('auth/token', [ApiTokenController::class, 'store'])
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:api-token')
         ->name('auth.token');
 });
 

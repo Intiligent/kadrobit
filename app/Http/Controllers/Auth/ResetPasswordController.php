@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -42,6 +43,14 @@ class ResetPasswordController extends Controller
         if ($status !== Password::PASSWORD_RESET) {
             // Unknown email and invalid or expired token read the same: the link is not valid.
             throw ValidationException::withMessages(['email' => __('passwords.token')]);
+        }
+
+        // The link may be opened in a browser that is still logged in, possibly as another account:
+        // end that session, then log in with the new password.
+        if (Auth::guard('web')->check()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
         }
 
         Inertia::flash('success', __($status));

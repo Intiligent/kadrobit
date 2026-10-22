@@ -54,13 +54,20 @@ class EmailPreviewController extends Controller
     }
 
     /**
-     * Applied before building the message, so the subject is translated too.
+     * Applied before building the message, so the subject is translated too. Only locales with
+     * a lang/ directory are accepted: anything else would silently fall back to English.
      */
     protected function applyLocale(Request $request): void
     {
-        if ($locale = $request->query('locale')) {
-            app()->setLocale((string) $locale);
+        $locale = $request->query('locale');
+
+        if ($locale === null) {
+            return;
         }
+
+        abort_unless(is_string($locale) && preg_match('/^[a-z]{2}(_[A-Z]{2})?$/', $locale) && is_dir(lang_path($locale)), 404);
+
+        app()->setLocale($locale);
     }
 
     protected function render(MailMessage $mail): Response

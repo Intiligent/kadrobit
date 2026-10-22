@@ -3,18 +3,20 @@
 namespace App\Listeners;
 
 use App\Services\Auth\ApiTokenCookie;
+use Illuminate\Auth\Events\CurrentDeviceLogout;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 
 /**
  * Revokes the API token of the session being logged out; other devices keep theirs.
+ * CurrentDeviceLogout comes from AuthenticateSession ending a session after a password change.
  */
 class LogoutListener
 {
     public function __construct(protected ApiTokenCookie $tokens, protected Request $request) {}
 
-    public function handle(Logout $event): void
+    public function handle(Logout|CurrentDeviceLogout $event): void
     {
         if ($event->guard !== 'web' || ! $this->request->hasSession()) {
             return;

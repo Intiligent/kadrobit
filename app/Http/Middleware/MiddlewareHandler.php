@@ -6,6 +6,7 @@ use App\Services\Auth\ApiTokenCookie;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Configuration\Middleware as BaseMiddleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Session\Middleware\AuthenticateSession;
 
 class MiddlewareHandler
 {
@@ -14,6 +15,8 @@ class MiddlewareHandler
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            // Ends any session whose user changed the password elsewhere (e.g. a reset), for every session driver.
+            AuthenticateSession::class,
             RenewApiToken::class,
             EnsureIdempotency::class,
         ]);
