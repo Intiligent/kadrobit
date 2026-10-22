@@ -97,9 +97,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
-            // The session time zone must match the app's (UTC): Laravel writes timestamps without an offset,
-            // and PostgreSQL would read them in the server's own zone, shifting every timestampTz value.
-            'timezone' => env('DB_TIMEZONE', 'UTC'),
+            // The session time zone must equal app.timezone (UTC, not configurable from .env): Laravel writes
+            // timestamps without an offset, and PostgreSQL would read them in the server's own zone,
+            // shifting every timestampTz value. Tests\Feature\DatabaseTest checks the two match.
+            'timezone' => 'UTC',
         ],
 
         'sqlsrv' => [

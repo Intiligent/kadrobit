@@ -30,7 +30,7 @@ Route::middleware('guest')->group(function () {
 
 // The confirmation link from the email: signed, works with or without a login (e.g. opened on a phone).
 Route::get('verify-email/{id}/{hash}', [VerifyEmailController::class, 'verifyLink'])
-    ->middleware(['signed', 'throttle:verify-email'])
+    ->middleware(['signed', 'throttle:verify-email-link'])
     ->name('verification.verify');
 
 // Open to logged-in users too: the link from the email must work in a browser that is still logged in.

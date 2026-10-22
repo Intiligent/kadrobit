@@ -30,6 +30,7 @@ return [
         'missing' => 'The code is no longer valid. Request a new one.',
         'too_many_attempts' => 'Too many wrong attempts: the code has been cancelled. Request a new one.',
         'cooldown' => 'Please wait :seconds seconds before requesting a new code.',
+        'link_expired' => 'This link is no longer valid. Enter the code from the latest email or request a new one.',
         'daily_limit' => 'You have requested too many codes today. Please try again tomorrow.',
         'email_unavailable' => 'This email address cannot be used. Please try another one.',
     ],

@@ -11,6 +11,7 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
@@ -59,6 +60,16 @@ class EmailVerificationTest extends TestCase
             ->map(fn (VerifyEmailNotification $notification) => $notification->code)
             ->values()
             ->all();
+    }
+
+    /**
+     * Issues a code and returns the link from the same email.
+     */
+    protected function issueLink(): string
+    {
+        $this->service()->issue($this->user);
+
+        return Notification::sent($this->user, VerifyEmailNotification::class)->last()->verifyUrl;
     }
 
     protected function wrongCode(string $code): string
@@ -220,7 +231,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_signed_link_verifies_without_a_login(): void
     {
-        $url = $this->service()->signedUrl($this->user);
+        $url = $this->issueLink();
 
         $this->get($url)
             ->assertRedirect('/login')
@@ -233,12 +244,12 @@ class EmailVerificationTest extends TestCase
     {
         $this->actingAs($this->user)->withSession(['url.intended' => url('/assets')]);
 
-        $this->get($this->service()->signedUrl($this->user))->assertRedirect(url('/assets'));
+        $this->get($this->issueLink())->assertRedirect(url('/assets'));
     }
 
     public function test_tampered_link_is_rejected(): void
     {
-        $url = $this->service()->signedUrl($this->user);
+        $url = $this->issueLink();
 
         $this->get($url.'x')->assertForbidden();
         $this->get(str_replace('/'.$this->user->id.'/', '/'.($this->user->id + 1).'/', $url))->assertForbidden();
@@ -247,7 +258,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_link_for_a_previous_address_is_rejected(): void
     {
-        $url = $this->service()->signedUrl($this->user);
+        $url = $this->issueLink();
         $this->user->forceFill(['email' => 'new@example.com'])->save();
 
         $this->get($url)->assertForbidden();
@@ -255,7 +266,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_expired_link_is_rejected(): void
     {
-        $url = $this->service()->signedUrl($this->user);
+        $url = $this->issueLink();
 
         $this->travel(EmailVerificationService::CODE_TTL_MINUTES + 1)->minutes();
 
@@ -309,7 +320,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_code_email_is_queued_encrypted_and_renders(): void
     {
-        $notification = new VerifyEmailNotification('123456', URL::to('/verify-email/1/hash'));
+        $notification = new VerifyEmailNotification('123456', URL::to('/verify-email/1/hash'), 1);
 
         $this->assertInstanceOf(ShouldQueue::class, $notification);
         $this->assertInstanceOf(ShouldBeEncrypted::class, $notification);
@@ -317,5 +328,100 @@ class EmailVerificationTest extends TestCase
         $mail = $notification->toMail($this->user);
         $this->assertStringStartsWith('123456', $mail->subject);
         $this->assertStringContainsString('123456', (string) $mail->render());
+    }
+
+    public function test_link_dies_with_its_code_after_a_resend(): void
+    {
+        $url = $this->issueLink();
+        $this->travel(EmailVerificationService::RESEND_COOLDOWN_SECONDS + 1)->seconds();
+        $this->service()->issue($this->user);
+
+        $this->actingAs($this->user)->get($url)
+            ->assertRedirect('/verify-email')
+            ->assertSessionHas('inertia.flash_data', ['error' => __('verification.errors.link_expired')]);
+
+        $this->assertFalse($this->user->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_link_dies_when_its_code_burns_out(): void
+    {
+        $url = $this->issueLink();
+        EmailVerificationCode::query()->update(['attempts' => EmailVerificationService::MAX_ATTEMPTS]);
+
+        $this->get($url)
+            ->assertRedirect('/login')
+            ->assertSessionHas('inertia.flash_data', ['error' => __('verification.errors.link_expired')]);
+
+        $this->assertFalse($this->user->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_link_has_its_own_rate_limit(): void
+    {
+        $code = $this->issueCode();
+        $url = Notification::sent($this->user, VerifyEmailNotification::class)->last()->verifyUrl;
+        $this->actingAs($this->user);
+
+        // Burns the code-attempt bucket (new codes keep the attempts below the per-code limit).
+        for ($i = 0; $i < 10; $i++) {
+            EmailVerificationCode::query()->update(['attempts' => 0]);
+            $this->post('/verify-email', ['code' => $this->wrongCode($code)]);
+        }
+        $this->post('/verify-email', ['code' => $code])->assertTooManyRequests();
+
+        EmailVerificationCode::query()->update(['attempts' => 0]);
+        $this->get($url)->assertRedirect('/');
+        $this->assertTrue($this->user->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_queued_email_is_dropped_once_its_code_is_replaced(): void
+    {
+        $this->service()->issue($this->user);
+        $first = Notification::sent($this->user, VerifyEmailNotification::class)->last();
+
+        $this->assertTrue($first->shouldSend($this->user, 'mail'));
+
+        // The address changed while the email waited in the queue: the worker reloads the user.
+        $this->user->forceFill(['email' => 'new@example.com'])->save();
+        $this->service()->issue($this->user);
+        $second = Notification::sent($this->user, VerifyEmailNotification::class)->last();
+
+        $this->assertFalse($first->shouldSend($this->user, 'mail'));
+        $this->assertTrue($second->shouldSend($this->user, 'mail'));
+    }
+
+    public function test_parallel_send_is_refused_while_another_holds_the_lock(): void
+    {
+        $this->travel(EmailVerificationService::RESEND_COOLDOWN_SECONDS + 1)->seconds();
+        $lock = Cache::lock('email-verification:send:'.$this->user->id, 10);
+        $lock->get();
+
+        $this->actingAs($this->user)
+            ->post('/verify-email/resend')
+            ->assertSessionHasErrors('code');
+
+        Notification::assertNothingSentTo($this->user);
+        $lock->release();
+    }
+
+    public function test_account_is_marked_verified_once(): void
+    {
+        Event::fake([Verified::class]);
+
+        // Two requests holding their own copy of the unverified user.
+        $other = User::find($this->user->id);
+
+        $this->assertTrue($this->service()->markVerified($this->user));
+        $this->assertFalse($this->service()->markVerified($other));
+        $this->assertTrue($this->user->hasVerifiedEmail());
+        Event::assertDispatchedTimes(Verified::class, 1);
+    }
+
+    public function test_previous_address_cannot_be_marked_verified(): void
+    {
+        $stale = User::find($this->user->id);
+        $this->user->forceFill(['email' => 'new@example.com'])->save();
+
+        $this->assertFalse($this->service()->markVerified($stale));
+        $this->assertFalse($this->user->fresh()->hasVerifiedEmail());
     }
 }

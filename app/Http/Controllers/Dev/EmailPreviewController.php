@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\VerifyEmailNotification;
-use App\Services\Auth\EmailVerificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -47,11 +46,11 @@ class EmailPreviewController extends Controller
         $this->applyLocale($request);
 
         $user = $this->recipient($request);
-        $user->id ??= 1;
 
-        return $this->render(
-            (new VerifyEmailNotification('123456', app(EmailVerificationService::class)->signedUrl($user)))->toMail($user),
-        );
+        // A real signed link would verify the logged-in user on a click: the preview's has no valid signature.
+        $url = route('verification.verify', ['id' => $user->id ?? 1, 'hash' => sha1($user->email), 'code' => 0, 'signature' => 'preview']);
+
+        return $this->render((new VerifyEmailNotification('123456', $url, 0))->toMail($user));
     }
 
     /**

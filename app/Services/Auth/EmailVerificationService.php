@@ -6,6 +6,7 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\VerifyEmailNotification;
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 
@@ -49,7 +50,7 @@ class EmailVerificationService
         $code = (string) random_int(10 ** (self::CODE_LENGTH - 1), 10 ** self::CODE_LENGTH - 1);
         $email = $user->getEmailForVerification();
 
-        EmailVerificationCode::create([
+        $record = EmailVerificationCode::create([
             'user_id' => $user->getKey(),
             'email' => $email,
             'code_hash' => $this->hash($code),
@@ -58,7 +59,17 @@ class EmailVerificationService
 
         RateLimiter::hit($this->dailyKey($user), 86400);
 
-        $user->notify(new VerifyEmailNotification($code, $this->signedUrl($user)));
+        $user->notify(new VerifyEmailNotification($code, $this->signedUrl($user, $record), $record->getKey()));
+    }
+
+    /**
+     * Runs a send (resend or address change) under a per-user lock, so parallel requests cannot all
+     * pass the cooldown check and mail several codes of which only the last one works.
+     * Returns false when another send is in progress.
+     */
+    public function withSendLock(User $user, callable $callback): bool
+    {
+        return Cache::lock('email-verification:send:'.$user->getKey(), 10)->get($callback) !== false;
     }
 
     /**
@@ -106,8 +117,23 @@ class EmailVerificationService
     }
 
     /**
-     * Marks the account verified, once. Also used by the signed link and by the Google login,
-     * where the provider proves ownership.
+     * Checks the code record a signed link points to: the link lives exactly as long as its code,
+     * so a resend, an address change or a burned-out code also kills the link from that email.
+     */
+    public function linkIsLive(User $user, int|string|null $codeId): bool
+    {
+        $record = EmailVerificationCode::whereKey((int) $codeId)->where('user_id', $user->getKey())->first();
+
+        return $record
+            && $record->email === $user->getEmailForVerification()
+            && ! $record->isExpired()
+            && $record->attempts < self::MAX_ATTEMPTS;
+    }
+
+    /**
+     * Marks the account verified, once: the update only matches an unverified row with the same
+     * address, so a code and a link used at the same moment fire Verified a single time.
+     * Also used by the signed link; the Google login will need it too (KB-7).
      */
     public function markVerified(User $user): bool
     {
@@ -117,7 +143,18 @@ class EmailVerificationService
             return false;
         }
 
-        $user->markEmailAsVerified();
+        $verifiedAt = now();
+
+        $updated = User::whereKey($user->getKey())
+            ->where('email', $user->getEmailForVerification())
+            ->whereNull('email_verified_at')
+            ->update(['email_verified_at' => $verifiedAt]);
+
+        if (! $updated) {
+            return false;
+        }
+
+        $user->forceFill(['email_verified_at' => $verifiedAt])->syncOriginalAttribute('email_verified_at');
         event(new Verified($user));
 
         return true;
@@ -146,14 +183,15 @@ class EmailVerificationService
     }
 
     /**
-     * The link in the email, valid as long as the code. The hash pins it to the address it was sent to.
+     * The link in the email. The hash pins it to the address it was sent to, the code id to the code
+     * sent with it (see linkIsLive()).
      */
-    public function signedUrl(User $user): string
+    public function signedUrl(User $user, EmailVerificationCode $record): string
     {
         return URL::temporarySignedRoute(
             'verification.verify',
-            now()->addMinutes(self::CODE_TTL_MINUTES),
-            ['id' => $user->getKey(), 'hash' => sha1($user->getEmailForVerification())],
+            $record->expires_at,
+            ['id' => $user->getKey(), 'hash' => sha1($record->email), 'code' => $record->getKey()],
         );
     }
 

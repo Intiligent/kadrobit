@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeUnmount, ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import FormField from '@/components/form/FormField.vue';
@@ -36,10 +36,13 @@ function startCountdown(seconds) {
     }
 }
 
-startCountdown(props.cooldown);
+// Restarted after every resend or address change, successful or not: the server returns the page
+// with the current cooldown, often the same number as before, so watching the prop would miss it.
+function syncCountdown() {
+    startCountdown(props.cooldown);
+}
 
-// A resend or an address change returns the page with a fresh cooldown.
-watch(() => props.cooldown, startCountdown);
+syncCountdown();
 
 onBeforeUnmount(() => clearInterval(timer));
 
@@ -58,6 +61,7 @@ function submit() {
 function onCodeInput(value) {
     form.code = String(value).replace(/\D/g, '').slice(0, props.codeLength);
     form.clearErrors('code');
+    resendForm.clearErrors();
 
     if (form.code.length === props.codeLength) {
         submit();
@@ -65,7 +69,11 @@ function onCodeInput(value) {
 }
 
 function resend() {
-    resendForm.post(`${VERIFY_EMAIL_URL}/resend`, { preserveScroll: true });
+    resendForm.post(`${VERIFY_EMAIL_URL}/resend`, {
+        preserveScroll: true,
+        onSuccess: syncCountdown,
+        onError: syncCountdown,
+    });
 }
 
 function startEditingEmail() {
@@ -80,7 +88,9 @@ function saveEmail() {
         onSuccess: () => {
             editingEmail.value = false;
             form.reset('code');
+            syncCountdown();
         },
+        onError: syncCountdown,
     });
 }
 </script>

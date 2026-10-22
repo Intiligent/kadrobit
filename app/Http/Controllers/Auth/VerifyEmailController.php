@@ -67,11 +67,19 @@ class VerifyEmailController extends Controller
             abort(403);
         }
 
+        $sameUser = (bool) $request->user()?->is($user);
+
+        if (! $user->hasVerifiedEmail() && ! $this->verification->linkIsLive($user, $request->query('code'))) {
+            Inertia::flash('error', __('verification.errors.link_expired'));
+
+            return redirect()->route($sameUser ? 'verification.notice' : ($request->user() ? 'home' : 'login'));
+        }
+
         $this->verification->markVerified($user);
 
         Inertia::flash('success', __('verification.flash.verified'));
 
-        if ($request->user()?->is($user)) {
+        if ($sameUser) {
             return redirect()->intended(route('home'));
         }
 
@@ -86,9 +94,11 @@ class VerifyEmailController extends Controller
             return redirect()->route('home');
         }
 
-        $this->ensureCanSend($user, 'code');
+        $this->sendLocked($user, 'code', function () use ($user) {
+            $this->ensureCanSend($user, 'code');
 
-        $this->verification->issue($user);
+            $this->verification->issue($user);
+        });
 
         return Inertia::flash('success', __('verification.flash.resent'))->back();
     }
@@ -104,13 +114,29 @@ class VerifyEmailController extends Controller
             return redirect()->route('home');
         }
 
-        $this->ensureCanSend($user, 'email', ignoreCooldown: $request->validated('email') !== $user->email);
+        $this->sendLocked($user, 'email', function () use ($request, $user) {
+            $this->ensureCanSend($user, 'email', ignoreCooldown: $request->validated('email') !== $user->email);
 
-        $user->forceFill(['email' => $request->validated('email')])->save();
+            $user->forceFill(['email' => $request->validated('email')])->save();
 
-        $this->verification->issue($user);
+            $this->verification->issue($user);
+        });
 
         return Inertia::flash('success', __('verification.flash.email_updated'))->back();
+    }
+
+    /**
+     * A parallel send holding the lock is reported as the cooldown it is about to start.
+     *
+     * @throws ValidationException
+     */
+    protected function sendLocked(User $user, string $field, callable $send): void
+    {
+        if (! $this->verification->withSendLock($user, $send)) {
+            throw ValidationException::withMessages([
+                $field => __('verification.errors.cooldown', ['seconds' => EmailVerificationService::RESEND_COOLDOWN_SECONDS]),
+            ]);
+        }
     }
 
     /**

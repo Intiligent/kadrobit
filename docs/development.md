@@ -48,5 +48,5 @@ overmind start          # Procfile.dev указан в .overmind.env
 
 ## База данных и часовой пояс
 
-Соединение с PostgreSQL работает в UTC, как приложение (`config/database.php` → `pgsql.timezone`, `DB_TIMEZONE`). Laravel пишет время без смещения, и если часовой пояс сервера БД другой (например, `Asia/Tbilisi`), PostgreSQL сдвигал бы все значения `timestampTz`. Тест `DatabaseTest` следит за этим.
+Соединение с PostgreSQL работает в UTC, как приложение (`config/database.php` → `pgsql.timezone`, задан жёстко, без переменной в `.env`). Laravel пишет время без смещения, и если часовой пояс сервера БД другой (например, `Asia/Tbilisi`), PostgreSQL сдвигал бы все значения `timestampTz`. Тест `DatabaseTest` следит за этим.
 

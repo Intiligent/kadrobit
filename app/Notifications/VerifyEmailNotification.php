@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Models\EmailVerificationCode;
 use App\Services\Auth\EmailVerificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -20,7 +21,20 @@ class VerifyEmailNotification extends Notification implements ShouldBeEncrypted,
     public function __construct(
         public readonly string $code,
         public readonly string $verifyUrl,
+        public readonly int $codeId,
     ) {}
+
+    /**
+     * Checked by the queue worker right before sending. The job reloads the user, so after an address
+     * change or a resend this email would carry a dead code, possibly to the new address: it is dropped,
+     * the newer code has its own email.
+     */
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        return EmailVerificationCode::whereKey($this->codeId)
+            ->where('email', $notifiable->getEmailForVerification())
+            ->exists();
+    }
 
     /**
      * @return list<string>
