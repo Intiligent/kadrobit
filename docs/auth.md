@@ -42,10 +42,27 @@
 - `LogoutListener` отзывает только токен текущей сессии и удаляет cookie: на других устройствах вход сохраняется.
 - Отозванные и истёкшие токены удаляет `passport:purge` раз в сутки (`routes/console.php`); на сервере должен работать `php artisan schedule:run`.
 
+## Сброс пароля
+
+Задача [KB-5](https://github.com/Intiligent/kadrobit/issues/5).
+
+| Метод | Путь | Middleware | Что делает |
+|---|---|---|---|
+| GET | `/forgot-password` | guest | Форма запроса ссылки |
+| POST | `/forgot-password` | guest, `throttle:6,1` | Отправляет письмо со ссылкой |
+| GET | `/reset-password/{token}?email=…` | guest | Форма нового пароля (ссылка из письма) |
+| POST | `/reset-password` | guest, `throttle:6,1` | Меняет пароль и ведёт на `/login` с сообщением |
+
+- **Ответ не раскрывает, есть ли аккаунт:** на любой email форма отвечает одинаково («если аккаунт есть, письмо отправлено»), в том числе при повторном запросе в течение минуты (брокер отправляет не чаще раза в минуту). Неверный токен, истёкший токен и неизвестный email на странице сброса дают одну и ту же ошибку «ссылка недействительна».
+- **Ссылка живёт 60 минут** и одноразовая (`config/auth.php` → `passwords.users.expire`).
+- **Письмо** — `ResetPasswordNotification`, через очередь: форма отвечает одинаково быстро, есть аккаунт или нет. Шаблон — `resources/views/emails/reset-password.blade.php` на общем `emails/layout.blade.php`.
+- **После сброса** (`PasswordResetListener`): новый `remember_token` завершает входы «запомнить меня», API-токены пользователя отзываются, его сессии в базе (`SESSION_DRIVER=database`) удаляются. Тот, кто знал старый пароль, теряет доступ на всех устройствах.
+- Пароль — не короче 8 символов, с подтверждением.
+
 ### Пока не сделано
 
 - Письмо для подтверждения email не отправляется: стандартное письмо Laravel ссылается на ещё не существующий маршрут. Подтверждение кодом — [KB-6](https://github.com/Intiligent/kadrobit/issues/6).
-- Сброс пароля — [KB-5](https://github.com/Intiligent/kadrobit/issues/5), вход через Google — [KB-7](https://github.com/Intiligent/kadrobit/issues/7).
+- Вход через Google — [KB-7](https://github.com/Intiligent/kadrobit/issues/7).
 
 ## Модель пользователя
 

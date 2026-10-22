@@ -30,7 +30,7 @@ const submit = () => {
     <form class="space-y-5" novalidate @submit.prevent="submit">
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <FormField :label="$t('auth.fields.first_name')" for="first_name" :error="form.errors.first_name">
-                <el-input id="first_name" v-model="form.first_name" size="large" name="first_name" autocomplete="given-name" autofocus />
+                <el-input id="first_name" v-model="form.first_name" size="large" name="first_name" autocomplete="given-name" v-autofocus />
             </FormField>
 
             <FormField :label="$t('auth.fields.last_name')" for="last_name" :error="form.errors.last_name">

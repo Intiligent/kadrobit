@@ -36,5 +36,20 @@ return [
         'login_link' => 'Log in',
     ],
 
+    'forgot' => [
+        'link' => 'Forgot password?',
+        'title' => 'Forgot your password?',
+        'subtitle' => 'Enter your email and we will send you a link to choose a new password.',
+        'submit' => 'Send reset link',
+        'back_to_login' => 'Back to log in',
+    ],
+
+    'reset' => [
+        'title' => 'Set a new password',
+        'subtitle' => 'Choose a new password for your account.',
+        'password_confirmation' => 'Confirm password',
+        'submit' => 'Reset password',
+    ],
+
     'logout' => 'Log out',
 ];

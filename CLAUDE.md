@@ -72,6 +72,7 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Middleware configuration lives in `App\Http\Middleware\MiddlewareHandler`, exception handling in
   `App\Exceptions\ExceptionHandler`; `bootstrap/app.php` only wires them.
 - Routes point to controller actions, not closures returning pages.
+- Emails are sent through the queue: notifications implement `ShouldQueue`, mailables are queued, never sent inline.
 - Eloquent models declare their settings as explicit properties (`$fillable`, `$hidden`, `$guarded`, `$table`,
   `$appends`, etc.) with docblocks, not with PHP attributes such as `#[Fillable]` or `#[Hidden]`.
 
@@ -88,6 +89,11 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - HTTP requests outside Inertia visits go through `resources/js/core/api.js`, never a bare axios/fetch call.
 - User-facing texts on the frontend come from `lang/{locale}/*.php` via `laravel-vue-i18n` (`trans()`, `$t()`).
 - Error codes live in `App\Enums\ErrorCode` and `ERROR_CODE` in `resources/js/config/constant.js`; change both together.
+
+## Local processes
+
+- Queues, scheduler, logs and Vite run through Overmind: `overmind start` (`Procfile.dev`, see `docs/development.md`).
+  New long-running processes (queues, frontend bundles) are added to `Procfile.dev`.
 
 ## Tests
 

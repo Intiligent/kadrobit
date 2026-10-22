@@ -11,6 +11,8 @@ export const API_TOKEN_REFRESH_URL = '/auth/token';
 export const LOGIN_URL = '/login';
 export const REGISTER_URL = '/register';
 export const LOGOUT_URL = '/logout';
+export const FORGOT_PASSWORD_URL = '/forgot-password';
+export const RESET_PASSWORD_URL = '/reset-password';
 
 // Automatic retries of idempotent requests on network failures and 502/503/504
 export const RETRY = {

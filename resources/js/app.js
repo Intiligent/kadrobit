@@ -2,6 +2,7 @@ import { createInertiaApp, router } from '@inertiajs/vue3';
 import { i18nVue } from 'laravel-vue-i18n';
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
 import notify from '@/core/notify';
+import autofocus from '@/directives/autofocus';
 import { http, setTokenRefresher } from '@/core/api';
 import { API_TOKEN_REFRESH_URL } from '@/config/constant';
 
@@ -71,6 +72,8 @@ createInertiaApp({
     layout: () => DefaultLayout,
 
     withApp(app, { page }) {
+        app.directive('autofocus', autofocus);
+
         app.use(i18nVue, {
             lang: page.props.locale ?? 'en',
             fallbackLang: 'en',
