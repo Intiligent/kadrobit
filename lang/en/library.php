@@ -73,6 +73,40 @@ return [
     'upload' => [
         'tile' => 'Upload',
         'tile_hint' => 'or drop photos and videos',
+        'drop_title' => 'Drop to upload',
+        'drop_hint' => 'Photos, videos and vectors, any number of files',
+        'too_large' => 'The file is larger than :max MB.',
+        'unsupported' => 'This file type is not supported.',
+        'duplicate' => ':name is already in your library.',
+        'failed' => 'Upload failed',
+        'processing_failed' => 'The file could not be processed.',
+        'cancelled' => 'The upload was cancelled.',
+        'batch_full' => 'This upload already has all its files.',
+        'leave_confirm' => 'Files are still uploading. Leave the page and stop them?',
+        'status' => [
+            'title_active' => 'Uploading {1} :count file|[2,*] :count files',
+            'title_done' => 'Uploads complete',
+            'progress' => ':done of :total',
+            'queued' => 'Waiting',
+            'uploading' => 'Uploading',
+            'in_queue' => 'In the processing queue',
+            'processing' => 'Processing',
+            'done' => 'Uploaded',
+            'retry' => 'Retry',
+            'remove' => 'Remove',
+            'clear' => 'Clear list',
+            'interrupted' => '{1} :count file was not sent: the page was reloaded during the upload. Add it again.|[2,*] :count files were not sent: the page was reloaded during the upload. Add them again.',
+            'open' => 'Uploads',
+        ],
+    ],
+
+    'panel' => [
+        'close' => 'Close',
+        'tabs' => [
+            'metadata' => 'Metadata',
+            'marketplaces' => 'Marketplaces',
+            'file' => 'File info',
+        ],
     ],
 
     'card' => [

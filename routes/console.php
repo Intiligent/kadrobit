@@ -13,3 +13,6 @@ Schedule::command('passport:purge')->daily();
 
 // Expired email confirmation codes and other prunable models.
 Schedule::command('model:prune')->daily();
+
+// Upload batches only matter while the upload list is open.
+Schedule::command('queue:prune-batches --hours=48 --unfinished=48')->daily();

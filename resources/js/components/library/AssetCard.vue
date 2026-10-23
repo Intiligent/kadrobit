@@ -17,7 +17,13 @@ const keywordCount = computed(() => props.asset.keywords.length);
 </script>
 
 <template>
-    <button type="button" class="asset-card" :class="{ 'is-selected': selected }" @click="emit('select', asset.id)">
+    <button
+        type="button"
+        class="asset-card"
+        :class="{ 'is-selected': selected }"
+        :data-asset-id="asset.id"
+        @click="emit('select', asset.id)"
+    >
         <div class="asset-card__thumb">
             <el-image v-if="asset.thumbnail_url" :src="asset.thumbnail_url" fit="cover" lazy class="size-full">
                 <template #error>

@@ -7,6 +7,7 @@ use App\Services\Auth\EmailVerificationService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -17,7 +18,7 @@ use Laravel\Passport\HasApiTokens;
 class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasUlids, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -42,6 +43,16 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
         'password',
         'remember_token',
     ];
+
+    /**
+     * Generate a ULID for the "ulid" column; the primary key stays an auto-increment id.
+     *
+     * @return list<string>
+     */
+    public function uniqueIds(): array
+    {
+        return ['ulid'];
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -130,6 +141,11 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     public function assets(): HasMany
     {
         return $this->hasMany(Asset::class);
+    }
+
+    public function assetUploads(): HasMany
+    {
+        return $this->hasMany(AssetUpload::class);
     }
 
     public function folders(): HasMany

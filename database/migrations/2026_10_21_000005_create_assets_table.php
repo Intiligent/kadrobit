@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->ulid('ulid')->unique();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            // Deleting a folder leaves its works in the library, unsorted.
+            $table->foreignId('folder_id')->nullable()->constrained()->nullOnDelete();
             $table->enum('type', array_column(MediaType::cases(), 'value'));
             $table->enum('status', array_column(AssetStatus::cases(), 'value'))
                 ->default(AssetStatus::Draft->value);
@@ -36,6 +38,15 @@ return new class extends Migration
             $table->unsignedInteger('duration_ms')->nullable(); // video only
             $table->jsonb('media_info')->default('{}'); // EXIF, ffprobe output, color profile
 
+            // Full-text search over title (A), keywords (B) and description (C), maintained by PostgreSQL.
+            $table->rawColumn('search', <<<'SQL'
+                tsvector GENERATED ALWAYS AS (
+                    setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+                    setweight(jsonb_to_tsvector('english', keywords, '["string"]'), 'B') ||
+                    setweight(to_tsvector('english', coalesce(description, '')), 'C')
+                ) STORED
+                SQL);
+
             $table->timestampsTz();
             $table->softDeletesTz();
 
@@ -49,14 +60,6 @@ return new class extends Migration
         // Keyword containment search: keywords @> '["sunset"]'.
         DB::statement('CREATE INDEX assets_keywords_gin ON assets USING gin (keywords jsonb_path_ops)');
 
-        // Full-text search over title (A), keywords (B) and description (C), maintained by PostgreSQL.
-        DB::statement(<<<'SQL'
-            ALTER TABLE assets ADD COLUMN search tsvector GENERATED ALWAYS AS (
-                setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
-                setweight(jsonb_to_tsvector('english', keywords, '["string"]'), 'B') ||
-                setweight(to_tsvector('english', coalesce(description, '')), 'C')
-            ) STORED
-            SQL);
         DB::statement('CREATE INDEX assets_search_gin ON assets USING gin (search)');
     }
 

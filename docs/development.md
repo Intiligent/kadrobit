@@ -12,6 +12,7 @@ overmind start          # Procfile.dev указан в .overmind.env
 | Процесс | Команда | Зачем |
 |---|---|---|
 | `queue` | `php artisan queue:listen --queue=default` | Письма и другие фоновые задачи. `queue:listen` перечитывает код на каждую задачу, так что правки видны без перезапуска |
+| `uploads` ×3 | `php artisan queue:listen --queue=uploads --timeout=300` | Обработка загрузок (`ProcessAssetUpload`), три обработчика параллельно: `OVERMIND_FORMATION=uploads=3` в `.overmind.env`. Отдельно от `default`, чтобы большая партия не задерживала письма |
 | `schedule` | `php artisan schedule:work` | Задачи по расписанию (`routes/console.php`), например `passport:purge` |
 | `logs` | `php artisan pail` | Логи приложения в реальном времени |
 | `vite` | `npm run dev` | Фронтенд приложения с горячей перезагрузкой |
@@ -50,3 +51,6 @@ overmind start          # Procfile.dev указан в .overmind.env
 
 Соединение с PostgreSQL работает в UTC, как приложение (`config/database.php` → `pgsql.timezone`, задан жёстко, без переменной в `.env`). Laravel пишет время без смещения, и если часовой пояс сервера БД другой (например, `Asia/Tbilisi`), PostgreSQL сдвигал бы все значения `timestampTz`. Тест `DatabaseTest` следит за этим.
 
+## PHP и расширения
+
+Превью фото делает расширение `imagick`, оно нужно и веб-серверу, и обработчику очереди. Локально в MAMP команда `php` в терминале — алиас с `-c ".../MAMP PRO/conf/php8.3.28.ini"`, а дочерние процессы PHP (задачи `queue:listen`, phpunit из `php artisan test`) запускаются без него, со стандартным `/Applications/MAMP/bin/php/php8.3.28/conf/php.ini`. В этом файле тоже должна быть включена строка `extension=imagick.so`, иначе обработка загрузок и тесты превью падают с «The imagick PHP extension is required for previews».

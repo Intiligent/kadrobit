@@ -25,6 +25,8 @@ resources/style/theme/element.scss      CSS-переменные Element Plus и
 
 - Компоненты Element Plus подключаются автоматически вместе со своими **SCSS-исходниками** (`ElementPlusResolver({ importStyle: 'sass' })`), а не с готовым CSS. Поэтому они собираются с нашими значениями переменных.
 - `theme/variables.scss` через `css.preprocessorOptions.scss.additionalData` подмешивается в каждый SCSS-файл, включая исходники Element Plus. Файл только настраивает переменные (`@forward … with (…)`) и сам CSS не выводит, поэтому в бандле ничего не дублируется. Список переменных — `node_modules/element-plus/theme-chalk/src/common/var.scss`.
+- **Высота элементов формы** задаётся в теме, а не в компонентах: `$common-component-size` (сейчас `default` — 34px) даёт высоту `el-input` (через `--el-component-size`), `el-select` и `el-button`. `el-radio-button` считает высоту из отступа `$button-padding-vertical`: 14px текста + 2 × (отступ − 1px). Эти два значения меняются вместе.
+- После правки `variables.scss` перезапустите Vite (`overmind restart vite`): файл подмешивается через `additionalData`, и HMR его изменения не подхватывает.
 - `theme/element.scss` подключается один раз из `app.scss`: выводит CSS-переменные `--el-*` (`:root`, тёмная тема) и содержит переопределения классов компонентов.
 - Стили `ElNotification`, `ElMessageBox`, `ElMessage`, `ElLoading` подключены в `app.scss`: автоимпорт добавляет стили только для компонентов из шаблонов, а эти вызываются из JS.
 - Готовые CSS из Element Plus (`element-plus/dist/index.css`, `…/style/css`) не подключаем: в них стандартные значения, и переопределить переменные нельзя.

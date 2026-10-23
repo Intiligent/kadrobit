@@ -50,20 +50,13 @@ const SIZES = [
                 <el-option v-for="key in SORTS" :key="key" :value="key" :label="$t(`library.toolbar.sort.${key}`)" />
             </el-select>
 
-            <div class="toolbar__sizes" role="radiogroup">
-                <el-tooltip v-for="item in SIZES" :key="item.key" :content="$t(`library.toolbar.size_${item.key}`)">
-                    <button
-                        type="button"
-                        role="radio"
-                        :aria-checked="size === item.key"
-                        class="toolbar__size"
-                        :class="{ 'is-active': size === item.key }"
-                        @click="size = item.key"
-                    >
-                        <component :is="item.icon" :size="18" :stroke-width="1.75" />
-                    </button>
-                </el-tooltip>
-            </div>
+            <el-radio-group v-model="size" class="toolbar__sizes">
+                <el-radio-button v-for="item in SIZES" :key="item.key" :value="item.key" :aria-label="$t(`library.toolbar.size_${item.key}`)">
+                    <component :is="item.icon" :size="18" :stroke-width="1.75" />
+                </el-radio-button>
+            </el-radio-group>
+
+            <slot name="actions" />
         </div>
 
         <div class="flex items-center border-b border-[var(--el-border-color-light)]">
@@ -93,9 +86,6 @@ const SIZES = [
 </template>
 
 <style scoped lang="scss">
-.toolbar {
-    --el-component-size: 36px;
-}
 
 .toolbar__search {
     flex: 0 1 264px;
@@ -106,36 +96,27 @@ const SIZES = [
     width: 152px;
 }
 
+// Icon-only segments: the chosen one grey rather than filled with the primary colour.
 .toolbar__sizes {
-    display: flex;
     flex: none;
-    overflow: hidden;
-    border: 1px solid var(--el-border-color);
-    border-radius: var(--el-border-radius-base);
-}
 
-.toolbar__size {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 34px;
-    color: var(--el-text-color-secondary);
-    cursor: pointer;
-    background: var(--el-bg-color);
-    border: 0;
+    :deep(.el-radio-button__inner) {
+        padding-right: 8px;
+        padding-left: 8px;
+        color: var(--el-text-color-secondary);
 
-    & + & {
-        border-left: 1px solid var(--el-border-color);
+        // The 18px icon stands in for a 14px line of text: it must not make the button taller.
+        svg {
+            display: block;
+            margin: -2px 0;
+        }
     }
 
-    &:hover {
-        color: var(--el-text-color-primary);
-    }
-
-    &.is-active {
+    :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
         color: var(--el-text-color-primary);
         background: var(--el-fill-color);
+        border-color: var(--el-border-color);
+        box-shadow: -1px 0 0 0 var(--el-border-color);
     }
 }
 

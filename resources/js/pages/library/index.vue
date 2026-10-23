@@ -1,11 +1,15 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AssetGrid from '@/components/library/AssetGrid.vue';
+import AssetInfoPanel from '@/components/library/AssetInfoPanel.vue';
 import AssetToolbar from '@/components/library/AssetToolbar.vue';
 import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
+import UploadStatus from '@/components/library/UploadStatus.vue';
+import { useAssetUpload } from '@/composables/useAssetUpload';
+import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 
 defineOptions({ layout: AppLayout });
@@ -15,6 +19,8 @@ const props = defineProps({
     // Flat list: [{ id, parent_id, name }]
     folders: { type: Array, default: () => [] },
     accounts: { type: Array, default: () => [] },
+    // { accept, max_size_mb, max_batch_files, batches }
+    upload: { type: Object, required: true },
 });
 
 // Local working copy: later stages edit and add works in place.
@@ -29,8 +35,14 @@ const type = ref('all');
 const status = ref('all');
 const query = ref('');
 const sort = ref('newest');
-const size = ref('large');
-const selectedId = ref(null);
+// Remembered per browser.
+const size = useStoredRef('library.tile-size', 'large', { allowed: ['large', 'small'] });
+// Remembered per browser, like the tile size; a work that is gone (deleted, another account) is dropped.
+const selectedId = useStoredRef('library.selected', null);
+
+if (selectedId.value && !assets.value.some((a) => a.id === selectedId.value)) {
+    selectedId.value = null;
+}
 
 const TYPES = ['photo', 'video', 'vector', 'illustration'];
 const isLive = (asset) => asset.status !== 'archived';
@@ -100,6 +112,14 @@ const empty = computed(() => {
     return { title: trans('library.grid.empty_filtered'), text: '' };
 });
 
+const selected = computed(() => assets.value.find((a) => a.id === selectedId.value) ?? null);
+
+// Back on the page, the remembered card is brought into view.
+onMounted(async () => {
+    await nextTick();
+    document.querySelector(`[data-asset-id="${selectedId.value}"]`)?.scrollIntoView({ block: 'nearest' });
+});
+
 // Breadcrumb: parent folders, then the current place.
 const path = computed(() => folderPath(props.folders, place.value));
 const title = computed(() => path.value.at(-1) ?? trans(`library.explorer.views.${place.value}`));
@@ -108,8 +128,55 @@ watch(place, () => {
     type.value = 'all';
 });
 
-// TODO(KB-16): hand the files to the upload queue.
-function addFiles() {}
+// Uploading
+
+const uploader = useAssetUpload({
+    maxSizeMb: props.upload.max_size_mb,
+    maxBatchFiles: props.upload.max_batch_files,
+    // Works arrive one by one as the batch is processed; the grid filters and sorts them like the rest.
+    onCompleted(asset) {
+        if (!assets.value.some((a) => a.id === asset.id)) {
+            assets.value.unshift({ ...asset });
+        }
+    },
+});
+
+// Leaving the page stops the uploads that are still running: ask first.
+const leaving = () => trans('library.upload.leave_confirm');
+const onBeforeUnload = (event) => {
+    if (uploader.summary.value.active) {
+        event.preventDefault();
+        event.returnValue = leaving();
+    }
+};
+const stopVisitGuard = router.on('before', (event) => {
+    if (uploader.summary.value.active && !window.confirm(leaving())) {
+        event.preventDefault();
+    }
+});
+
+window.addEventListener('beforeunload', onBeforeUnload);
+
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', onBeforeUnload);
+    stopVisitGuard();
+    uploader.dispose();
+});
+
+// Uploads still being processed after a page reload carry on in the list and the grid.
+uploader.restore(props.upload.batches);
+
+// Files dropped in a folder go into it.
+const uploadFolder = computed(() => (place.value === 'all' || place.value === 'unsorted' ? null : place.value));
+
+function addFiles(files) {
+    // New works are drafts: make sure they are visible.
+    if (status.value === 'ready' || status.value === 'archived') {
+        status.value = 'all';
+    }
+
+    uploader.add(files, { folderId: uploadFolder.value });
+}
 </script>
 
 <template>
@@ -129,16 +196,30 @@ function addFiles() {}
             :total="statusCounts.all"
             :counts="statusCounts"
             :types="types"
-        />
+        >
+            <template #actions>
+                <UploadStatus
+                    :items="uploader.items"
+                    :summary="uploader.summary.value"
+                    :interrupted="uploader.interrupted.value"
+                    @retry="uploader.retry"
+                    @remove="uploader.remove"
+                    @clear="uploader.clearSettled"
+                />
+            </template>
+        </AssetToolbar>
 
         <AssetGrid
             :assets="visible"
             :selected-id="selectedId"
             :size="size"
+            :accept="upload.accept"
             :empty-title="empty.title"
             :empty-text="empty.text"
             @select="selectedId = $event"
             @files="addFiles"
         />
     </main>
+
+    <AssetInfoPanel v-if="selected" :asset="selected" @close="selectedId = null" />
 </template>

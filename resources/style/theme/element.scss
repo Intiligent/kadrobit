@@ -8,7 +8,8 @@
 // so an override needs a more specific selector than the rule it replaces, not just the same one.
 
 // ElInput
-// Show/hide password toggle. Element Plus: `.el-input .el-input__password`.
+// Clear button and show/hide password toggle. Element Plus: `.el-input .el-input__clear, .el-input .el-input__password`.
+.el-input .el-input__wrapper .el-input__clear,
 .el-input .el-input__wrapper .el-input__password {
     font-size: 18px;
 }

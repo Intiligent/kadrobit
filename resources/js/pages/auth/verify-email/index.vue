@@ -138,9 +138,9 @@ function saveEmail() {
     <p class="mt-4 text-sm text-[#706f6c] dark:text-[#A1A09A]">{{ $t('verification.spam_hint') }}</p>
 
     <el-button
-        class="mt-4 !px-0"
+        class="mt-4"
         text
-        type="primary"
+        type="warning"
         :loading="resendForm.processing"
         :disabled="secondsLeft > 0"
         @click="resend"
@@ -149,7 +149,7 @@ function saveEmail() {
     </el-button>
 
     <div class="mt-6 border-t border-[#e3e3e0] pt-6 dark:border-[#3E3E3A]">
-        <el-button v-if="!editingEmail" class="!px-0" text @click="startEditingEmail">
+        <el-button v-if="!editingEmail" text @click="startEditingEmail">
             {{ $t('verification.change_email') }}
         </el-button>
 
