@@ -19,7 +19,7 @@ const props = defineProps({
     // Flat list: [{ id, parent_id, name }]
     folders: { type: Array, default: () => [] },
     accounts: { type: Array, default: () => [] },
-    // { accept, max_size_mb, max_batch_files }
+    // { accept, max_size_mb, max_batch_files, batches }
     upload: { type: Object, required: true },
 });
 
@@ -163,6 +163,9 @@ onBeforeUnmount(() => {
     uploader.dispose();
 });
 
+// Uploads still being processed after a page reload carry on in the list and the grid.
+uploader.restore(props.upload.batches);
+
 // Files dropped in a folder go into it.
 const uploadFolder = computed(() => (place.value === 'all' || place.value === 'unsorted' ? null : place.value));
 
@@ -198,6 +201,7 @@ function addFiles(files) {
                 <UploadStatus
                     :items="uploader.items"
                     :summary="uploader.summary.value"
+                    :interrupted="uploader.interrupted.value"
                     @retry="uploader.retry"
                     @remove="uploader.remove"
                     @clear="uploader.clearSettled"

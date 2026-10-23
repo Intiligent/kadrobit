@@ -328,6 +328,32 @@ class AssetUploadTest extends TestCase
                 ->has('upload.accept'));
     }
 
+    public function test_library_page_hands_back_batches_still_at_work_after_a_reload(): void
+    {
+        Bus::fake();
+        $active = $this->openBatch(3);
+        $this->upload($active, ['file' => UploadedFile::fake()->image('a.jpg')])->assertCreated();
+        $this->upload($active, ['file' => UploadedFile::fake()->image('b.jpg', 20, 20)])->assertCreated();
+        AssetUpload::where('filename', 'b.jpg')->update(['status' => AssetUploadStatus::Done, 'progress' => 100]);
+
+        // A batch whose files are all processed is not brought back.
+        $finished = $this->openBatch(1);
+        $this->upload($finished, ['file' => UploadedFile::fake()->image('c.jpg', 30, 30)])->assertCreated();
+        AssetUpload::where('filename', 'c.jpg')->update(['status' => AssetUploadStatus::Done]);
+
+        $this->actingAs($this->user, 'web')
+            ->get('/library')
+            ->assertInertia(fn ($page) => $page
+                ->has('upload.batches', 1)
+                ->where('upload.batches.0.id', $active)
+                // Three announced, two received: the page was left before the third was sent.
+                ->where('upload.batches.0.missing', 1)
+                ->where('upload.batches.0.uploads.0.filename', 'a.jpg')
+                ->where('upload.batches.0.uploads.0.status', 'processing')
+                ->where('upload.batches.0.uploads.0.mime', 'image/jpeg')
+                ->where('upload.batches.0.uploads.1.status', 'done'));
+    }
+
     public function test_size_limit_never_exceeds_what_php_accepts(): void
     {
         config(['assets.upload_max_mb' => 100000]);

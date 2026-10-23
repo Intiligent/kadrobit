@@ -179,4 +179,34 @@ describe('useAssetUpload', () => {
 
         expect(api.get).not.toHaveBeenCalled();
     });
+
+    it('picks up the batches the server is still processing after a page reload', async () => {
+        api.get.mockResolvedValue(poll([upload('u1', 'done', { asset: { id: 'a1', thumbnail_url: 't.jpg' } })]));
+        const onCompleted = vi.fn();
+        const uploader = useAssetUpload({ onCompleted });
+
+        uploader.restore([{
+            id: 'batch-9',
+            missing: 2,
+            uploads: [
+                upload('u1', 'processing', { progress: 50, mime: 'video/mp4' }),
+                upload('u2', 'done', { asset: { id: 'a2', thumbnail_url: 'u2.jpg' } }),
+            ],
+        }]);
+
+        expect(uploader.interrupted.value).toBe(2);
+        expect(uploader.items.map((item) => [item.uploadId, item.status])).toEqual([['u1', 'processing'], ['u2', 'done']]);
+        expect(percentOf(uploader.items[0])).toBe(75);
+        expect(uploader.items[1].thumbnailUrl).toBe('u2.jpg');
+
+        vi.advanceTimersByTime(ASSET_UPLOAD_POLL_INTERVAL);
+        await flush();
+
+        expect(api.get).toHaveBeenCalledWith('/api/assets/uploads/batch-9', { cursor: null }, { silent: true });
+        expect(uploader.items[0]).toMatchObject({ status: 'done', thumbnailUrl: 't.jpg' });
+        expect(onCompleted).toHaveBeenCalledWith(expect.objectContaining({ id: 'a1' }));
+
+        uploader.clearSettled();
+        expect(uploader.interrupted.value).toBe(0);
+    });
 });

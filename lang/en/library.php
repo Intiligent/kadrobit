@@ -95,6 +95,7 @@ return [
             'retry' => 'Retry',
             'remove' => 'Remove',
             'clear' => 'Clear list',
+            'interrupted' => '{1} :count file was not sent: the page was reloaded during the upload. Add it again.|[2,*] :count files were not sent: the page was reloaded during the upload. Add them again.',
             'open' => 'Uploads',
         ],
     ],

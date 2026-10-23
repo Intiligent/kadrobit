@@ -7,6 +7,8 @@ const props = defineProps({
     // From useAssetUpload
     items: { type: Array, required: true },
     summary: { type: Object, required: true },
+    // Files that never reached the server because the page was left mid-upload
+    interrupted: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(['retry', 'remove', 'clear']);
@@ -27,11 +29,11 @@ watch(() => props.summary.total, (total, previous) => {
     if (total > (previous ?? 0)) {
         open.value = true;
     }
-});
+}, { immediate: true });
 </script>
 
 <template>
-    <el-popover v-if="items.length" v-model:visible="open" placement="bottom-end" :width="360" trigger="click" popper-class="upload-status">
+    <el-popover v-if="items.length || interrupted" v-model:visible="open" placement="bottom-end" :width="360" trigger="click" popper-class="upload-status">
         <template #reference>
             <button type="button" class="upload-status__trigger" :aria-label="$t('library.upload.status.open')">
                 <el-progress
@@ -61,11 +63,15 @@ watch(() => props.summary.total, (total, previous) => {
             <el-progress :percentage="summary.percent" :show-text="false" :stroke-width="4" :status="summary.active ? undefined : (summary.failed ? 'warning' : 'success')" />
         </div>
 
+        <p v-if="interrupted" class="border-t border-[var(--el-border-color-lighter)] px-4 py-2 text-xs leading-4 text-[var(--el-color-warning-dark-2)]">
+            {{ $tChoice('library.upload.status.interrupted', interrupted, { count: interrupted }) }}
+        </p>
+
         <el-scrollbar max-height="320px" class="border-t border-[var(--el-border-color-lighter)]">
             <div v-for="item in items" :key="item.key" class="upload-row">
                 <div class="upload-row__thumb">
-                    <img v-if="item.previewUrl" :src="item.previewUrl" alt="" class="size-full object-cover">
-                    <component :is="item.file.type.startsWith('video/') ? Film : Image" v-else :size="16" :stroke-width="1.75" />
+                    <img v-if="item.previewUrl || item.thumbnailUrl" :src="item.previewUrl || item.thumbnailUrl" alt="" class="size-full object-cover">
+                    <component :is="item.mime?.startsWith('video/') ? Film : Image" v-else :size="16" :stroke-width="1.75" />
                 </div>
 
                 <div class="min-w-0 flex-1">
@@ -101,7 +107,7 @@ watch(() => props.summary.total, (total, previous) => {
             </div>
         </el-scrollbar>
 
-        <div v-if="summary.done" class="flex justify-end border-t border-[var(--el-border-color-lighter)] px-4 py-2">
+        <div v-if="summary.done || interrupted" class="flex justify-end border-t border-[var(--el-border-color-lighter)] px-4 py-2">
             <el-link :underline="false" class="!text-[13px]" @click="emit('clear')">{{ $t('library.upload.status.clear') }}</el-link>
         </div>
     </el-popover>

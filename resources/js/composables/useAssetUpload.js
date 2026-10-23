@@ -1,4 +1,4 @@
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import api from '@/core/api';
 import { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL, ASSET_UPLOADS_API_URL } from '@/config/constant';
@@ -12,7 +12,10 @@ import { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL, ASSET_UPLOADS_API
  * while any of its files is processing: each poll returns only the uploads that changed, and every
  * finished work is handed over at once, so a large batch fills the grid as it goes.
  *
- * `items`: { key, name, file, previewUrl, folderId, batchId, uploadId, progress, processing, status, error, retryable }
+ * After a page reload the files the server already has are picked up again with restore(): their
+ * batches are polled as before. Files the page had not sent yet are gone with it (`interrupted`).
+ *
+ * `items`: { key, name, mime, file, previewUrl, thumbnailUrl, folderId, batchId, uploadId, progress, processing, status, error, retryable }
  *   status: 'queued' | 'uploading' | 'processing' | 'done' | 'error'
  *   progress: transfer to the server, 0–100, measured by the browser
  *   processing: steps done by the queued job, 0–100, reported by the batch poll
@@ -20,6 +23,8 @@ import { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL, ASSET_UPLOADS_API
  */
 export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } = {}) {
     const items = reactive([]);
+    // Files of restored batches that never reached the server.
+    const interrupted = ref(0);
     // batch id => { timer, cursor }
     const polls = new Map();
     let active = 0;
@@ -76,8 +81,10 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
         return reactive({
             key: crypto.randomUUID(),
             name: file.name,
+            mime: file.type,
             file,
             previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+            thumbnailUrl: null,
             folderId,
             batchId: null,
             uploadId: null,
@@ -179,7 +186,45 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
         }
 
         item.status = 'done';
+        item.thumbnailUrl = upload.asset?.thumbnail_url ?? null;
         onCompleted?.(upload.asset);
+    }
+
+    /**
+     * Takes up the batches the server is still processing, e.g. after a page reload:
+     * [{ id, missing, uploads: [AssetUploadResource] }].
+     */
+    function restore(batches = []) {
+        for (const batch of batches) {
+            for (const upload of batch.uploads) {
+                if (items.some((item) => item.uploadId === upload.id)) {
+                    continue;
+                }
+
+                items.push(reactive({
+                    key: upload.id,
+                    name: upload.filename,
+                    mime: upload.mime,
+                    file: null,
+                    previewUrl: null,
+                    thumbnailUrl: upload.asset?.thumbnail_url ?? null,
+                    folderId: null,
+                    batchId: batch.id,
+                    uploadId: upload.id,
+                    progress: 100,
+                    processing: upload.progress,
+                    status: { done: 'done', failed: 'error' }[upload.status] ?? 'processing',
+                    error: upload.error,
+                    retryable: false,
+                }));
+            }
+
+            interrupted.value += batch.missing;
+
+            if (batch.uploads.some((upload) => upload.status === 'processing')) {
+                poll(batch.id);
+            }
+        }
     }
 
     function fail(item, message, retryable = false) {
@@ -212,6 +257,7 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
 
     function clearSettled() {
         items.filter(settled).forEach(remove);
+        interrupted.value = 0;
     }
 
     /**
@@ -223,7 +269,7 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
         items.forEach((item) => item.previewUrl && URL.revokeObjectURL(item.previewUrl));
     }
 
-    return { items, summary, add, retry, remove, clearSettled, dispose };
+    return { items, summary, interrupted, add, restore, retry, remove, clearSettled, dispose };
 }
 
 /**

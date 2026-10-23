@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
 use App\Http\Resources\AssetResource;
+use App\Http\Resources\AssetUploadResource;
 use App\Http\Resources\MarketplaceAccountResource;
 use App\Models\Folder;
+use App\Services\Assets\UploadBatches;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,7 +17,7 @@ class AssetController extends Controller
     /**
      * The library page: explorer, asset grid and info panel.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, UploadBatches $batches): Response
     {
         $user = $request->user();
 
@@ -49,6 +51,12 @@ class AssetController extends Controller
                 'accept' => StoreAssetUploadRequest::ACCEPT,
                 'max_size_mb' => StoreAssetUploadRequest::maxSizeMb(),
                 'max_batch_files' => config('assets.upload_batch_max_files'),
+                // Batches still being processed: the upload list picks them up again after a reload.
+                'batches' => collect($batches->active($user))->map(fn (array $batch) => [
+                    'id' => $batch['id'],
+                    'missing' => $batch['missing'],
+                    'uploads' => AssetUploadResource::collection($batch['uploads'])->resolve(),
+                ])->all(),
             ],
         ]);
     }

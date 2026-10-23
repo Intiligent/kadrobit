@@ -2,8 +2,11 @@
 
 namespace App\Services\Assets;
 
+use App\Enums\AssetUploadStatus;
+use App\Models\AssetUpload;
 use App\Models\User;
 use Illuminate\Bus\Batch;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Bus;
 
 /**
@@ -27,6 +30,38 @@ class UploadBatches
             ->withOption('user_id', $user->getKey())
             ->withOption('files', $files)
             ->dispatch();
+    }
+
+    /**
+     * Batches of the user still at work, for the upload list after a page reload: each with its
+     * uploads and how many announced files never reached the server (the page was left mid-upload).
+     *
+     * @return list<array{id: string, missing: int, uploads: Collection<int, AssetUpload>}>
+     */
+    public function active(User $user): array
+    {
+        $ids = $user->assetUploads()
+            ->where('status', AssetUploadStatus::Processing)
+            ->whereNotNull('batch_id')
+            ->distinct()
+            ->pluck('batch_id');
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $uploads = $user->assetUploads()
+            ->whereIn('batch_id', $ids)
+            ->with(['asset.files', 'asset.folder:id,ulid'])
+            ->orderBy('id')
+            ->get()
+            ->groupBy('batch_id');
+
+        return $ids->map(fn (string $id) => [
+            'id' => $id,
+            'missing' => max(0, (int) ($this->find($user, $id)?->options['files'] ?? 0) - $uploads[$id]->count()),
+            'uploads' => $uploads[$id],
+        ])->values()->all();
     }
 
     /**

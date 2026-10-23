@@ -21,7 +21,9 @@ class AssetUploadResource extends JsonResource
     {
         return [
             'id' => $this->ulid,
+            'batch_id' => $this->batch_id,
             'filename' => $this->filename,
+            'mime' => $this->mime,
             'status' => $this->status->value,
             // Processing steps done, 0–100; the transfer before it is measured by the browser.
             'progress' => $this->progress,
