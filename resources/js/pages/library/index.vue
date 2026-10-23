@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -9,6 +9,7 @@ import AssetToolbar from '@/components/library/AssetToolbar.vue';
 import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
 import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetUpload } from '@/composables/useAssetUpload';
+import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 
 defineOptions({ layout: AppLayout });
@@ -34,8 +35,14 @@ const type = ref('all');
 const status = ref('all');
 const query = ref('');
 const sort = ref('newest');
-const size = ref('large');
-const selectedId = ref(null);
+// Remembered per browser.
+const size = useStoredRef('library.tile-size', 'large', { allowed: ['large', 'small'] });
+// Remembered per browser, like the tile size; a work that is gone (deleted, another account) is dropped.
+const selectedId = useStoredRef('library.selected', null);
+
+if (selectedId.value && !assets.value.some((a) => a.id === selectedId.value)) {
+    selectedId.value = null;
+}
 
 const TYPES = ['photo', 'video', 'vector', 'illustration'];
 const isLive = (asset) => asset.status !== 'archived';
@@ -106,6 +113,12 @@ const empty = computed(() => {
 });
 
 const selected = computed(() => assets.value.find((a) => a.id === selectedId.value) ?? null);
+
+// Back on the page, the remembered card is brought into view.
+onMounted(async () => {
+    await nextTick();
+    document.querySelector(`[data-asset-id="${selectedId.value}"]`)?.scrollIntoView({ block: 'nearest' });
+});
 
 // Breadcrumb: parent folders, then the current place.
 const path = computed(() => folderPath(props.folders, place.value));

@@ -50,3 +50,6 @@ overmind start          # Procfile.dev указан в .overmind.env
 
 Соединение с PostgreSQL работает в UTC, как приложение (`config/database.php` → `pgsql.timezone`, задан жёстко, без переменной в `.env`). Laravel пишет время без смещения, и если часовой пояс сервера БД другой (например, `Asia/Tbilisi`), PostgreSQL сдвигал бы все значения `timestampTz`. Тест `DatabaseTest` следит за этим.
 
+## PHP и расширения
+
+Превью фото делает расширение `imagick`, оно нужно и веб-серверу, и обработчику очереди. Локально в MAMP команда `php` в терминале — алиас с `-c ".../MAMP PRO/conf/php8.3.28.ini"`, а дочерние процессы PHP (задачи `queue:listen`, phpunit из `php artisan test`) запускаются без него, со стандартным `/Applications/MAMP/bin/php/php8.3.28/conf/php.ini`. В этом файле тоже должна быть включена строка `extension=imagick.so`, иначе обработка загрузок и тесты превью падают с «The imagick PHP extension is required for previews».

@@ -8,6 +8,7 @@ use App\Jobs\ProcessAssetUpload;
 use App\Models\Asset;
 use App\Models\AssetUpload;
 use App\Models\User;
+use App\Services\Assets\PreviewGenerator;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -50,6 +51,11 @@ class AssetUploadTest extends TestCase
             'Accept' => 'application/json',
             'Idempotency-Key' => (string) Str::uuid(),
         ]);
+    }
+
+    protected function process(AssetUpload $upload): void
+    {
+        (new ProcessAssetUpload($upload))->handle(app(PreviewGenerator::class));
     }
 
     public function test_opening_a_batch_records_the_owner_and_the_file_count(): void
@@ -102,6 +108,47 @@ class AssetUploadTest extends TestCase
         Storage::disk(AssetUpload::STAGING_DISK)->assertMissing($upload->stagingPath());
         $this->assertSame(100, $upload->progress);
         $response->assertJsonPath('data.status', 'done')->assertJsonPath('data.progress', 100)->assertJsonPath('data.asset.id', $asset->ulid);
+    }
+
+    public function test_photo_gets_a_thumbnail_and_a_preview_on_the_public_disk(): void
+    {
+        $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->image('IMG_1.jpg', 3000, 2000)])->assertCreated();
+
+        $asset = Asset::sole();
+        $thumbnail = $asset->file(AssetFileRole::Thumbnail);
+        $preview = $asset->file(AssetFileRole::Preview);
+
+        $this->assertSame([480, 320], [$thumbnail->width, $thumbnail->height]);
+        $this->assertSame([1600, 1067], [$preview->width, $preview->height]);
+
+        foreach ([$thumbnail, $preview] as $file) {
+            $this->assertSame('r2-public', $file->disk);
+            $this->assertSame('image/jpeg', $file->mime);
+            $this->assertMatchesRegularExpression(
+                "~^assets/{$this->user->ulid}/{$asset->ulid}/{$file->role->value}\\.[0-9a-f]{8}\\.jpg$~",
+                $file->path,
+            );
+            $this->assertSame(substr($file->checksum, 0, 8), explode('.', basename($file->path))[1]);
+            Storage::disk('r2-public')->assertExists($file->path);
+        }
+    }
+
+    public function test_small_photo_previews_are_not_enlarged_and_transparency_turns_white(): void
+    {
+        $image = imagecreatetruecolor(200, 100);
+        imagesavealpha($image, true);
+        imagefill($image, 0, 0, imagecolorallocatealpha($image, 0, 0, 0, 127));
+        ob_start();
+        imagepng($image);
+        $png = UploadedFile::fake()->createWithContent('logo.png', ob_get_clean());
+
+        $this->upload($this->openBatch(), ['file' => $png])->assertCreated();
+
+        $thumbnail = Asset::sole()->file(AssetFileRole::Thumbnail);
+        $this->assertSame([200, 100], [$thumbnail->width, $thumbnail->height]);
+
+        $copy = imagecreatefromstring(Storage::disk('r2-public')->get($thumbnail->path));
+        $this->assertSame([255, 255, 255], array_values(array_slice(imagecolorsforindex($copy, imagecolorat($copy, 10, 10)), 0, 3)));
     }
 
     public function test_batch_poll_returns_progress_and_only_uploads_changed_since_the_cursor(): void
@@ -175,14 +222,15 @@ class AssetUploadTest extends TestCase
         $this->upload($batch, ['file' => $file])->assertCreated();
         [$first, $second] = AssetUpload::orderBy('id')->get()->all();
 
-        (new ProcessAssetUpload($first))->handle();
-        (new ProcessAssetUpload($second->fresh()))->handle();
+        $this->process($first);
+        $this->process($second->fresh());
 
         $second->refresh();
         $this->assertSame(AssetUploadStatus::Failed, $second->status);
         $this->assertSame(__('library.upload.duplicate', ['name' => 'IMG_2041.jpg']), $second->error);
         $this->assertSame(1, Asset::count());
         $this->assertCount(1, Storage::disk('r2-private')->allFiles());
+        $this->assertCount(2, Storage::disk('r2-public')->allFiles());
         Storage::disk(AssetUpload::STAGING_DISK)->assertMissing($second->stagingPath());
     }
 
@@ -196,13 +244,14 @@ class AssetUploadTest extends TestCase
         Asset::creating(fn () => throw new \RuntimeException('Database went away'));
 
         try {
-            (new ProcessAssetUpload($upload))->handle();
+            $this->process($upload);
             $this->fail('The job should have thrown.');
         } catch (\RuntimeException $e) {
             $this->assertSame('Database went away', $e->getMessage());
         }
 
         $this->assertSame([], Storage::disk('r2-private')->allFiles());
+        $this->assertSame([], Storage::disk('r2-public')->allFiles());
         $this->assertSame(AssetUploadStatus::Processing, $upload->fresh()->status);
         // The steps done so far stay visible while the job waits for its next try.
         $this->assertSame(ProcessAssetUpload::PROGRESS_STORED, $upload->fresh()->progress);

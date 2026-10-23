@@ -9,6 +9,7 @@ use App\Http\Requests\Assets\StoreAssetUploadRequest;
 use App\Models\Asset;
 use App\Models\AssetFile;
 use App\Models\AssetUpload;
+use App\Services\Assets\PreviewGenerator;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -25,21 +26,24 @@ use Throwable;
  * first; the file goes to R2 only after that, right before the work is committed, so the
  * assets/ prefix only ever holds files a work points to:
  *
- * 1. read the metadata from the staged file (previews and video probing will be added here);
- * 2. store the file at its final path on the private disk;
- * 3. create the work and its file row, and mark the upload done, in one transaction;
- * 4. delete the staged file.
+ * 1. read the metadata from the staged file;
+ * 2. make the previews of a photo (PreviewGenerator; videos and vectors come later);
+ * 3. store the original on the private disk and the previews on the public one, at their final paths;
+ * 4. create the work and its file rows, and mark the upload done, in one transaction;
+ * 5. delete the staged file and the temp previews.
  *
- * If the commit fails, the stored file is deleted again. One job per file, in the upload's batch.
+ * If the commit fails, every stored file is deleted again. One job per file, in the upload's batch.
  */
 class ProcessAssetUpload implements ShouldQueue
 {
     use Batchable, Queueable;
 
     /** Progress reported after each step, for the per-file bar in the upload list. */
-    public const PROGRESS_METADATA = 30;
+    public const PROGRESS_METADATA = 20;
 
-    public const PROGRESS_STORED = 80;
+    public const PROGRESS_PREVIEWS = 50;
+
+    public const PROGRESS_STORED = 85;
 
     public int $tries = 3;
 
@@ -48,7 +52,7 @@ class ProcessAssetUpload implements ShouldQueue
 
     public function __construct(public AssetUpload $upload) {}
 
-    public function handle(): void
+    public function handle(PreviewGenerator $previews): void
     {
         $upload = $this->upload;
 
@@ -75,36 +79,44 @@ class ProcessAssetUpload implements ShouldQueue
             return;
         }
 
+        $local = $staging->path($upload->stagingPath());
         $type = StoreAssetUploadRequest::mediaType($upload->mime);
-        $attributes = $type === MediaType::Photo ? $this->photoAttributes($staging->path($upload->stagingPath())) : [];
+        $attributes = $type === MediaType::Photo ? $this->photoAttributes($local) : [];
         $upload->update(['progress' => self::PROGRESS_METADATA]);
 
-        $disk = AssetFileRole::Original->disk();
-        $path = AssetFile::pathFor($upload->user->ulid, $upload->asset_ulid, AssetFileRole::Original, $this->extension());
+        $copies = $type === MediaType::Photo ? $previews->forPhoto($local) : [];
+        $upload->update(['progress' => self::PROGRESS_PREVIEWS]);
 
-        $stream = $staging->readStream($upload->stagingPath());
+        $stored = [];
 
         try {
-            Storage::disk($disk)->writeStream($path, $stream);
-        } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
+            $stored[] = $this->store($local, [
+                'role' => AssetFileRole::Original,
+                'mime' => $upload->mime,
+                'size_bytes' => $upload->size_bytes,
+                'width' => $attributes['width'] ?? null,
+                'height' => $attributes['height'] ?? null,
+                'checksum' => $upload->checksum,
+            ], $this->extension());
+
+            foreach ($copies as $copy) {
+                $stored[] = $this->store($copy['path'], $copy, 'jpg', $copy['checksum']);
             }
-        }
 
-        $upload->update(['progress' => self::PROGRESS_STORED]);
+            $upload->update(['progress' => self::PROGRESS_STORED]);
 
-        try {
-            DB::transaction(fn () => $this->createAsset($type, $attributes, $disk, $path));
+            DB::transaction(fn () => $this->createAsset($type, $attributes, $stored));
         } catch (UniqueConstraintViolationException) {
-            Storage::disk($disk)->delete($path);
+            $this->deleteStored($stored);
             $this->reject(__('library.upload.duplicate', ['name' => $upload->filename]));
 
             return;
         } catch (Throwable $e) {
-            Storage::disk($disk)->delete($path);
+            $this->deleteStored($stored);
 
             throw $e;
+        } finally {
+            $previews->discard($copies);
         }
 
         $upload->deleteStagedFile();
@@ -119,9 +131,52 @@ class ProcessAssetUpload implements ShouldQueue
     }
 
     /**
-     * @param  array{width?: int, height?: int, captured_at?: Carbon}  $attributes
+     * Writes a local file to the disk of its role and returns the attributes of its asset_files row.
+     *
+     * @param  array{role: AssetFileRole, mime: string, size_bytes: int, width: ?int, height: ?int, checksum: ?string}  $file
+     * @return array<string, mixed>
      */
-    protected function createAsset(MediaType $type, array $attributes, string $disk, string $path): void
+    protected function store(string $local, array $file, string $extension, ?string $hash = null): array
+    {
+        $disk = $file['role']->disk();
+        $path = AssetFile::pathFor($this->upload->user->ulid, $this->upload->asset_ulid, $file['role'], $extension, $hash);
+        $stream = fopen($local, 'rb');
+
+        try {
+            Storage::disk($disk)->writeStream($path, $stream);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+
+        return [
+            'role' => $file['role'],
+            'disk' => $disk,
+            'path' => $path,
+            'mime' => $file['mime'],
+            'size_bytes' => $file['size_bytes'],
+            'width' => $file['width'],
+            'height' => $file['height'],
+            'checksum' => $file['checksum'],
+        ];
+    }
+
+    /**
+     * @param  list<array{disk: string, path: string}>  $stored
+     */
+    protected function deleteStored(array $stored): void
+    {
+        foreach ($stored as $file) {
+            Storage::disk($file['disk'])->delete($file['path']);
+        }
+    }
+
+    /**
+     * @param  array{width?: int, height?: int, captured_at?: Carbon}  $attributes
+     * @param  list<array<string, mixed>>  $files
+     */
+    protected function createAsset(MediaType $type, array $attributes, array $files): void
     {
         $upload = $this->upload;
 
@@ -136,16 +191,7 @@ class ProcessAssetUpload implements ShouldQueue
         $asset->user()->associate($upload->user_id);
         $asset->save();
 
-        $asset->files()->create([
-            'role' => AssetFileRole::Original,
-            'disk' => $disk,
-            'path' => $path,
-            'mime' => $upload->mime,
-            'size_bytes' => $upload->size_bytes,
-            'width' => $attributes['width'] ?? null,
-            'height' => $attributes['height'] ?? null,
-            'checksum' => $upload->checksum,
-        ]);
+        $asset->files()->createMany($files);
 
         $upload->update(['status' => AssetUploadStatus::Done, 'progress' => 100, 'asset_id' => $asset->id, 'error' => null]);
     }
