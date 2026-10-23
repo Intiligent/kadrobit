@@ -21,6 +21,8 @@ class UploadBatches
     {
         return Bus::batch([])
             ->name('asset-upload')
+            // Every job added later goes to the batch's queue.
+            ->onQueue(config('assets.upload_queue'))
             ->allowFailures()
             ->withOption('user_id', $user->getKey())
             ->withOption('files', $files)

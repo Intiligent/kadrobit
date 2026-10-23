@@ -69,7 +69,9 @@ class AssetUploadTest extends TestCase
 
         Bus::assertBatched(fn (PendingBatch $batch) => $batch->name === 'asset-upload'
             && $batch->options['files'] === 3
-            && $batch->options['user_id'] === $this->user->id);
+            && $batch->options['user_id'] === $this->user->id
+            // Processing has its own queue, away from emails on "default".
+            && $batch->options['queue'] === 'uploads');
     }
 
     public function test_upload_is_staged_locally_and_queued_without_creating_a_work(): void

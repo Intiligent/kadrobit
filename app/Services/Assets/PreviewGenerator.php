@@ -40,6 +40,8 @@ class PreviewGenerator
             throw new RuntimeException('The imagick PHP extension is required for previews.');
         }
 
+        $this->limitResources();
+
         $image = new Imagick;
         $copies = [];
 
@@ -72,6 +74,16 @@ class PreviewGenerator
         foreach ($copies as $copy) {
             @unlink($copy['path']);
         }
+    }
+
+    /**
+     * Several upload workers run side by side: each Imagick keeps to one thread and a memory budget
+     * (config/assets.php), so they do not fight over the cores or run the server out of memory.
+     */
+    protected function limitResources(): void
+    {
+        Imagick::setResourceLimit(Imagick::RESOURCETYPE_THREAD, max(1, config('assets.imagick_threads')));
+        Imagick::setResourceLimit(Imagick::RESOURCETYPE_MEMORY, config('assets.imagick_memory_mb') * 1024 * 1024);
     }
 
     protected function normalize(Imagick $image): void

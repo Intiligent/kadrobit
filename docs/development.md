@@ -12,6 +12,7 @@ overmind start          # Procfile.dev указан в .overmind.env
 | Процесс | Команда | Зачем |
 |---|---|---|
 | `queue` | `php artisan queue:listen --queue=default` | Письма и другие фоновые задачи. `queue:listen` перечитывает код на каждую задачу, так что правки видны без перезапуска |
+| `uploads` ×2 | `php artisan queue:listen --queue=uploads --timeout=300` | Обработка загрузок (`ProcessAssetUpload`), два обработчика параллельно: `OVERMIND_FORMATION=uploads=2` в `.overmind.env`. Отдельно от `default`, чтобы большая партия не задерживала письма |
 | `schedule` | `php artisan schedule:work` | Задачи по расписанию (`routes/console.php`), например `passport:purge` |
 | `logs` | `php artisan pail` | Логи приложения в реальном времени |
 | `vite` | `npm run dev` | Фронтенд приложения с горячей перезагрузкой |

@@ -63,6 +63,36 @@
 
 Под локальные файлы на сервере нужен запас диска не меньше `ASSETS_UPLOAD_MAX_MB` × число одновременных загрузок.
 
+### Очередь и обработчики
+
+Обработка загрузок идёт в своей очереди `uploads` (`ASSETS_UPLOAD_QUEUE`, `config/assets.php`): партия ставится в неё целиком (`UploadBatches::open()`), так что большая загрузка не задерживает письма и другие задачи в `default`. Ускоряет обработку число обработчиков этой очереди, а не число очередей: каждый файл — своя задача, и несколько процессов разбирают их параллельно.
+
+- **Imagick** в каждом обработчике ограничен одним потоком (`ASSETS_IMAGICK_THREADS`, по умолчанию 1) и бюджетом памяти (`ASSETS_IMAGICK_MEMORY_MB`, 512): сверх бюджета он работает через диск, а не падает. Поэтому число обработчиков подбирается так: по одному на ядро, с запасом под веб-сервер, и чтобы `обработчики × ASSETS_IMAGICK_MEMORY_MB` помещалось в память сервера вместе с остальным.
+- **Ускорение** близко к числу обработчиков на шагах, упирающихся в процессор (превью) и сеть (запись в R2), пока хватает ядер и памяти. Верхний предел ещё и в браузере: он передаёт по `ASSET_UPLOAD_CONCURRENCY` файла одновременно.
+- **Локально** — два обработчика `queue:listen` (`docs/development.md`). `queue:listen` перезапускает PHP на каждую задачу и медленнее `queue:work`, больше 2–3 обработчиков локально смысла нет.
+- **Продакшен** — `queue:work` под Supervisor, отдельные программы для `default` и `uploads`:
+
+```ini
+[program:kadrobit-default]
+command=php /var/www/kadrobit/artisan queue:work --queue=default --tries=3 --timeout=60 --max-time=3600
+numprocs=1
+autostart=true
+autorestart=true
+stopwaitsecs=90
+user=www-data
+
+[program:kadrobit-uploads]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/kadrobit/artisan queue:work --queue=uploads --tries=3 --timeout=300 --max-time=3600
+numprocs=4                ; ≈ ядра минус запас под веб-сервер
+autostart=true
+autorestart=true
+stopwaitsecs=330          ; дать задаче закончиться при перезапуске
+user=www-data
+```
+
+`--timeout` обработчика `uploads` (300 с) должен быть меньше `retry_after` очереди (`DB_QUEUE_RETRY_AFTER`, 330 с). После выкладки — `php artisan queue:restart`, чтобы `queue:work` подхватил новый код.
+
 ### Партия и прогресс
 
 - Каждый файл — отдельная задача в партии Laravel (`job_batches`). Партия создаётся пустой и растёт по мере загрузки файлов, поэтому её `finished_at` и `progress()` в Laravel ничего не говорят: прогресс считается по `asset_uploads` партии от числа файлов, объявленного при открытии (`options.files`). Владелец — `options.user_id`.
