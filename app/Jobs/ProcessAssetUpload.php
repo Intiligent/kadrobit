@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Enums\AssetFileRole;
 use App\Enums\AssetUploadStatus;
 use App\Enums\MediaType;
-use App\Http\Requests\Assets\StoreAssetUploadRequest;
 use App\Models\Asset;
 use App\Models\AssetFile;
 use App\Models\AssetUpload;
@@ -14,6 +13,7 @@ use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -50,11 +50,28 @@ class ProcessAssetUpload implements ShouldQueue
     /** @var list<int> */
     public array $backoff = [10, 60];
 
+    /**
+     * Large originals (TIFF, video) take a while. The queue's retry_after must stay above it
+     * (DB_QUEUE_RETRY_AFTER), or a second worker picks the job up while it is still running.
+     */
+    public int $timeout = 300;
+
     public function __construct(public AssetUpload $upload) {}
+
+    /**
+     * Never two copies of the same upload at once: they would write and clean up the same paths.
+     *
+     * @return list<object>
+     */
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping($this->upload->ulid))->releaseAfter(30)->expireAfter($this->timeout + 30)];
+    }
 
     public function handle(PreviewGenerator $previews): void
     {
-        $upload = $this->upload;
+        // Fresh from the database: an earlier run of this job may have finished it meanwhile.
+        $upload = $this->upload->refresh();
 
         if ($upload->status !== AssetUploadStatus::Processing) {
             return;
@@ -73,15 +90,16 @@ class ProcessAssetUpload implements ShouldQueue
         }
 
         // A parallel upload of the same file may have finished first.
-        if ($upload->user->assets()->where('checksum', $upload->checksum)->exists()) {
+        if ($upload->user->assets()->where('checksum', $upload->checksum)->where('ulid', '!=', $upload->asset_ulid)->exists()) {
             $this->reject(__('library.upload.duplicate', ['name' => $upload->filename]));
 
             return;
         }
 
         $local = $staging->path($upload->stagingPath());
-        $type = StoreAssetUploadRequest::mediaType($upload->mime);
-        $attributes = $type === MediaType::Photo ? $this->photoAttributes($local) : [];
+        $type = MediaType::fromMime($upload->mime);
+        $pixels = $type === MediaType::Photo ? $this->pixelSize($local) : null;
+        $attributes = $type === MediaType::Photo ? $this->photoAttributes($local, $pixels) : [];
         $upload->update(['progress' => self::PROGRESS_METADATA]);
 
         $copies = $type === MediaType::Photo ? $previews->forPhoto($local) : [];
@@ -94,8 +112,9 @@ class ProcessAssetUpload implements ShouldQueue
                 'role' => AssetFileRole::Original,
                 'mime' => $upload->mime,
                 'size_bytes' => $upload->size_bytes,
-                'width' => $attributes['width'] ?? null,
-                'height' => $attributes['height'] ?? null,
+                // The file as stored; the work's own size is the upright one.
+                'width' => $pixels[0] ?? null,
+                'height' => $pixels[1] ?? null,
                 'checksum' => $upload->checksum,
             ], $this->extension());
 
@@ -107,6 +126,13 @@ class ProcessAssetUpload implements ShouldQueue
 
             DB::transaction(fn () => $this->createAsset($type, $attributes, $stored));
         } catch (UniqueConstraintViolationException) {
+            // The work may exist already, from an earlier run of this very job: its files are ours, keep them.
+            if ($upload->refresh()->status === AssetUploadStatus::Done) {
+                $upload->deleteStagedFile();
+
+                return;
+            }
+
             $this->deleteStored($stored);
             $this->reject(__('library.upload.duplicate', ['name' => $upload->filename]));
 
@@ -203,29 +229,53 @@ class ProcessAssetUpload implements ShouldQueue
     }
 
     /**
-     * By the detected MIME type, not the name the file came with.
+     * The file's own extension when it fits the detected MIME type (an .eps stays .eps, though
+     * application/postscript lists .ai first), otherwise the type's usual one.
      */
     protected function extension(): string
     {
-        return MimeTypes::getDefault()->getExtensions($this->upload->mime)[0]
-            ?? (pathinfo($this->upload->filename, PATHINFO_EXTENSION) ?: 'bin');
+        $known = MimeTypes::getDefault()->getExtensions($this->upload->mime);
+        $own = strtolower(pathinfo($this->upload->filename, PATHINFO_EXTENSION));
+
+        if (in_array($own, $known, true)) {
+            return $own;
+        }
+
+        return $known[0] ?? ($own ?: 'bin');
     }
 
     /**
-     * @return array{width?: int, height?: int, captured_at?: Carbon}
+     * Width and height of the image as stored in the file.
+     *
+     * @return array{0: int, 1: int}|null
      */
-    protected function photoAttributes(string $path): array
+    protected function pixelSize(string $path): ?array
     {
-        $attributes = [];
         $size = @getimagesize($path);
 
-        if ($size) {
-            $attributes['width'] = $size[0];
-            $attributes['height'] = $size[1];
+        return $size ? [$size[0], $size[1]] : null;
+    }
+
+    /**
+     * The work's size as it is seen, upright: EXIF orientations 5–8 turn the image by 90°,
+     * like its previews. And the capture date from EXIF.
+     *
+     * @param  array{0: int, 1: int}|null  $pixels
+     * @return array{width?: int, height?: int, captured_at?: Carbon}
+     */
+    protected function photoAttributes(string $path, ?array $pixels): array
+    {
+        $attributes = [];
+        $exif = $this->upload->mime === 'image/jpeg' && function_exists('exif_read_data') ? (@exif_read_data($path) ?: []) : [];
+
+        if ($pixels) {
+            [$width, $height] = in_array((int) ($exif['Orientation'] ?? 1), [5, 6, 7, 8], true) ? [$pixels[1], $pixels[0]] : $pixels;
+            $attributes['width'] = $width;
+            $attributes['height'] = $height;
         }
 
-        if ($this->upload->mime === 'image/jpeg' && function_exists('exif_read_data')) {
-            $taken = (@exif_read_data($path) ?: [])['DateTimeOriginal'] ?? null;
+        if ($exif) {
+            $taken = $exif['DateTimeOriginal'] ?? null;
 
             try {
                 if ($taken) {

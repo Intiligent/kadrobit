@@ -7,9 +7,19 @@ defineProps({
 
 const emit = defineEmits(['files']);
 
-// Element Plus handles picking and dropping; the files go to the library's own upload queue.
+// Element Plus calls http-request once per file. The files of one pick or one drop arrive in the
+// same tick, so they are gathered and handed over together: one batch, not one per file.
+let pending = [];
+
 const handOver = ({ file }) => {
-    emit('files', [file]);
+    if (!pending.length) {
+        setTimeout(() => {
+            emit('files', pending);
+            pending = [];
+        });
+    }
+
+    pending.push(file);
 
     return Promise.resolve();
 };

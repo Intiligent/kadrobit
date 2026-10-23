@@ -152,4 +152,31 @@ describe('useAssetUpload', () => {
         expect(percentOf(uploader.items[0])).toBe(65);
         expect(uploader.items[0].status).toBe('processing');
     });
+
+    it('splits a large selection into batches of the allowed size', async () => {
+        api.post
+            .mockResolvedValueOnce({ data: { id: 'batch-1' } })
+            .mockResolvedValueOnce({ data: { id: 'batch-2' } });
+        api.upload.mockImplementation(() => new Promise(() => {}));
+        const uploader = useAssetUpload({ maxBatchFiles: 2 });
+
+        await uploader.add([file('a'), file('b'), file('c')]);
+
+        expect(api.post.mock.calls.map(([, body]) => body)).toEqual([{ files: 2 }, { files: 1 }]);
+        expect(uploader.items.map((item) => item.batchId)).toEqual(['batch-1', 'batch-1', 'batch-2']);
+    });
+
+    it('stops polling when disposed', async () => {
+        api.upload.mockResolvedValue({ data: upload('u1') });
+        api.get.mockResolvedValue(poll([]));
+        const uploader = useAssetUpload();
+
+        await uploader.add([file('a')]);
+        await flush();
+        uploader.dispose();
+        vi.advanceTimersByTime(ASSET_UPLOAD_POLL_INTERVAL * 3);
+        await flush();
+
+        expect(api.get).not.toHaveBeenCalled();
+    });
 });

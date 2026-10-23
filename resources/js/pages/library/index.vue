@@ -1,6 +1,6 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AssetGrid from '@/components/library/AssetGrid.vue';
@@ -19,7 +19,7 @@ const props = defineProps({
     // Flat list: [{ id, parent_id, name }]
     folders: { type: Array, default: () => [] },
     accounts: { type: Array, default: () => [] },
-    // { accept, max_size_mb }
+    // { accept, max_size_mb, max_batch_files }
     upload: { type: Object, required: true },
 });
 
@@ -132,12 +132,35 @@ watch(place, () => {
 
 const uploader = useAssetUpload({
     maxSizeMb: props.upload.max_size_mb,
+    maxBatchFiles: props.upload.max_batch_files,
     // Works arrive one by one as the batch is processed; the grid filters and sorts them like the rest.
     onCompleted(asset) {
         if (!assets.value.some((a) => a.id === asset.id)) {
             assets.value.unshift({ ...asset });
         }
     },
+});
+
+// Leaving the page stops the uploads that are still running: ask first.
+const leaving = () => trans('library.upload.leave_confirm');
+const onBeforeUnload = (event) => {
+    if (uploader.summary.value.active) {
+        event.preventDefault();
+        event.returnValue = leaving();
+    }
+};
+const stopVisitGuard = router.on('before', (event) => {
+    if (uploader.summary.value.active && !window.confirm(leaving())) {
+        event.preventDefault();
+    }
+});
+
+window.addEventListener('beforeunload', onBeforeUnload);
+
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', onBeforeUnload);
+    stopVisitGuard();
+    uploader.dispose();
 });
 
 // Files dropped in a folder go into it.

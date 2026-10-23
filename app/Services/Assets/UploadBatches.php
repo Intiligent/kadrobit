@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Bus;
  * file adds its ProcessAssetUpload job to it.
  *
  * The batch starts empty and grows as files arrive, so Laravel's own finished_at and progress()
- * (set as soon as the queue drains) do not describe it: progress is counted from the batch's
- * asset_uploads against the number of files announced at the start, kept in the batch options
- * with the owner.
+ * (set as soon as the queue drains) do not describe it: the client follows its files through the
+ * batch poll. The options keep the owner and the number of files announced at the start, which
+ * caps the uploads the batch accepts.
  */
 class UploadBatches
 {

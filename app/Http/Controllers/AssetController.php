@@ -48,6 +48,7 @@ class AssetController extends Controller
             'upload' => [
                 'accept' => StoreAssetUploadRequest::ACCEPT,
                 'max_size_mb' => StoreAssetUploadRequest::maxSizeMb(),
+                'max_batch_files' => config('assets.upload_batch_max_files'),
             ],
         ]);
     }

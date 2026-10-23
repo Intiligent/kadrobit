@@ -18,7 +18,7 @@ import { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL, ASSET_UPLOADS_API
  *   processing: steps done by the queued job, 0–100, reported by the batch poll
  * `onCompleted(asset)`: a new work, as soon as its upload is done
  */
-export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
+export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } = {}) {
     const items = reactive([]);
     // batch id => { timer, cursor }
     const polls = new Map();
@@ -51,15 +51,18 @@ export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
         items.push(...entries);
         const sendable = entries.filter((item) => item.status === 'queued');
 
-        if (!sendable.length) {
-            return;
+        // A batch takes up to maxBatchFiles files; more are split into several.
+        for (let start = 0; start < sendable.length; start += maxBatchFiles) {
+            await openBatch(sendable.slice(start, start + maxBatchFiles));
         }
+    }
 
+    async function openBatch(group) {
         try {
-            const { data } = await api.post(ASSET_UPLOADS_API_URL, { files: sendable.length }, { silent: true });
-            sendable.forEach((item) => { item.batchId = data.id; });
+            const { data } = await api.post(ASSET_UPLOADS_API_URL, { files: group.length }, { silent: true });
+            group.forEach((item) => { item.batchId = data.id; });
         } catch (error) {
-            sendable.forEach((item) => fail(item, error.message));
+            group.forEach((item) => fail(item, error.message));
 
             return;
         }
@@ -211,7 +214,16 @@ export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
         items.filter(settled).forEach(remove);
     }
 
-    return { items, summary, add, retry, remove, clearSettled };
+    /**
+     * Stops polling and frees the local previews, when the page goes away.
+     */
+    function dispose() {
+        polls.forEach((state) => clearTimeout(state.timer));
+        polls.clear();
+        items.forEach((item) => item.previewUrl && URL.revokeObjectURL(item.previewUrl));
+    }
+
+    return { items, summary, add, retry, remove, clearSettled, dispose };
 }
 
 /**

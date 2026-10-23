@@ -41,13 +41,13 @@ class PreviewGenerator
         }
 
         $image = new Imagick;
-        // Only the first page or frame of TIFF, GIF and the like.
-        $image->readImage($source.'[0]');
-        $this->normalize($image);
-
         $copies = [];
 
         try {
+            // Only the first page or frame of TIFF, GIF and the like.
+            $image->readImage($source.'[0]');
+            $this->normalize($image);
+
             foreach (self::SIZES as $role => $size) {
                 $copies[] = $this->copy($image, AssetFileRole::from($role), $size);
             }
@@ -96,6 +96,7 @@ class PreviewGenerator
     protected function copy(Imagick $source, AssetFileRole $role, int $size): array
     {
         $image = clone $source;
+        $path = null;
 
         try {
             if (max($image->getImageWidth(), $image->getImageHeight()) > $size) {
@@ -118,6 +119,13 @@ class PreviewGenerator
                 'height' => $image->getImageHeight(),
                 'checksum' => hash_file('sha256', $path),
             ];
+        } catch (\Throwable $e) {
+            // The copy is not returned, so nobody else would remove its temp file.
+            if ($path) {
+                @unlink($path);
+            }
+
+            throw $e;
         } finally {
             $image->clear();
         }

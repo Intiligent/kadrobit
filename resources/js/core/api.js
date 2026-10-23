@@ -131,6 +131,12 @@ http.interceptors.response.use(
         const apiError = ApiError.from(error);
         const config = error.config;
 
+        // A body too large for PHP or the web server may be refused before the app can answer
+        // in JSON (or with a PHP warning in front of it): give it a readable message anyway.
+        if (apiError.status === 413 && !apiError.data?.message) {
+            apiError.message = trans('errors.payload_too_large');
+        }
+
         if (!config || apiError.isCanceled) {
             markFinished(config);
             throw apiError;

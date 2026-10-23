@@ -81,6 +81,8 @@ return [
         'failed' => 'Upload failed',
         'processing_failed' => 'The file could not be processed.',
         'cancelled' => 'The upload was cancelled.',
+        'batch_full' => 'This upload already has all its files.',
+        'leave_confirm' => 'Files are still uploading. Leave the page and stop them?',
         'status' => [
             'title_active' => 'Uploading {1} :count file|[2,*] :count files',
             'title_done' => 'Uploads complete',

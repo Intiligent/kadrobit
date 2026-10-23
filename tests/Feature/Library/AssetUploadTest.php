@@ -4,6 +4,7 @@ namespace Tests\Feature\Library;
 
 use App\Enums\AssetFileRole;
 use App\Enums\AssetUploadStatus;
+use App\Http\Requests\Assets\StoreAssetUploadRequest;
 use App\Jobs\ProcessAssetUpload;
 use App\Models\Asset;
 use App\Models\AssetUpload;
@@ -13,10 +14,12 @@ use Database\Seeders\OauthSeeder;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Passport\Passport;
+use Symfony\Component\HttpFoundation\File\UploadedFile as SymfonyUploadedFile;
 use Tests\TestCase;
 
 class AssetUploadTest extends TestCase
@@ -151,7 +154,7 @@ class AssetUploadTest extends TestCase
         $this->assertSame([255, 255, 255], array_values(array_slice(imagecolorsforindex($copy, imagecolorat($copy, 10, 10)), 0, 3)));
     }
 
-    public function test_batch_poll_returns_progress_and_only_uploads_changed_since_the_cursor(): void
+    public function test_batch_poll_returns_only_uploads_changed_since_the_cursor(): void
     {
         $batch = $this->openBatch(3);
         $this->upload($batch, ['file' => UploadedFile::fake()->image('a.jpg')])->assertCreated();
@@ -160,9 +163,7 @@ class AssetUploadTest extends TestCase
         $this->travel(1)->minute();
         $first = $this->getJson("/api/assets/uploads/{$batch}")
             ->assertOk()
-            ->assertJsonPath('data.files', 3)
-            ->assertJsonPath('data.done', 1)
-            ->assertJsonPath('data.failed', 0)
+            ->assertJsonMissingPath('data.done')
             ->assertJsonCount(1, 'data.uploads')
             ->assertJsonPath('data.uploads.0.asset.original_filename', 'a.jpg');
 
@@ -170,7 +171,6 @@ class AssetUploadTest extends TestCase
         $this->upload($batch, ['file' => UploadedFile::fake()->image('b.jpg', 20, 20)])->assertCreated();
 
         $this->getJson("/api/assets/uploads/{$batch}?cursor=".urlencode($first->json('data.cursor')))
-            ->assertJsonPath('data.done', 2)
             ->assertJsonCount(1, 'data.uploads')
             ->assertJsonPath('data.uploads.0.filename', 'b.jpg');
     }
@@ -316,10 +316,96 @@ class AssetUploadTest extends TestCase
 
     public function test_library_page_passes_the_upload_limits(): void
     {
-        config(['assets.upload_max_mb' => 50]);
+        config(['assets.upload_max_mb' => 1, 'assets.upload_batch_max_files' => 40]);
 
         $this->actingAs($this->user, 'web')
             ->get('/library')
-            ->assertInertia(fn ($page) => $page->where('upload.max_size_mb', 50)->has('upload.accept'));
+            ->assertInertia(fn ($page) => $page
+                ->where('upload.max_size_mb', 1)
+                ->where('upload.max_batch_files', 40)
+                ->has('upload.accept'));
+    }
+
+    public function test_size_limit_never_exceeds_what_php_accepts(): void
+    {
+        config(['assets.upload_max_mb' => 100000]);
+
+        $this->assertSame(intdiv(SymfonyUploadedFile::getMaxFilesize(), 1024 * 1024), StoreAssetUploadRequest::maxSizeMb());
+    }
+
+    public function test_batch_takes_only_the_announced_number_of_files(): void
+    {
+        $batch = $this->openBatch(1);
+
+        $this->upload($batch, ['file' => UploadedFile::fake()->image('a.jpg')])->assertCreated();
+        $this->upload($batch, ['file' => UploadedFile::fake()->image('b.jpg', 20, 20)])
+            ->assertConflict()
+            ->assertJsonPath('message', __('library.upload.batch_full'));
+    }
+
+    public function test_eps_keeps_its_extension(): void
+    {
+        $eps = UploadedFile::fake()->createWithContent('logo.eps', "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n");
+
+        $this->upload($this->openBatch(), ['file' => $eps])->assertCreated();
+
+        $asset = Asset::sole();
+        $this->assertSame('vector', $asset->type->value);
+        $this->assertStringEndsWith('/original.eps', $asset->file(AssetFileRole::Original)->path);
+    }
+
+    public function test_work_size_is_upright_while_the_original_keeps_its_stored_size(): void
+    {
+        $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->createWithContent('portrait.jpg', $this->jpegWithOrientation(60, 40, 6))])
+            ->assertCreated();
+
+        $asset = Asset::sole();
+        $this->assertSame([40, 60], [$asset->width, $asset->height]);
+        $this->assertSame([60, 40], [$asset->file(AssetFileRole::Original)->width, $asset->file(AssetFileRole::Original)->height]);
+        $this->assertSame([40, 60], [$asset->file(AssetFileRole::Preview)->width, $asset->file(AssetFileRole::Preview)->height]);
+    }
+
+    public function test_a_second_run_of_a_finished_job_leaves_the_work_and_its_files_alone(): void
+    {
+        Bus::fake();
+        $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->image('a.jpg')])->assertCreated();
+        $stale = AssetUpload::sole();
+        $this->process(AssetUpload::sole());
+
+        // A copy of the job that still holds the upload as "processing".
+        $this->process($stale);
+
+        $this->assertSame(AssetUploadStatus::Done, $stale->fresh()->status);
+        $this->assertSame(1, Asset::count());
+        $this->assertCount(1, Storage::disk('r2-private')->allFiles());
+        $this->assertCount(2, Storage::disk('r2-public')->allFiles());
+    }
+
+    public function test_the_job_never_runs_twice_at_once_for_the_same_upload(): void
+    {
+        Bus::fake();
+        $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->image('a.jpg')])->assertCreated();
+        $job = new ProcessAssetUpload(AssetUpload::sole());
+
+        $middleware = $job->middleware()[0];
+
+        $this->assertInstanceOf(WithoutOverlapping::class, $middleware);
+        $this->assertSame(AssetUpload::sole()->ulid, $middleware->key);
+        $this->assertLessThan(config('queue.connections.database.retry_after'), $job->timeout);
+    }
+
+    /**
+     * A JPEG whose EXIF says how to turn it, the way phone cameras store portraits.
+     */
+    protected function jpegWithOrientation(int $width, int $height, int $orientation): string
+    {
+        ob_start();
+        imagejpeg(imagecreatetruecolor($width, $height));
+        $jpeg = ob_get_clean();
+
+        $tiff = "MM\x00\x2a\x00\x00\x00\x08\x00\x01\x01\x12\x00\x03\x00\x00\x00\x01".pack('n', $orientation)."\x00\x00\x00\x00\x00\x00";
+        $app1 = "Exif\x00\x00".$tiff;
+
+        return substr($jpeg, 0, 2)."\xFF\xE1".pack('n', strlen($app1) + 2).$app1.substr($jpeg, 2);
     }
 }

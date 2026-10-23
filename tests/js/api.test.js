@@ -430,3 +430,22 @@ describe('upload and download helpers', () => {
     });
 });
 
+
+describe('413 without a JSON body', () => {
+    it('gets a readable message when PHP or the web server refused the body', async () => {
+        respond(413, '<br /><b>Warning</b>: POST Content-Length exceeds the limit');
+
+        const error = await api.post('/api/assets/uploads/b/files', {}, { silent: true }).catch((e) => e);
+
+        expect(error.status).toBe(413);
+        expect(error.message).toBe('errors.payload_too_large');
+    });
+
+    it('keeps the message the app sent in JSON', async () => {
+        respond(413, { message: 'The request is too large for the server.' });
+
+        const error = await api.post('/api/assets/uploads/b/files', {}, { silent: true }).catch((e) => e);
+
+        expect(error.message).toBe('The request is too large for the server.');
+    });
+});
