@@ -36,7 +36,8 @@ watch(() => props.assets, (next) => {
 // 'all', 'unsorted' or a folder id
 const place = ref('all');
 const type = ref('all');
-const status = ref('all');
+// Status tab, remembered per browser.
+const status = useStoredRef('library.status', 'all', { allowed: ['all', 'draft', 'ready', 'archived'] });
 const query = ref('');
 const sort = ref('newest');
 // Remembered per browser.

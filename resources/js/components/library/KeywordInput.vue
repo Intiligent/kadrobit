@@ -119,7 +119,7 @@ function onDrop(index) {
     gap: 4px;
     width: 100%;
     min-height: 32px;
-    padding: 4px 6px;
+    padding: 4px;
     line-height: normal;
     cursor: text;
     background: var(--el-fill-color-blank);

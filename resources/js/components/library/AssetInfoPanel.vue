@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
 import { Film, Image, PenTool, Sparkles, TriangleAlert, X } from 'lucide-vue-next';
 import AssetFileInfo from '@/components/library/AssetFileInfo.vue';
@@ -7,6 +7,7 @@ import AssetMetadataForm from '@/components/library/AssetMetadataForm.vue';
 import MarketplaceChecks from '@/components/library/MarketplaceChecks.vue';
 import { countIssues } from '@/utils/marketplaceRules';
 import { formatDuration } from '@/utils/format';
+import { useStoredRef } from '@/utils/storage';
 
 const props = defineProps({
     asset: { type: Object, required: true },
@@ -23,7 +24,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update', 'status', 'close']);
 
-const tab = ref('metadata');
+// Remembered per browser, like the tile size: the panel reopens on the same tab.
+const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'marketplaces', 'file'] });
 
 const TYPE_ICON = { photo: Image, video: Film, vector: PenTool, illustration: Sparkles };
 const STATUS_TAG = { draft: 'info', ready: 'success', archived: 'info' };

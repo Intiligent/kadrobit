@@ -25,7 +25,7 @@ const initials = (name) => name.split(/\s+/).map((word) => word[0]).join('').sli
     <div class="flex flex-col gap-3">
         <p class="text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ $t('library.checks.intro') }}</p>
 
-        <el-empty v-if="!accounts.length" :image-size="56" :description="$t('library.checks.none')" />
+        <el-empty v-if="!accounts.length" :image-size="110" :description="$t('library.checks.none')" />
 
         <div v-else class="overflow-hidden rounded-lg border border-[var(--el-border-color-light)]">
             <div
