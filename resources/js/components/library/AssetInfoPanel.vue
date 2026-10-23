@@ -14,6 +14,8 @@ const props = defineProps({
     accounts: { type: Array, default: () => [] },
     // Category lists by marketplace code
     categories: { type: Object, default: () => ({}) },
+    // Folder tree for "Move to folder": [{ id, name, children }]
+    folders: { type: Array, default: () => [] },
     // Autosave state of this work: 'pending' | 'saving' | 'saved' | 'error'
     saveState: { type: String, default: null },
     // { field: message } from the last failed save
@@ -104,6 +106,7 @@ const footNote = computed(() => {
                     :asset="asset"
                     :accounts="accounts"
                     :categories="categories"
+                    :folders="folders"
                     :errors="errors"
                     :disabled="readonly"
                     @update="emit('update', $event)"

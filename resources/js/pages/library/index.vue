@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { trans } from 'laravel-vue-i18n';
+import { trans, transChoice } from 'laravel-vue-i18n';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AssetGrid from '@/components/library/AssetGrid.vue';
 import AssetInfoPanel from '@/components/library/AssetInfoPanel.vue';
@@ -10,6 +10,7 @@ import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
 import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetAutosave } from '@/composables/useAssetAutosave';
 import { useAssetUpload } from '@/composables/useAssetUpload';
+import { useFolders } from '@/composables/useFolders';
 import notify from '@/core/notify';
 import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
@@ -33,6 +34,13 @@ watch(() => props.assets, (next) => {
     assets.value = next.map((asset) => ({ ...asset }));
 });
 
+// Folders change in place; every change brings the server's list.
+const folderStore = useFolders(props.folders);
+const folders = folderStore.folders;
+watch(() => props.folders, (next) => {
+    folders.value = next.map((folder) => ({ ...folder }));
+});
+
 // 'all', 'unsorted' or a folder id
 const place = ref('all');
 const type = ref('all');
@@ -53,7 +61,7 @@ const TYPES = ['photo', 'video', 'vector', 'illustration'];
 const isLive = (asset) => asset.status !== 'archived';
 const live = computed(() => assets.value.filter(isLive));
 
-const tree = computed(() => buildFolderTree(props.folders, live.value));
+const tree = computed(() => buildFolderTree(folders.value, live.value));
 
 const inPlace = computed(() => {
     if (place.value === 'all') {
@@ -64,7 +72,7 @@ const inPlace = computed(() => {
         return (asset) => !asset.folder_id;
     }
 
-    const ids = subtreeIds(props.folders, place.value);
+    const ids = subtreeIds(folders.value, place.value);
 
     return (asset) => ids.has(asset.folder_id);
 });
@@ -126,7 +134,7 @@ onMounted(async () => {
 });
 
 // Breadcrumb: parent folders, then the current place.
-const path = computed(() => folderPath(props.folders, place.value));
+const path = computed(() => folderPath(folders.value, place.value));
 const title = computed(() => path.value.at(-1) ?? trans(`library.explorer.views.${place.value}`));
 
 watch(place, () => {
@@ -155,6 +163,98 @@ const autosave = useAssetAutosave({
         }
     },
 });
+
+// Folders: an inline name field in the tree for a new folder or a rename, deleting, moving folders and works.
+
+// { mode: 'create', parentId, key } | { mode: 'rename', id, key } | null; a new key for every opening
+const editing = ref(null);
+const editState = ref({ error: null, saving: false });
+let editKey = 0;
+
+function startEditing(next) {
+    editing.value = { ...next, key: ++editKey };
+    editState.value = { error: null, saving: false };
+}
+
+async function submitName(name) {
+    const current = editing.value;
+    editState.value = { error: null, saving: true };
+
+    const result = current.mode === 'create'
+        ? await folderStore.create(name, current.parentId)
+        : await folderStore.rename(current.id, name);
+
+    // Another field may have been opened meanwhile.
+    if (editing.value !== current) {
+        return;
+    }
+
+    if (result.failed) {
+        editState.value = { error: result.error, saving: false };
+
+        return;
+    }
+
+    editing.value = null;
+}
+
+async function deleteFolder(node) {
+    const ids = subtreeIds(folders.value, node.id);
+    // Archived works too: they also end up without a folder, though the tree does not count them.
+    const works = assets.value.filter((a) => ids.has(a.folder_id)).length;
+
+    const confirmed = await notify.confirm({
+        title: trans('library.folders.delete_confirm_title', { name: node.name }),
+        message: works
+            ? transChoice('library.folders.delete_confirm_works', works, { count: works })
+            : trans('library.folders.delete_confirm'),
+        confirmText: trans('library.folders.delete'),
+        cancelText: trans('common.actions.cancel'),
+    });
+
+    if (!confirmed) {
+        return;
+    }
+
+    const result = await folderStore.remove(node.id);
+
+    if (result.failed) {
+        return;
+    }
+
+    // The server left their works without a folder.
+    for (const asset of assets.value) {
+        if (ids.has(asset.folder_id)) {
+            asset.folder_id = null;
+        }
+    }
+
+    if (ids.has(place.value)) {
+        place.value = 'all';
+    }
+}
+
+const moveFolder = (id, placement) => folderStore.move(id, placement);
+
+// Shown in the new folder at once; put back if the server refuses.
+async function moveAssets(folderId, ids) {
+    const moved = assets.value.filter((a) => ids.includes(a.id) && a.folder_id !== folderId);
+    const previous = new Map(moved.map((a) => [a.id, a.folder_id]));
+
+    if (!moved.length || readonly.value) {
+        return;
+    }
+
+    moved.forEach((a) => {
+        a.folder_id = folderId;
+    });
+
+    if (!(await folderStore.moveAssets(moved.map((a) => a.id), folderId))) {
+        moved.forEach((a) => {
+            a.folder_id = previous.get(a.id);
+        });
+    }
+}
 
 function update(patch, options = {}) {
     const asset = selected.value;
@@ -257,7 +357,22 @@ function addFiles(files) {
 <template>
     <Head :title="$t('library.title')" />
 
-    <LibraryExplorer v-model:place="place" :folders="tree" :counts="placeCounts" :accounts="accounts" />
+    <LibraryExplorer
+        v-model:place="place"
+        :folders="tree"
+        :flat="folders"
+        :counts="placeCounts"
+        :accounts="accounts"
+        :readonly="readonly"
+        :editing="editing"
+        :edit-state="editState"
+        @edit="startEditing"
+        @submit="submitName"
+        @cancel="editing = null"
+        @delete="deleteFolder"
+        @move-folder="moveFolder"
+        @move-assets="moveAssets"
+    />
 
     <main class="flex min-w-0 flex-1 flex-col">
         <AssetToolbar
@@ -291,6 +406,7 @@ function addFiles(files) {
             :accept="upload.accept"
             :empty-title="empty.title"
             :empty-text="empty.text"
+            :draggable="!readonly"
             @select="selectedId = $event"
             @files="addFiles"
         />
@@ -301,6 +417,7 @@ function addFiles(files) {
         :asset="selected"
         :accounts="accounts"
         :categories="categories"
+        :folders="tree"
         :save-state="autosave.state[selected.id] ?? null"
         :errors="autosave.errors[selected.id] ?? {}"
         :readonly="readonly"
