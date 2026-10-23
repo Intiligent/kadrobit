@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import AppLogo from '@/components/ui/AppLogo.vue';
 import { LOGIN_URL, LOGOUT_URL, REGISTER_URL, VERIFY_EMAIL_URL } from '@/config/constant';
 
 const page = usePage();
@@ -10,7 +11,7 @@ const user = computed(() => page.props.auth.user);
 <template>
     <div class="flex min-h-screen flex-col items-center p-6 lg:p-8">
         <header class="mb-6 flex w-full max-w-[335px] items-center justify-between text-sm lg:max-w-4xl">
-            <Link href="/" class="font-semibold">{{ page.props.appName }}</Link>
+            <Link href="/"><AppLogo class="h-6" /></Link>
 
             <nav class="flex items-center gap-4">
                 <template v-if="user">

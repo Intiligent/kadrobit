@@ -1,14 +1,13 @@
 <script setup>
-import { Link, usePage } from '@inertiajs/vue3';
-
-const page = usePage();
+import { Link } from '@inertiajs/vue3';
+import AppLogo from '@/components/ui/AppLogo.vue';
 </script>
 
 <template>
     <div class="flex min-h-screen flex-col items-center justify-center p-6">
         <div class="w-full max-w-[400px]">
-            <Link href="/" class="mb-8 inline-block text-lg font-semibold text-[#1b1b18] dark:text-[#EDEDEC]">
-                {{ page.props.appName }}
+            <Link href="/" class="mb-8 inline-block">
+                <AppLogo class="h-10" />
             </Link>
 
             <div
