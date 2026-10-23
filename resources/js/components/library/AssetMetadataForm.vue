@@ -10,6 +10,8 @@ const props = defineProps({
     asset: { type: Object, required: true },
     accounts: { type: Array, default: () => [] },
     categories: { type: Object, default: () => ({}) },
+    // Folder tree: [{ id, name, children }]
+    folders: { type: Array, default: () => [] },
     // { field: message } from the last failed save
     errors: { type: Object, default: () => ({}) },
     // Read-only, e.g. until the email is confirmed
@@ -35,6 +37,23 @@ async function copyKeywords() {
 
 <template>
     <el-form label-position="top" :disabled="disabled" class="metadata-form" @submit.prevent>
+        <el-form-item :label="$t('library.folders.move_to')" :error="errors.folder_id">
+            <el-tree-select
+                :model-value="asset.folder_id ?? ''"
+                :data="folders"
+                :props="{ label: 'name', children: 'children' }"
+                node-key="id"
+                check-strictly
+                default-expand-all
+                filterable
+                clearable
+                :render-after-expand="false"
+                :placeholder="$t('library.folders.unsorted')"
+                class="w-full"
+                @update:model-value="set('folder_id', $event || null)"
+            />
+        </el-form-item>
+
         <el-form-item :label="$t('library.fields.title')" :error="errors.title">
             <el-input
                 :model-value="asset.title"
@@ -72,10 +91,10 @@ async function copyKeywords() {
                 @update:model-value="set('keywords', $event)"
             />
             <div class="mt-1.5 flex gap-3">
-                <el-link type="primary" :underline="false" :disabled="!asset.keywords.length" @click="copyKeywords">
+                <el-link type="primary" underline="never" :disabled="!asset.keywords.length" @click="copyKeywords">
                     {{ $t('library.fields.copy_keywords') }}
                 </el-link>
-                <el-link :underline="false" :disabled="disabled || !asset.keywords.length" @click="set('keywords', [])">
+                <el-link underline="never" :disabled="disabled || !asset.keywords.length" @click="set('keywords', [])">
                     {{ $t('library.fields.clear_keywords') }}
                 </el-link>
             </div>

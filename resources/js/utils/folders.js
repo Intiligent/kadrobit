@@ -68,3 +68,39 @@ export function folderPath(folders, id) {
 
     return names;
 }
+
+/**
+ * Whether a folder can go into the target: not into itself or one of its own subfolders. Null target is the top level.
+ */
+export function canMoveInto(folders, id, targetId) {
+    return !targetId || !subtreeIds(folders, id).has(targetId);
+}
+
+/**
+ * Where a folder dropped on another one goes: `inside` the target (last), or `before`/`after` it among its siblings.
+ * Returns { parent_id, position } for PATCH /api/folders/{id}, or null when the drop is not allowed.
+ * Positions are indexes among the siblings without the moved folder, as the server counts them.
+ */
+export function dropPlacement(folders, id, targetId, zone) {
+    const target = folders.find((f) => f.id === targetId);
+
+    if (!target || id === targetId) {
+        return null;
+    }
+
+    const parentId = zone === 'inside' ? target.id : target.parent_id ?? null;
+
+    if (!canMoveInto(folders, id, parentId)) {
+        return null;
+    }
+
+    const siblings = folders.filter((f) => (f.parent_id ?? null) === parentId && f.id !== id);
+
+    if (zone === 'inside') {
+        return { parent_id: parentId, position: siblings.length };
+    }
+
+    const index = siblings.findIndex((f) => f.id === targetId);
+
+    return { parent_id: parentId, position: zone === 'before' ? index : index + 1 };
+}

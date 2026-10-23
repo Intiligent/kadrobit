@@ -85,7 +85,7 @@ watch(() => props.summary.total, (total, previous) => {
                     </template>
                     <p v-else-if="item.status === 'error'" class="text-xs leading-4 text-[var(--el-color-danger)]">
                         {{ item.error }}
-                        <el-link v-if="item.retryable" type="primary" :underline="false" class="!ml-1 !align-baseline !text-xs" @click="emit('retry', item)">
+                        <el-link v-if="item.retryable" type="primary" underline="never" class="!ml-1 !align-baseline !text-xs" @click="emit('retry', item)">
                             {{ $t('library.upload.status.retry') }}
                         </el-link>
                     </p>
@@ -108,7 +108,7 @@ watch(() => props.summary.total, (total, previous) => {
         </el-scrollbar>
 
         <div v-if="summary.done || interrupted" class="flex justify-end border-t border-[var(--el-border-color-lighter)] px-4 py-2">
-            <el-link :underline="false" class="!text-[13px]" @click="emit('clear')">{{ $t('library.upload.status.clear') }}</el-link>
+            <el-link underline="never" class="!text-[13px]" @click="emit('clear')">{{ $t('library.upload.status.clear') }}</el-link>
         </div>
     </el-popover>
 </template>

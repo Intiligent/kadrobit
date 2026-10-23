@@ -9,6 +9,8 @@ const props = defineProps({
     selectedId: { type: String, default: null },
     size: { type: String, default: 'large' },
     captions: { type: Boolean, default: true },
+    // Cards can be dragged onto folders.
+    draggable: { type: Boolean, default: false },
     accept: { type: String, default: '' },
     emptyTitle: { type: String, default: '' },
     emptyText: { type: String, default: '' },
@@ -68,6 +70,7 @@ function onDrop(event) {
                     :asset="asset"
                     :selected="asset.id === selectedId"
                     :captions="captions"
+                    :draggable="draggable"
                     @select="emit('select', $event)"
                 />
             </div>

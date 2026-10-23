@@ -1,12 +1,15 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Film, Image, PenTool, Play, Sparkles } from 'lucide-vue-next';
+import { DRAG_ASSETS } from '@/config/constant';
 import { formatDuration } from '@/utils/format';
 
 const props = defineProps({
     asset: { type: Object, required: true },
     selected: { type: Boolean, default: false },
     captions: { type: Boolean, default: true },
+    // Can be dragged onto a folder in the explorer.
+    draggable: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['select']);
@@ -14,15 +17,30 @@ const emit = defineEmits(['select']);
 const TYPE_ICON = { photo: Image, video: Film, vector: PenTool, illustration: Sparkles };
 
 const keywordCount = computed(() => props.asset.keywords.length);
+
+const dragging = ref(false);
+
+function onDragStart(event) {
+    dragging.value = true;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(DRAG_ASSETS, JSON.stringify([props.asset.id]));
+}
 </script>
 
 <template>
-    <button
-        type="button"
+    <!-- A div, not a button: Firefox does not drag buttons. -->
+    <div
+        role="button"
+        tabindex="0"
         class="asset-card"
-        :class="{ 'is-selected': selected }"
+        :class="{ 'is-selected': selected, 'is-dragging': dragging }"
         :data-asset-id="asset.id"
+        :draggable="draggable"
         @click="emit('select', asset.id)"
+        @keydown.enter.prevent="emit('select', asset.id)"
+        @keydown.space.prevent="emit('select', asset.id)"
+        @dragstart="onDragStart"
+        @dragend="dragging = false"
     >
         <div class="asset-card__thumb">
             <el-image v-if="asset.thumbnail_url" :src="asset.thumbnail_url" fit="cover" lazy class="size-full">
@@ -52,7 +70,7 @@ const keywordCount = computed(() => props.asset.keywords.length);
                 {{ keywordCount ? $tChoice('library.card.keywords', keywordCount, { count: keywordCount }) : $t('library.card.no_keywords') }}
             </div>
         </div>
-    </button>
+    </div>
 </template>
 
 <style scoped lang="scss">
@@ -66,6 +84,15 @@ const keywordCount = computed(() => props.asset.keywords.length);
     cursor: pointer;
     background: none;
     border: 0;
+    outline: none;
+
+    &.is-dragging {
+        opacity: 0.5;
+    }
+}
+
+.asset-card:focus-visible .asset-card__thumb {
+    outline-color: var(--el-color-primary-light-5);
 }
 
 .asset-card__thumb {

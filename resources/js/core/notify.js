@@ -1,4 +1,6 @@
+import { h } from 'vue';
 import { ElMessageBox, ElNotification } from 'element-plus';
+import { X } from 'lucide-vue-next';
 
 /**
  * UI adapter for notifications and dialogs. The API client talks only to this module,
@@ -8,6 +10,9 @@ import { ElMessageBox, ElNotification } from 'element-plus';
  * five parallel 401 responses open a single "log in" dialog.
  */
 const active = new Set();
+
+// Close button of dialogs: Lucide's X with a heavier line; the round background is in theme/element.scss.
+const CloseIcon = () => h(X, { size: 18, strokeWidth: 2.5 });
 
 function once(key, open) {
     if (key && active.has(key)) {
@@ -38,6 +43,7 @@ function confirm({ title, message, confirmText, cancelText, type = 'warning', ke
     const dialog = once(key, (release) => ElMessageBox.confirm(message, title, {
         confirmButtonText: confirmText,
         cancelButtonText: cancelText,
+        closeIcon: CloseIcon,
         type,
     }).then(() => true, () => false).finally(release));
 

@@ -13,7 +13,7 @@ return [
 
     'explorer' => [
         'library' => 'Library',
-        'new_folder_soon' => 'New folder: coming soon',
+        'new_folder' => 'New folder',
         'views' => [
             'all' => 'All works',
             'unsorted' => 'Unsorted',
@@ -113,6 +113,26 @@ return [
         'untitled' => 'Untitled · :file',
         'keywords' => '{1} :count keyword|[2,*] :count keywords',
         'no_keywords' => 'No keywords yet',
+    ],
+
+    'folders' => [
+        'name_placeholder' => 'Folder name',
+        'new_subfolder' => 'New subfolder',
+        'rename' => 'Rename',
+        'delete' => 'Delete',
+        'actions' => 'Folder actions',
+        'delete_confirm_title' => 'Delete “:name”?',
+        'delete_confirm' => 'Subfolders are deleted too. Works stay in the library, in Unsorted.',
+        'delete_confirm_works' => '{1} Subfolders are deleted too. :count work stays in the library, in Unsorted.|[2,*] Subfolders are deleted too. :count works stay in the library, in Unsorted.',
+        'moved' => '{1} Moved to :folder|[2,*] :count works moved to :folder',
+        'drop_root' => 'Drop here to move to the top level',
+        'move_to' => 'Folder',
+        'unsorted' => 'Unsorted',
+        'verify_to_edit' => 'Confirm your email to manage folders.',
+        'validation' => [
+            'name_taken' => 'There is already a folder with this name here.',
+            'into_itself' => 'A folder cannot go into itself or its own subfolder.',
+        ],
     ],
 
     'fields' => [

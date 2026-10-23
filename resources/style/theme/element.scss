@@ -35,3 +35,32 @@
 .el-message-box__title {
     font-weight: 500;
 }
+
+// Close button: a round light grey button, darker on hover. The icon is set in core/notify.js.
+// Element Plus: `.el-message-box__headerbtn`, a transparent 40px square in the corner.
+.el-message-box .el-message-box__header .el-message-box__headerbtn {
+    top: 14px;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--el-fill-color);
+    border-radius: 50%;
+    transition: background-color var(--el-transition-duration-fast);
+
+    .el-message-box__close {
+        font-size: 18px;
+        color: var(--el-text-color-regular);
+    }
+
+    &:hover,
+    &:focus-visible {
+        background: var(--el-fill-color-darker);
+
+        .el-message-box__close {
+            color: var(--el-text-color-primary);
+        }
+    }
+}

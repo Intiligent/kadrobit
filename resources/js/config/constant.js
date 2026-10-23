@@ -20,6 +20,8 @@ export const VERIFY_EMAIL_URL = '/verify-email';
 // Library: the main page after login, and its JSON endpoints (routes/api.php)
 export const LIBRARY_URL = '/library';
 export const ASSETS_API_URL = '/api/assets';
+export const ASSETS_MOVE_API_URL = '/api/assets/move';
+export const FOLDERS_API_URL = '/api/folders';
 export const ASSET_UPLOADS_API_URL = '/api/assets/uploads';
 
 // Uploads: files sent at once, and how often a batch's processing is polled (ms)
@@ -31,6 +33,10 @@ export const ASSET_AUTOSAVE_DELAY = 600;
 export const KEYWORDS_MAX = 50;
 // The first keywords carry the most weight on marketplaces and are highlighted.
 export const KEYWORDS_HIGHLIGHTED = 10;
+
+// Drag-and-drop between the grid and the explorer: dataTransfer types of dragged works and folders
+export const DRAG_ASSETS = 'application/x-kadrobit-assets';
+export const DRAG_FOLDER = 'application/x-kadrobit-folder';
 
 // Automatic retries of idempotent requests on network failures and 502/503/504
 export const RETRY = {
