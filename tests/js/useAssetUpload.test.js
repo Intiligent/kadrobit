@@ -6,7 +6,7 @@ vi.mock('@/core/api', () => ({
 }));
 
 const { default: api } = await import('@/core/api');
-const { useAssetUpload } = await import('@/composables/useAssetUpload');
+const { useAssetUpload, percentOf } = await import('@/composables/useAssetUpload');
 const { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL } = await import('@/config/constant');
 
 const file = (name, size = 10, type = 'video/mp4') => ({ name, size, type });
@@ -126,6 +126,30 @@ describe('useAssetUpload', () => {
         await flush();
 
         expect(api.upload).toHaveBeenCalledTimes(3);
+        expect(uploader.items[0].status).toBe('processing');
+    });
+
+    it('fills one bar per file: the transfer first, then the processing steps from the poll', async () => {
+        let report;
+        api.upload.mockImplementation((url, data, { onProgress }) => new Promise((resolve) => {
+            report = onProgress;
+            setTimeout(() => resolve({ data: upload('u1') }), 0);
+        }));
+        api.get.mockResolvedValueOnce(poll([upload('u1', 'processing', { progress: 30 })]));
+        const uploader = useAssetUpload();
+
+        await uploader.add([file('a')]);
+        report(40);
+        expect(percentOf(uploader.items[0])).toBe(20);
+
+        vi.advanceTimersByTime(0);
+        await flush();
+        // Transferred, waiting in the queue.
+        expect(percentOf(uploader.items[0])).toBe(50);
+
+        vi.advanceTimersByTime(ASSET_UPLOAD_POLL_INTERVAL);
+        await flush();
+        expect(percentOf(uploader.items[0])).toBe(65);
         expect(uploader.items[0].status).toBe('processing');
     });
 });

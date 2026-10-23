@@ -23,6 +23,8 @@ class AssetUploadResource extends JsonResource
             'id' => $this->ulid,
             'filename' => $this->filename,
             'status' => $this->status->value,
+            // Processing steps done, 0–100; the transfer before it is measured by the browser.
+            'progress' => $this->progress,
             'error' => $this->error,
             'asset' => $this->status === AssetUploadStatus::Done && $this->asset
                 ? AssetResource::make($this->asset)->resolve($request)

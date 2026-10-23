@@ -36,6 +36,11 @@ class ProcessAssetUpload implements ShouldQueue
 {
     use Batchable, Queueable;
 
+    /** Progress reported after each step, for the per-file bar in the upload list. */
+    public const PROGRESS_METADATA = 30;
+
+    public const PROGRESS_STORED = 80;
+
     public int $tries = 3;
 
     /** @var list<int> */
@@ -72,6 +77,7 @@ class ProcessAssetUpload implements ShouldQueue
 
         $type = StoreAssetUploadRequest::mediaType($upload->mime);
         $attributes = $type === MediaType::Photo ? $this->photoAttributes($staging->path($upload->stagingPath())) : [];
+        $upload->update(['progress' => self::PROGRESS_METADATA]);
 
         $disk = AssetFileRole::Original->disk();
         $path = AssetFile::pathFor($upload->user->ulid, $upload->asset_ulid, AssetFileRole::Original, $this->extension());
@@ -85,6 +91,8 @@ class ProcessAssetUpload implements ShouldQueue
                 fclose($stream);
             }
         }
+
+        $upload->update(['progress' => self::PROGRESS_STORED]);
 
         try {
             DB::transaction(fn () => $this->createAsset($type, $attributes, $disk, $path));
@@ -139,7 +147,7 @@ class ProcessAssetUpload implements ShouldQueue
             'checksum' => $upload->checksum,
         ]);
 
-        $upload->update(['status' => AssetUploadStatus::Done, 'asset_id' => $asset->id, 'error' => null]);
+        $upload->update(['status' => AssetUploadStatus::Done, 'progress' => 100, 'asset_id' => $asset->id, 'error' => null]);
     }
 
     protected function reject(string $error): void

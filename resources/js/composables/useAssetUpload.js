@@ -12,8 +12,10 @@ import { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL, ASSET_UPLOADS_API
  * while any of its files is processing: each poll returns only the uploads that changed, and every
  * finished work is handed over at once, so a large batch fills the grid as it goes.
  *
- * `items`: { key, name, file, previewUrl, folderId, batchId, uploadId, progress, status, error, retryable }
+ * `items`: { key, name, file, previewUrl, folderId, batchId, uploadId, progress, processing, status, error, retryable }
  *   status: 'queued' | 'uploading' | 'processing' | 'done' | 'error'
+ *   progress: transfer to the server, 0–100, measured by the browser
+ *   processing: steps done by the queued job, 0–100, reported by the batch poll
  * `onCompleted(asset)`: a new work, as soon as its upload is done
  */
 export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
@@ -32,20 +34,11 @@ export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
             done,
             failed: items.filter((item) => item.status === 'error').length,
             active: items.length - done,
-            // Upload is the first half of a file's way, processing the second.
             percent: items.length
-                ? Math.round(items.reduce((sum, item) => sum + weight(item), 0) / items.length)
+                ? Math.round(items.reduce((sum, item) => sum + (settled(item) ? 100 : percentOf(item)), 0) / items.length)
                 : 0,
         };
     });
-
-    function weight(item) {
-        if (settled(item)) {
-            return 100;
-        }
-
-        return item.status === 'processing' ? 50 : item.progress / 2;
-    }
 
     // `folderId`: the folder the new works go into, null for none.
     async function add(files, { folderId = null } = {}) {
@@ -86,6 +79,7 @@ export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
             batchId: null,
             uploadId: null,
             progress: 0,
+            processing: 0,
             status: tooLarge ? 'error' : 'queued',
             error: tooLarge ? trans('library.upload.too_large', { max: maxSizeMb }) : null,
             retryable: false,
@@ -165,7 +159,13 @@ export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
     function settle(upload) {
         const item = items.find((entry) => entry.uploadId === upload.id);
 
-        if (!item || item.status !== 'processing' || upload.status === 'processing') {
+        if (!item || item.status !== 'processing') {
+            return;
+        }
+
+        item.processing = Math.max(item.processing, upload.progress ?? 0);
+
+        if (upload.status === 'processing') {
             return;
         }
 
@@ -191,7 +191,7 @@ export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
             return;
         }
 
-        Object.assign(item, { status: 'queued', progress: 0, error: null, retryable: false });
+        Object.assign(item, { status: 'queued', progress: 0, processing: 0, error: null, retryable: false });
         pump();
     }
 
@@ -212,4 +212,21 @@ export function useAssetUpload({ maxSizeMb, onCompleted } = {}) {
     }
 
     return { items, summary, add, retry, remove, clearSettled };
+}
+
+/**
+ * One bar per file over its whole way: the transfer fills the first half, processing the second.
+ */
+export function percentOf(item) {
+    switch (item.status) {
+        case 'done':
+            return 100;
+        case 'processing':
+            return Math.round(50 + item.processing / 2);
+        case 'uploading':
+        case 'error':
+            return Math.round(item.progress / 2 + item.processing / 2);
+        default:
+            return 0;
+    }
 }

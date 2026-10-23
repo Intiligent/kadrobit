@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Storage;
  * @property int $size_bytes
  * @property string $checksum SHA-256, hex
  * @property AssetUploadStatus $status
+ * @property int $progress Processing steps done, 0–100
  * @property string|null $error Why no work was created
  */
 class AssetUpload extends Model
@@ -53,6 +54,7 @@ class AssetUpload extends Model
         'size_bytes',
         'checksum',
         'status',
+        'progress',
         'error',
     ];
 
@@ -63,6 +65,7 @@ class AssetUpload extends Model
      */
     protected $attributes = [
         'status' => 'processing',
+        'progress' => 0,
     ];
 
     protected function casts(): array
@@ -70,6 +73,7 @@ class AssetUpload extends Model
         return [
             'status' => AssetUploadStatus::class,
             'size_bytes' => 'integer',
+            'progress' => 'integer',
         ];
     }
 

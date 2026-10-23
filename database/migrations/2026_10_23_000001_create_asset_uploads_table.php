@@ -30,6 +30,7 @@ return new class extends Migration
 
             $table->enum('status', array_column(AssetUploadStatus::cases(), 'value'))
                 ->default(AssetUploadStatus::Processing->value);
+            $table->unsignedTinyInteger('progress')->default(0); // processing steps done, 0–100
             $table->string('error')->nullable();
 
             $table->timestampsTz();

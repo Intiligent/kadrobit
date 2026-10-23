@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { CircleCheck, CircleX, Film, Image, X } from 'lucide-vue-next';
+import { percentOf } from '@/composables/useAssetUpload';
 
 const props = defineProps({
     // From useAssetUpload
@@ -12,6 +13,15 @@ const emit = defineEmits(['retry', 'remove', 'clear']);
 
 // Opens by itself when new files are added; closes on an outside click like any popover.
 const open = ref(false);
+
+// What the file is waiting for while its bar fills.
+function stage(item) {
+    if (item.status === 'uploading') {
+        return 'uploading';
+    }
+
+    return item.processing ? 'processing' : 'in_queue';
+}
 
 watch(() => props.summary.total, (total, previous) => {
     if (total > (previous ?? 0)) {
@@ -61,22 +71,12 @@ watch(() => props.summary.total, (total, previous) => {
                 <div class="min-w-0 flex-1">
                     <p class="truncate text-[13px] leading-[18px]">{{ item.name }}</p>
 
-                    <el-progress
-                        v-if="item.status === 'uploading'"
-                        :percentage="item.progress"
-                        :show-text="false"
-                        :stroke-width="3"
-                        class="mt-1"
-                    />
-                    <el-progress
-                        v-else-if="item.status === 'processing'"
-                        :percentage="100"
-                        :show-text="false"
-                        :stroke-width="3"
-                        :indeterminate="true"
-                        :duration="2"
-                        class="mt-1"
-                    />
+                    <template v-if="item.status === 'uploading' || item.status === 'processing'">
+                        <el-progress :percentage="percentOf(item)" :show-text="false" :stroke-width="3" class="my-1" />
+                        <p class="text-xs leading-4 text-[var(--el-text-color-secondary)]">
+                            {{ $t(`library.upload.status.${stage(item)}`) }} · {{ percentOf(item) }}%
+                        </p>
+                    </template>
                     <p v-else-if="item.status === 'error'" class="text-xs leading-4 text-[var(--el-color-danger)]">
                         {{ item.error }}
                         <el-link v-if="item.retryable" type="primary" :underline="false" class="!ml-1 !align-baseline !text-xs" @click="emit('retry', item)">

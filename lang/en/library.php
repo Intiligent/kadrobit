@@ -86,6 +86,8 @@ return [
             'title_done' => 'Uploads complete',
             'progress' => ':done of :total',
             'queued' => 'Waiting',
+            'uploading' => 'Uploading',
+            'in_queue' => 'In the processing queue',
             'processing' => 'Processing',
             'done' => 'Uploaded',
             'retry' => 'Retry',

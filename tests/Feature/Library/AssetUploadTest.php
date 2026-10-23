@@ -72,6 +72,7 @@ class AssetUploadTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.filename', 'IMG_2041.jpg')
             ->assertJsonPath('data.status', 'processing')
+            ->assertJsonPath('data.progress', 0)
             ->assertJsonPath('data.asset', null);
 
         $upload = AssetUpload::sole();
@@ -99,7 +100,8 @@ class AssetUploadTest extends TestCase
         $this->assertSame("assets/{$this->user->ulid}/{$asset->ulid}/original.jpg", $original->path);
         Storage::disk('r2-private')->assertExists($original->path);
         Storage::disk(AssetUpload::STAGING_DISK)->assertMissing($upload->stagingPath());
-        $response->assertJsonPath('data.status', 'done')->assertJsonPath('data.asset.id', $asset->ulid);
+        $this->assertSame(100, $upload->progress);
+        $response->assertJsonPath('data.status', 'done')->assertJsonPath('data.progress', 100)->assertJsonPath('data.asset.id', $asset->ulid);
     }
 
     public function test_batch_poll_returns_progress_and_only_uploads_changed_since_the_cursor(): void
@@ -202,6 +204,8 @@ class AssetUploadTest extends TestCase
 
         $this->assertSame([], Storage::disk('r2-private')->allFiles());
         $this->assertSame(AssetUploadStatus::Processing, $upload->fresh()->status);
+        // The steps done so far stay visible while the job waits for its next try.
+        $this->assertSame(ProcessAssetUpload::PROGRESS_STORED, $upload->fresh()->progress);
         // The staged file stays for the next try.
         Storage::disk(AssetUpload::STAGING_DISK)->assertExists($upload->stagingPath());
     }
