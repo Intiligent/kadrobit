@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MediaType;
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
+use App\Http\Requests\Assets\UpdateAssetRequest;
 use App\Http\Resources\AssetResource;
 use App\Http\Resources\AssetUploadResource;
 use App\Http\Resources\MarketplaceAccountResource;
 use App\Models\Folder;
+use App\Models\MarketplaceCategory;
 use App\Services\Assets\UploadBatches;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -47,6 +50,7 @@ class AssetController extends Controller
             'assets' => AssetResource::collection($assets)->resolve(),
             'folders' => $folders,
             'accounts' => MarketplaceAccountResource::collection($accounts)->resolve(),
+            'categories' => $this->categories($accounts->pluck('marketplace_id')->unique()->all()),
             'upload' => [
                 'accept' => StoreAssetUploadRequest::ACCEPT,
                 'max_size_mb' => StoreAssetUploadRequest::maxSizeMb(),
@@ -59,5 +63,42 @@ class AssetController extends Controller
                 ])->all(),
             ],
         ]);
+    }
+
+    /**
+     * Partial update of the base metadata and status; the info panel autosaves through it.
+     */
+    public function update(UpdateAssetRequest $request): AssetResource
+    {
+        $asset = $request->asset();
+        $asset->update($request->validated());
+
+        return AssetResource::make($asset->load(['files', 'folder:id,ulid']));
+    }
+
+    /**
+     * Category lists by marketplace code, limited to the marketplaces the user is connected to.
+     *
+     * @param  array<int, int>  $marketplaceIds
+     * @return array<string, array<int, array{id: string, name: string, media_types: array<int, string>}>>
+     */
+    protected function categories(array $marketplaceIds): array
+    {
+        if (! $marketplaceIds) {
+            return [];
+        }
+
+        return MarketplaceCategory::query()
+            ->whereIn('marketplace_id', $marketplaceIds)
+            ->with('marketplace:id,code')
+            ->orderBy('id')
+            ->get()
+            ->groupBy(fn (MarketplaceCategory $category) => $category->marketplace->code)
+            ->map(fn ($group) => $group->map(fn (MarketplaceCategory $category) => [
+                'id' => $category->external_id,
+                'name' => $category->name,
+                'media_types' => $category->media_types->map(fn (MediaType $type) => $type->value)->values()->all(),
+            ])->values()->all())
+            ->all();
     }
 }

@@ -7,7 +7,9 @@ use App\Enums\MediaType;
 use App\Models\Asset;
 use App\Models\Marketplace;
 use App\Models\User;
+use Database\Seeders\MarketplaceCategorySeeder;
 use Database\Seeders\MarketplaceSeeder;
+use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -16,6 +18,14 @@ use Tests\TestCase;
 class AssetControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // A web login issues the API token cookie, which needs the personal access client.
+        $this->seed(OauthSeeder::class);
+    }
 
     public function test_guest_is_sent_to_login(): void
     {
@@ -49,7 +59,8 @@ class AssetControllerTest extends TestCase
                 ->where('assets.0.status', 'draft')
                 ->where('assets.0.folder_id', null)
                 ->has('folders', 0)
-                ->has('accounts', 0));
+                ->has('accounts', 0)
+                ->where('categories', []));
     }
 
     public function test_library_lists_own_folders_with_parents_by_ulid(): void
@@ -105,6 +116,23 @@ class AssetControllerTest extends TestCase
             ->where('accounts.0.marketplace.code', 'adobe_stock')
             ->missing('accounts.0.credentials'));
         $this->assertStringNotContainsString('secret-ftp-password', $response->getContent());
+    }
+
+    public function test_library_sends_category_lists_of_connected_marketplaces_only(): void
+    {
+        $this->seed([MarketplaceSeeder::class, MarketplaceCategorySeeder::class]);
+        $user = User::factory()->create();
+        $user->marketplaceAccounts()->create([
+            'marketplace_id' => Marketplace::where('code', 'shutterstock')->sole()->id,
+            'label' => 'Main',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/library')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('categories', 1)
+                ->has('categories.shutterstock', 26)
+                ->where('categories.shutterstock.0', ['id' => 'Abstract', 'name' => 'Abstract', 'media_types' => ['photo', 'vector', 'illustration']]));
     }
 
     protected function asset(User $user, array $attributes = []): Asset

@@ -29,6 +29,8 @@ class AssetResource extends JsonResource
             'title' => $this->title ?? '',
             'description' => $this->description ?? '',
             'keywords' => $this->keywords,
+            // An object even when empty, so the frontend can index it by marketplace code.
+            'categories' => (object) ($this->categories ?? []),
             'is_editorial' => $this->is_editorial,
             'is_ai_generated' => $this->is_ai_generated,
             'original_filename' => $this->original_filename,
