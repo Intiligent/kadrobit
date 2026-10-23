@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * A stock work (photo, video, vector, illustration) with its base metadata.
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $ulid Public identifier for URLs and API
  * @property int $user_id
+ * @property int|null $folder_id
  * @property MediaType $type
  * @property AssetStatus $status
  * @property string|null $title
@@ -26,7 +28,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property array<int, string> $keywords Ordered: the first keywords matter most
  * @property bool $is_editorial
  * @property bool $is_ai_generated
- * @property \Illuminate\Support\Carbon|null $captured_at
+ * @property Carbon|null $captured_at
  * @property array|null $location
  * @property string $original_filename
  * @property string $checksum SHA-256 of the original file
@@ -40,6 +42,7 @@ class Asset extends Model
     use HasUlids, SoftDeletes;
 
     protected $fillable = [
+        'folder_id',
         'type',
         'status',
         'title',
@@ -98,6 +101,11 @@ class Asset extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(Folder::class);
     }
 
     public function files(): HasMany

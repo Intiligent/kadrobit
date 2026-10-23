@@ -26,8 +26,9 @@ class InertiaTest extends TestCase
     {
         $user = User::factory()->create(['first_name' => 'Jane']);
 
+        // The home page redirects logged-in users, so the shared props are checked on the library.
         $this->actingAs($user)
-            ->get('/')
+            ->get('/library')
             ->assertInertia(fn (Assert $page) => $page
                 ->where('auth.user.id', $user->id)
                 ->where('auth.user.first_name', 'Jane')

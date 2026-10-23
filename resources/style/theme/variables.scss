@@ -2,19 +2,57 @@
 // Injected into every SCSS file (css.preprocessorOptions in vite.config.js), so Element Plus
 // component styles compile with these values. Configuration only: this file emits no CSS.
 // Available keys: node_modules/element-plus/theme-chalk/src/common/var.scss
+//
+// Pages and components take colours from the resulting CSS variables (--el-color-primary,
+// --el-text-color-secondary, --el-border-color-light, --el-fill-color, --el-bg-color-page…),
+// never from hex values, so the palette is changed here only.
 @forward 'element-plus/theme-chalk/src/common/var.scss' with (
     $colors: (
         'primary': (
             'base': #f53003,
         ),
+        'success': (
+            'base': #3d9a26,
+        ),
+        'warning': (
+            'base': #d98a0b,
+        ),
         'danger': (
             'base': #d93131,
+        ),
+        'info': (
+            'base': #706f6c,
         ),
     ),
     $text-color: (
         'primary': #1b1b18,
         'regular': #1b1b18,
         'secondary': #706f6c,
+        'placeholder': #a1a09a,
+        'disabled': #c4c3bf,
+    ),
+    // Warm neutrals matching the text colours, instead of Element Plus' default blue-grey.
+    $border-color: (
+        '': #dcdcd8,
+        'light': #e6e5e1,
+        'lighter': #efeeea,
+        'extra-light': #f4f4f1,
+        'dark': #d6d5d0,
+        'darker': #c4c3bf,
+    ),
+    $fill-color: (
+        '': #f4f4f1,
+        'light': #f7f7f5,
+        'lighter': #fafaf8,
+        'extra-light': #fcfcfb,
+        'dark': #ebeae6,
+        'darker': #e6e5e1,
+        'blank': #ffffff,
+    ),
+    $bg-color: (
+        '': #ffffff,
+        'page': #fdfdfc,
+        'overlay': #ffffff,
     ),
     $font-family: (
         '': "'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",

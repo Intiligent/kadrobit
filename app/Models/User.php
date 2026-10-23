@@ -132,6 +132,11 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
         return $this->hasMany(Asset::class);
     }
 
+    public function folders(): HasMany
+    {
+        return $this->hasMany(Folder::class);
+    }
+
     public function marketplaceAccounts(): HasMany
     {
         return $this->hasMany(MarketplaceAccount::class);
