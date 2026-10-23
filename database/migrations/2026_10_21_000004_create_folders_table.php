@@ -20,19 +20,10 @@ return new class extends Migration
 
             $table->index(['user_id', 'parent_id']);
         });
-
-        Schema::table('assets', function (Blueprint $table) {
-            // Deleting a folder leaves its works in the library, unsorted.
-            $table->foreignId('folder_id')->nullable()->after('user_id')->constrained()->nullOnDelete();
-        });
     }
 
     public function down(): void
     {
-        Schema::table('assets', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('folder_id');
-        });
-
         Schema::dropIfExists('folders');
     }
 };

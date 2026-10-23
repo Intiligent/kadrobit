@@ -73,6 +73,35 @@ return [
     'upload' => [
         'tile' => 'Upload',
         'tile_hint' => 'or drop photos and videos',
+        'drop_title' => 'Drop to upload',
+        'drop_hint' => 'Photos, videos and vectors, any number of files',
+        'too_large' => 'The file is larger than :max MB.',
+        'unsupported' => 'This file type is not supported.',
+        'duplicate' => ':name is already in your library.',
+        'failed' => 'Upload failed',
+        'processing_failed' => 'The file could not be processed.',
+        'cancelled' => 'The upload was cancelled.',
+        'status' => [
+            'title_active' => 'Uploading {1} :count file|[2,*] :count files',
+            'title_done' => 'Uploads complete',
+            'progress' => ':done of :total',
+            'queued' => 'Waiting',
+            'processing' => 'Processing',
+            'done' => 'Uploaded',
+            'retry' => 'Retry',
+            'remove' => 'Remove',
+            'clear' => 'Clear list',
+            'open' => 'Uploads',
+        ],
+    ],
+
+    'panel' => [
+        'close' => 'Close',
+        'tabs' => [
+            'metadata' => 'Metadata',
+            'marketplaces' => 'Marketplaces',
+            'file' => 'File info',
+        ],
     ],
 
     'card' => [

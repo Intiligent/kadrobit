@@ -50,6 +50,19 @@ class AssetFile extends Model
         return $this->belongsTo(Asset::class);
     }
 
+    /**
+     * Where a file of this role is stored: assets/{user ulid}/{asset ulid}/{role}[.{hash}].{ext}.
+     * Library folders are not part of the path, so moving a work between folders moves no files.
+     * Derived files take a short content hash: they are cached by the CDN, so a regenerated
+     * preview needs a new URL.
+     */
+    public static function pathFor(string $userUlid, string $assetUlid, AssetFileRole $role, string $extension, ?string $hash = null): string
+    {
+        $name = $role->value.($hash ? '.'.substr($hash, 0, 8) : '').'.'.strtolower($extension);
+
+        return "assets/{$userUlid}/{$assetUlid}/{$name}";
+    }
+
     public function storage(): Filesystem
     {
         return Storage::disk($this->disk);
@@ -57,7 +70,7 @@ class AssetFile extends Model
 
     /**
      * URL for the browser.
-     * Derived files (previews, thumbnails) go through the public CDN when the disk has one;
+     * Derived files (previews, thumbnails) come from the public bucket's domain;
      * originals are user data and are only served via short-lived signed URLs.
      */
     public function url(int $ttlMinutes = 60): string

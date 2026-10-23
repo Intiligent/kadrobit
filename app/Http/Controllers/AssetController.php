@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Assets\StoreAssetUploadRequest;
 use App\Http\Resources\AssetResource;
 use App\Http\Resources\MarketplaceAccountResource;
 use App\Models\Folder;
@@ -44,6 +45,10 @@ class AssetController extends Controller
             'assets' => AssetResource::collection($assets)->resolve(),
             'folders' => $folders,
             'accounts' => MarketplaceAccountResource::collection($accounts)->resolve(),
+            'upload' => [
+                'accept' => StoreAssetUploadRequest::ACCEPT,
+                'max_size_mb' => StoreAssetUploadRequest::maxSizeMb(),
+            ],
         ]);
     }
 }

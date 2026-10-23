@@ -17,8 +17,13 @@ export const FORGOT_PASSWORD_URL = '/forgot-password';
 export const RESET_PASSWORD_URL = '/reset-password';
 export const VERIFY_EMAIL_URL = '/verify-email';
 
-// Library: the main page after login
+// Library: the main page after login, and its JSON endpoints (routes/api.php)
 export const LIBRARY_URL = '/library';
+export const ASSET_UPLOADS_API_URL = '/api/assets/uploads';
+
+// Uploads: files sent at once, and how often a batch's processing is polled (ms)
+export const ASSET_UPLOAD_CONCURRENCY = 3;
+export const ASSET_UPLOAD_POLL_INTERVAL = 3000;
 
 // Automatic retries of idempotent requests on network failures and 502/503/504
 export const RETRY = {

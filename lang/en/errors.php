@@ -12,6 +12,7 @@ return [
     'page_expired' => 'The page has expired. Please try again.',
     'too_many_requests' => 'Too many requests. Please try again in :seconds seconds.',
     'too_many_requests_later' => 'Too many requests. Please try again later.',
+    'payload_too_large' => 'The request is too large for the server.',
 
     'idempotency' => [
         'invalid_key' => 'The Idempotency-Key header must be a UUID.',

@@ -31,6 +31,14 @@ enum AssetFileRole: string
         };
     }
 
+    /**
+     * Disk the file lives on: originals on the private bucket, derived files on the public one.
+     */
+    public function disk(): string
+    {
+        return config('filesystems.asset_disks.'.($this->isDerived() ? 'public' : 'private'));
+    }
+
     /** Files that are uploaded to marketplaces. */
     public function isUploadable(): bool
     {

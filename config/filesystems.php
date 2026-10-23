@@ -17,15 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Assets Disk
+    | Asset Disks
     |--------------------------------------------------------------------------
     |
-    | Disk for users' asset files (originals, previews, thumbnails).
-    | The "s3" disk pointed at Cloudflare R2.
+    | Users' asset files, see docs/storage.md. Originals (the works people sell)
+    | live on a private disk and are served only via short-lived signed URLs;
+    | derived files (previews, thumbnails) on a public one, behind the CDN.
     |
     */
 
-    'assets_disk' => env('ASSETS_DISK', 's3'),
+    'asset_disks' => [
+        'private' => env('ASSETS_PRIVATE_DISK', 'r2-private'),
+        'public' => env('ASSETS_PUBLIC_DISK', 'r2-public'),
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -59,19 +63,32 @@ return [
             'report' => false,
         ],
 
-        // Cloudflare R2 via the S3 driver (AWS_* env namespace).
-        // Originals are served via temporary URLs, derived files (previews, thumbnails)
-        // via the CDN domain in AWS_URL.
-        's3' => [
+        // Cloudflare R2 via the S3 driver; one API token for both buckets (R2_* env namespace).
+        // Private bucket: originals, served only via temporary signed URLs.
+        'r2-private' => [
             'driver' => 's3',
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
-            'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_PRIVATE_BUCKET', 'kadrobit-private'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
             'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
+        // Public bucket: previews and thumbnails, served from its public domain (R2_PUBLIC_URL).
+        'r2-public' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_PUBLIC_BUCKET', 'kadrobit-public'),
+            'url' => env('R2_PUBLIC_URL'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'public',
             'throw' => true,
             'report' => false,
         ],

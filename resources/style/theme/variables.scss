@@ -60,6 +60,17 @@
     $border-radius: (
         'base': 6px,
     ),
+    // Height of form controls (input, select, button, radio-button). One map for all of them:
+    // inputs read it as --el-component-size, selects take it at compile time.
+    $common-component-size: (
+        'default': 34px,
+    ),
+    // Radio buttons take their height from padding instead: 14px text + 2 × (11px − 1px) = 34px
+    // (Element Plus subtracts the border width, though the border is drawn as a shadow).
+    // Change it together with the default size above.
+    $button-padding-vertical: (
+        'default': 10px,
+    ),
     $input-font-size: (
         'large': 16px,
     ),

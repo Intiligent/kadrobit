@@ -151,6 +151,7 @@ class ExceptionHandler
                 ? __('errors.too_many_requests', ['seconds' => (int) $headers['Retry-After']])
                 : __('errors.too_many_requests_later'),
             Response::HTTP_NOT_FOUND => __('errors.not_found'),
+            Response::HTTP_REQUEST_ENTITY_TOO_LARGE => __('errors.payload_too_large'),
             default => $e->getMessage() ?: (Response::$statusTexts[$status] ?? __('errors.generic')),
         };
     }

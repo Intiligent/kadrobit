@@ -4,8 +4,11 @@ import { Head } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AssetGrid from '@/components/library/AssetGrid.vue';
+import AssetInfoPanel from '@/components/library/AssetInfoPanel.vue';
 import AssetToolbar from '@/components/library/AssetToolbar.vue';
 import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
+import UploadStatus from '@/components/library/UploadStatus.vue';
+import { useAssetUpload } from '@/composables/useAssetUpload';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 
 defineOptions({ layout: AppLayout });
@@ -15,6 +18,8 @@ const props = defineProps({
     // Flat list: [{ id, parent_id, name }]
     folders: { type: Array, default: () => [] },
     accounts: { type: Array, default: () => [] },
+    // { accept, max_size_mb }
+    upload: { type: Object, required: true },
 });
 
 // Local working copy: later stages edit and add works in place.
@@ -100,6 +105,8 @@ const empty = computed(() => {
     return { title: trans('library.grid.empty_filtered'), text: '' };
 });
 
+const selected = computed(() => assets.value.find((a) => a.id === selectedId.value) ?? null);
+
 // Breadcrumb: parent folders, then the current place.
 const path = computed(() => folderPath(props.folders, place.value));
 const title = computed(() => path.value.at(-1) ?? trans(`library.explorer.views.${place.value}`));
@@ -108,8 +115,29 @@ watch(place, () => {
     type.value = 'all';
 });
 
-// TODO(KB-16): hand the files to the upload queue.
-function addFiles() {}
+// Uploading
+
+const uploader = useAssetUpload({
+    maxSizeMb: props.upload.max_size_mb,
+    // Works arrive one by one as the batch is processed; the grid filters and sorts them like the rest.
+    onCompleted(asset) {
+        if (!assets.value.some((a) => a.id === asset.id)) {
+            assets.value.unshift({ ...asset });
+        }
+    },
+});
+
+// Files dropped in a folder go into it.
+const uploadFolder = computed(() => (place.value === 'all' || place.value === 'unsorted' ? null : place.value));
+
+function addFiles(files) {
+    // New works are drafts: make sure they are visible.
+    if (status.value === 'ready' || status.value === 'archived') {
+        status.value = 'all';
+    }
+
+    uploader.add(files, { folderId: uploadFolder.value });
+}
 </script>
 
 <template>
@@ -129,16 +157,29 @@ function addFiles() {}
             :total="statusCounts.all"
             :counts="statusCounts"
             :types="types"
-        />
+        >
+            <template #actions>
+                <UploadStatus
+                    :items="uploader.items"
+                    :summary="uploader.summary.value"
+                    @retry="uploader.retry"
+                    @remove="uploader.remove"
+                    @clear="uploader.clearSettled"
+                />
+            </template>
+        </AssetToolbar>
 
         <AssetGrid
             :assets="visible"
             :selected-id="selectedId"
             :size="size"
+            :accept="upload.accept"
             :empty-title="empty.title"
             :empty-text="empty.text"
             @select="selectedId = $event"
             @files="addFiles"
         />
     </main>
+
+    <AssetInfoPanel v-if="selected" :asset="selected" @close="selectedId = null" />
 </template>
