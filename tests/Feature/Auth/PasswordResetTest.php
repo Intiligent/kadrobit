@@ -207,7 +207,7 @@ class PasswordResetTest extends TestCase
     public function test_sessions_on_other_devices_end_after_the_password_changes(): void
     {
         $this->post('/login', ['email' => 'jane@example.com', 'password' => 'password']);
-        $this->get('/')->assertOk();
+        $this->get('/library')->assertOk();
 
         // The reset happens elsewhere; this session still carries the old password hash.
         $this->user->forceFill(['password' => 'changed-elsewhere'])->save();
@@ -215,7 +215,7 @@ class PasswordResetTest extends TestCase
         // Each real request loads the user afresh; the test app would reuse the cached one.
         $this->app['auth']->forgetGuards();
 
-        $this->get('/')->assertRedirect('/login');
+        $this->get('/library')->assertRedirect('/login');
         $this->assertGuest();
         $this->assertSame(0, Passport::token()->where('user_id', $this->user->id)->where('revoked', false)->count());
     }

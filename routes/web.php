@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\Auth\ApiTokenController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -45,6 +46,9 @@ Route::post('reset-password', [ResetPasswordController::class, 'store'])
 
 Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
+
+    // The user's working library: the main page after login (see HomeController).
+    Route::get('library', [AssetController::class, 'index'])->name('library');
 
     Route::prefix('verify-email')->name('verification.')->controller(VerifyEmailController::class)->group(function () {
         Route::get('/', 'notice')->name('notice');

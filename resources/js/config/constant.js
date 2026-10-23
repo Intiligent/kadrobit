@@ -17,6 +17,9 @@ export const FORGOT_PASSWORD_URL = '/forgot-password';
 export const RESET_PASSWORD_URL = '/reset-password';
 export const VERIFY_EMAIL_URL = '/verify-email';
 
+// Library: the main page after login
+export const LIBRARY_URL = '/library';
+
 // Automatic retries of idempotent requests on network failures and 502/503/504
 export const RETRY = {
     attempts: 2,
