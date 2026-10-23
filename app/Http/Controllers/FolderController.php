@@ -25,10 +25,15 @@ class FolderController extends Controller
     public function store(StoreFolderRequest $request): JsonResponse
     {
         $user = $request->user();
-        $parent = $request->parentFolder();
 
-        $folder = DB::transaction(function () use ($user, $parent, $request) {
+        $folder = DB::transaction(function () use ($user, $request) {
             $this->lockTree($user);
+            $parent = $this->lockedParent($request);
+
+            // Checked again under the lock: a parallel request could have taken the name since validation.
+            if ($request->nameTaken($request->input('name'), $parent?->id)) {
+                throw ValidationException::withMessages(['name' => __('library.folders.validation.name_taken')]);
+            }
 
             return $user->folders()->create([
                 'parent_id' => $parent?->id,
@@ -52,13 +57,26 @@ class FolderController extends Controller
                 $folder->name = $request->input('name');
             }
 
-            // Checked again under the lock: a parallel move could have changed the tree since validation.
-            if (($parent = $request->parentFolder()) && $request->movesParent() && $request->wouldLoop($folder, $parent)) {
-                throw ValidationException::withMessages(['parent_id' => __('library.folders.validation.into_itself')]);
+            // Checked again under the lock: a parallel change could have altered the tree since validation.
+            $parentId = $folder->parent_id;
+
+            if ($request->movesParent()) {
+                $parent = $this->lockedParent($request);
+
+                if ($parent && $request->wouldLoop($folder, $parent)) {
+                    throw ValidationException::withMessages(['parent_id' => __('library.folders.validation.into_itself')]);
+                }
+
+                $parentId = $parent?->id;
+            }
+
+            if (($request->has('name') || $request->movesParent()) && $request->nameTaken($folder->name, $parentId, $folder->id)) {
+                throw ValidationException::withMessages([
+                    $request->has('name') ? 'name' : 'parent_id' => __('library.folders.validation.name_taken'),
+                ]);
             }
 
             if ($request->movesParent() || $request->has('position')) {
-                $parentId = $request->movesParent() ? $request->parentFolder()?->id : $folder->parent_id;
                 $this->place($user, $folder, $parentId, $request->integer('position', PHP_INT_MAX));
             }
 
@@ -75,7 +93,11 @@ class FolderController extends Controller
     {
         $user = $request->user();
 
-        $user->folders()->where('ulid', $folder)->firstOrFail()->delete();
+        // Under the tree lock, like the other changes: a parallel move must not land in a folder being deleted.
+        DB::transaction(function () use ($user, $folder) {
+            $this->lockTree($user);
+            $user->folders()->where('ulid', $folder)->firstOrFail()->delete();
+        });
 
         return $this->list($user);
     }
@@ -102,6 +124,21 @@ class FolderController extends Controller
                 $sibling->save();
             }
         }
+    }
+
+    /**
+     * The requested parent, read under the tree lock. A parent deleted since validation is refused
+     * rather than read as the top level.
+     */
+    protected function lockedParent(StoreFolderRequest|UpdateFolderRequest $request): ?Folder
+    {
+        $parent = $request->parentFolder();
+
+        if ($request->input('parent_id') && ! $parent) {
+            throw ValidationException::withMessages(['parent_id' => __('validation.exists', ['attribute' => 'parent_id'])]);
+        }
+
+        return $parent;
     }
 
     /**

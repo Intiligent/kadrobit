@@ -4,6 +4,7 @@ import { Inbox, Layers, Plus } from 'lucide-vue-next';
 import FolderTree from '@/components/library/FolderTree.vue';
 import MarketplaceAccounts from '@/components/library/MarketplaceAccounts.vue';
 import { DRAG_ASSETS, DRAG_FOLDER } from '@/config/constant';
+import { dragHasType as hasType } from '@/utils/drag';
 
 const props = defineProps({
     // Folder tree: [{ id, name, count, children }]
@@ -34,7 +35,6 @@ const creatingAtTop = computed(() => props.editing?.mode === 'create' && !props.
 
 // Drop targets outside the tree: works onto Unsorted, folders onto the "Folders" label (top level, last).
 const dropOn = ref(null);
-const hasType = (event, type) => Array.from(event.dataTransfer?.types ?? []).includes(type);
 
 function accepts(target, event) {
     return target === 'unsorted' ? hasType(event, DRAG_ASSETS) : hasType(event, DRAG_FOLDER);
@@ -80,17 +80,20 @@ function onDrop(target, event) {
     <aside class="flex w-[264px] flex-none flex-col border-r border-[var(--el-border-color-light)] bg-[var(--el-bg-color)]">
         <div class="flex h-16 flex-none items-center justify-between pl-[18px] pr-3">
             <h2 class="text-base font-semibold">{{ $t('library.explorer.library') }}</h2>
+            <!-- The span gets the hover: a disabled button fires no mouse events, so its tooltip would never open. -->
             <el-tooltip :content="$t(readonly ? 'library.folders.verify_to_edit' : 'library.explorer.new_folder')" placement="bottom">
-                <button
-                    type="button"
-                    class="explorer__icon-button"
-                    :class="{ 'is-disabled': readonly }"
-                    :disabled="readonly"
-                    :aria-label="$t('library.explorer.new_folder')"
-                    @click="emit('edit', { mode: 'create', parentId: null })"
-                >
-                    <Plus :size="18" :stroke-width="1.75" />
-                </button>
+                <span class="flex" :class="{ 'cursor-not-allowed': readonly }">
+                    <button
+                        type="button"
+                        class="explorer__icon-button"
+                        :class="{ 'is-disabled': readonly }"
+                        :disabled="readonly"
+                        :aria-label="$t('library.explorer.new_folder')"
+                        @click="emit('edit', { mode: 'create', parentId: null })"
+                    >
+                        <Plus :size="18" :stroke-width="1.75" />
+                    </button>
+                </span>
             </el-tooltip>
         </div>
 
@@ -161,21 +164,10 @@ function onDrop(target, event) {
         background: var(--el-fill-color);
     }
 
+    // The wrapping span shows the cursor and the tooltip.
     &.is-disabled {
-        cursor: not-allowed;
+        pointer-events: none;
         opacity: 0.5;
-    }
-}
-
-.explorer__label {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-    border-radius: 6px;
-
-    &.is-drop {
-        color: var(--el-color-primary);
-        background: var(--el-color-primary-light-9);
     }
 }
 
@@ -186,6 +178,9 @@ function onDrop(target, event) {
 }
 
 .explorer__label {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
     padding: 22px 10px 8px;
     font-size: 12px;
     font-weight: 600;
@@ -193,6 +188,12 @@ function onDrop(target, event) {
     color: var(--el-text-color-placeholder);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    border-radius: 6px;
+
+    &.is-drop {
+        color: var(--el-color-primary);
+        background: var(--el-color-primary-light-9);
+    }
 }
 
 .explorer__item {

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { Upload } from 'lucide-vue-next';
 import AssetCard from '@/components/library/AssetCard.vue';
 import UploadTile from '@/components/library/UploadTile.vue';
+import { dragHasType } from '@/utils/drag';
 
 const props = defineProps({
     assets: { type: Array, required: true },
@@ -27,7 +28,7 @@ const gridStyle = computed(() => ({
 // so a depth counter tells when the pointer really left the area.
 const dragDepth = ref(0);
 const dragging = computed(() => dragDepth.value > 0);
-const hasFiles = (event) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
+const hasFiles = (event) => dragHasType(event, 'Files');
 
 function onDragEnter(event) {
     if (hasFiles(event)) {

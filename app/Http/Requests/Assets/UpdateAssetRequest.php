@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Assets;
 
 use App\Enums\AssetStatus;
+use App\Http\Requests\Concerns\ResolvesOwnFolders;
 use App\Models\Asset;
 use App\Models\Marketplace;
 use App\Models\MarketplaceCategory;
@@ -16,6 +17,8 @@ use Illuminate\Validation\Validator;
  */
 class UpdateAssetRequest extends FormRequest
 {
+    use ResolvesOwnFolders;
+
     /** Longest keyword list a marketplace accepts (Shutterstock: 50, Adobe Stock: 49). */
     public const KEYWORDS_MAX = 50;
 
@@ -52,7 +55,7 @@ class UpdateAssetRequest extends FormRequest
             'categories.*.*' => ['string', 'max:100'],
             'status' => ['sometimes', Rule::enum(AssetStatus::class)],
             // Folder ulid, null for Unsorted.
-            'folder_id' => ['sometimes', 'nullable', 'string', Rule::exists('folders', 'ulid')->where('user_id', $this->user()->id)],
+            'folder_id' => ['sometimes', 'nullable', 'string', $this->ownFolderRule()],
         ];
     }
 
@@ -77,7 +80,7 @@ class UpdateAssetRequest extends FormRequest
         $data = $this->validated();
 
         if (array_key_exists('folder_id', $data)) {
-            $data['folder_id'] = $data['folder_id'] ? $this->user()->folders()->where('ulid', $data['folder_id'])->value('id') : null;
+            $data['folder_id'] = $this->ownFolderId($data['folder_id']);
         }
 
         return $data;

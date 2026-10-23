@@ -89,6 +89,13 @@ class FolderTest extends TestCase
         $this->folder('Travel', user: User::factory()->create());
     }
 
+    public function test_names_compare_like_the_database_index_beyond_ascii(): void
+    {
+        $this->folder('Путешествия');
+
+        $this->postJson('/api/folders', ['name' => 'путешествия'])->assertUnprocessable()->assertJsonValidationErrors('name');
+    }
+
     public function test_database_rejects_duplicate_top_level_names(): void
     {
         $this->folder('Travel');
@@ -196,6 +203,17 @@ class FolderTest extends TestCase
         $this->assertModelMissing($iceland);
         $this->assertModelExists($food);
         $this->assertNull($work->fresh()->folder_id);
+    }
+
+    public function test_moving_into_a_folder_that_is_gone_is_refused(): void
+    {
+        $food = $this->folder('Food');
+        $gone = $this->folder('Gone');
+        $ulid = $gone->ulid;
+        $gone->delete();
+
+        $this->patchJson("/api/folders/{$food->ulid}", ['parent_id' => $ulid])->assertUnprocessable()->assertJsonValidationErrors('parent_id');
+        $this->assertNull($food->fresh()->parent_id);
     }
 
     public function test_another_users_folder_is_not_found(): void

@@ -124,7 +124,6 @@ return [
         'delete_confirm_title' => 'Delete “:name”?',
         'delete_confirm' => 'Subfolders are deleted too. Works stay in the library, in Unsorted.',
         'delete_confirm_works' => '{1} Subfolders are deleted too. :count work stays in the library, in Unsorted.|[2,*] Subfolders are deleted too. :count works stay in the library, in Unsorted.',
-        'moved' => '{1} Moved to :folder|[2,*] :count works moved to :folder',
         'drop_root' => 'Drop here to move to the top level',
         'move_to' => 'Folder',
         'unsorted' => 'Unsorted',

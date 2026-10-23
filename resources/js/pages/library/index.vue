@@ -166,12 +166,13 @@ const autosave = useAssetAutosave({
 
 // Folders: an inline name field in the tree for a new folder or a rename, deleting, moving folders and works.
 
-// { mode: 'create', parentId } | { mode: 'rename', id } | null
+// { mode: 'create', parentId, key } | { mode: 'rename', id, key } | null; a new key for every opening
 const editing = ref(null);
 const editState = ref({ error: null, saving: false });
+let editKey = 0;
 
 function startEditing(next) {
-    editing.value = next;
+    editing.value = { ...next, key: ++editKey };
     editState.value = { error: null, saving: false };
 }
 
@@ -198,10 +199,14 @@ async function submitName(name) {
 }
 
 async function deleteFolder(node) {
+    const ids = subtreeIds(folders.value, node.id);
+    // Archived works too: they also end up without a folder, though the tree does not count them.
+    const works = assets.value.filter((a) => ids.has(a.folder_id)).length;
+
     const confirmed = await notify.confirm({
         title: trans('library.folders.delete_confirm_title', { name: node.name }),
-        message: node.count
-            ? transChoice('library.folders.delete_confirm_works', node.count, { count: node.count })
+        message: works
+            ? transChoice('library.folders.delete_confirm_works', works, { count: works })
             : trans('library.folders.delete_confirm'),
         confirmText: trans('library.folders.delete'),
         cancelText: trans('common.actions.cancel'),
@@ -211,7 +216,6 @@ async function deleteFolder(node) {
         return;
     }
 
-    const ids = subtreeIds(folders.value, node.id);
     const result = await folderStore.remove(node.id);
 
     if (result.failed) {

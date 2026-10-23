@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderPlus, Pencil, Trash2 } from 'lucide-vue-next';
 import FolderNameInput from '@/components/library/FolderNameInput.vue';
 import { DRAG_ASSETS, DRAG_FOLDER } from '@/config/constant';
+import { dragHasType as hasType } from '@/utils/drag';
 import { dropPlacement } from '@/utils/folders';
 
 const props = defineProps({
@@ -12,7 +13,8 @@ const props = defineProps({
     flat: { type: Array, default: () => [] },
     // No menu and no dragging until the email is confirmed.
     readonly: { type: Boolean, default: false },
-    // Inline name field: { mode: 'create', parentId } or { mode: 'rename', id }; null when closed
+    // Inline name field: { mode: 'create', parentId, key } or { mode: 'rename', id, key }; null when closed.
+    // `key` is new for every opening, so a new field never reuses the state of the previous one.
     editing: { type: Object, default: null },
     // { error, saving } of the name field
     editState: { type: Object, default: () => ({ error: null, saving: false }) },
@@ -55,7 +57,7 @@ const rows = computed(() => {
             }
 
             if (creatingIn.value === node.id) {
-                out.push({ key: 'new', node: null, depth: depth + 1 });
+                out.push({ key: `new-${props.editing.key}`, node: null, depth: depth + 1 });
             }
         }
     };
@@ -63,7 +65,7 @@ const rows = computed(() => {
     walk(props.folders, 0);
 
     if (creatingIn.value === null) {
-        out.push({ key: 'new', node: null, depth: 0 });
+        out.push({ key: `new-${props.editing.key}`, node: null, depth: 0 });
     }
 
     return out;
@@ -89,8 +91,6 @@ function onCommand(command, node) {
 const draggingId = ref(null);
 // { id, zone: 'before' | 'inside' | 'after' }
 const dropTarget = ref(null);
-
-const hasType = (event, type) => Array.from(event.dataTransfer?.types ?? []).includes(type);
 
 function onDragStart(node, event) {
     draggingId.value = node.id;
@@ -173,6 +173,7 @@ const dropClass = (node) => (dropTarget.value?.id === node.id ? `is-drop-${dropT
         <template v-for="row in rows" :key="row.key">
             <FolderNameInput
                 v-if="!row.node || renaming === row.node.id"
+                :key="`name-${editing?.key}`"
                 :initial="row.node?.name ?? ''"
                 :depth="row.depth"
                 :error="editState.error"

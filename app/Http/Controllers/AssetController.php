@@ -75,7 +75,7 @@ class AssetController extends Controller
     public function move(MoveAssetsRequest $request): JsonResponse
     {
         $user = $request->user();
-        $folderId = $request->input('folder_id') ? $user->folders()->where('ulid', $request->input('folder_id'))->value('id') : null;
+        $folderId = $request->ownFolderId($request->input('folder_id'));
 
         $moved = $user->assets()->whereIn('ulid', $request->input('assets'))->update(['folder_id' => $folderId]);
 
