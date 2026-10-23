@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $title
  * @property string|null $description
  * @property array<int, string> $keywords Ordered: the first keywords matter most
+ * @property array<string, array<int, string>> $categories Marketplace category external_ids by marketplace code
  * @property bool $is_editorial
  * @property bool $is_ai_generated
  * @property Carbon|null $captured_at
@@ -48,6 +49,7 @@ class Asset extends Model
         'title',
         'description',
         'keywords',
+        'categories',
         'is_editorial',
         'is_ai_generated',
         'captured_at',
@@ -68,6 +70,7 @@ class Asset extends Model
     protected $attributes = [
         'status' => 'draft',
         'keywords' => '[]',
+        'categories' => '{}',
         'is_editorial' => false,
         'is_ai_generated' => false,
         'media_info' => '{}',
@@ -79,6 +82,7 @@ class Asset extends Model
             'type' => MediaType::class,
             'status' => AssetStatus::class,
             'keywords' => 'array',
+            'categories' => 'array',
             'is_editorial' => 'boolean',
             'is_ai_generated' => 'boolean',
             'captured_at' => 'datetime',

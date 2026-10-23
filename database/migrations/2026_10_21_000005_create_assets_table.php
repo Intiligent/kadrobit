@@ -25,6 +25,9 @@ return new class extends Migration
             $table->string('title')->nullable();
             $table->text('description')->nullable();
             $table->jsonb('keywords')->default('[]'); // ordered list of strings
+            // Marketplace categories by marketplace code, values are marketplace_categories.external_id:
+            // {"adobe_stock": ["11"], "shutterstock": ["Nature", "Parks/Outdoor"]}.
+            $table->jsonb('categories')->default('{}');
             $table->boolean('is_editorial')->default(false);
             $table->boolean('is_ai_generated')->default(false);
 

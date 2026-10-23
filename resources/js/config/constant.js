@@ -19,11 +19,18 @@ export const VERIFY_EMAIL_URL = '/verify-email';
 
 // Library: the main page after login, and its JSON endpoints (routes/api.php)
 export const LIBRARY_URL = '/library';
+export const ASSETS_API_URL = '/api/assets';
 export const ASSET_UPLOADS_API_URL = '/api/assets/uploads';
 
 // Uploads: files sent at once, and how often a batch's processing is polled (ms)
 export const ASSET_UPLOAD_CONCURRENCY = 3;
 export const ASSET_UPLOAD_POLL_INTERVAL = 3000;
+
+// Editing: edits are saved this long after the last change (ms). Keyword limits mirror UpdateAssetRequest.
+export const ASSET_AUTOSAVE_DELAY = 600;
+export const KEYWORDS_MAX = 50;
+// The first keywords carry the most weight on marketplaces and are highlighted.
+export const KEYWORDS_HIGHLIGHTED = 10;
 
 // Automatic retries of idempotent requests on network failures and 502/503/504
 export const RETRY = {
