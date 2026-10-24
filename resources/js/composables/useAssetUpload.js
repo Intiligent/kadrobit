@@ -2,6 +2,7 @@ import { computed, reactive, ref } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import api from '@/core/api';
 import { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL, ASSET_UPLOADS_API_URL } from '@/config/constant';
+import { createLocalPreview } from '@/utils/localPreview';
 
 /**
  * Upload queue of the library.
@@ -28,6 +29,8 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
     // batch id => { timer, cursor }
     const polls = new Map();
     let active = 0;
+    // The page was left: late local previews are freed instead of shown.
+    let disposed = false;
 
     const settled = (item) => item.status === 'done' || item.status === 'error';
 
@@ -54,6 +57,7 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
         }
 
         items.push(...entries);
+        entries.forEach(attachPreview);
         const sendable = entries.filter((item) => item.status === 'queued');
 
         // A batch takes up to maxBatchFiles files; more are split into several.
@@ -83,7 +87,8 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
             name: file.name,
             mime: file.type,
             file,
-            previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+            // A small local preview (utils/localPreview.js) until the server's thumbnail arrives.
+            previewUrl: null,
             thumbnailUrl: null,
             folderId,
             batchId: null,
@@ -94,6 +99,26 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
             error: tooLarge ? trans('library.upload.too_large', { max: maxSizeMb }) : null,
             retryable: false,
         });
+    }
+
+    /**
+     * Made in the background, a few files at a time; a preview that comes after its item was removed
+     * or the page was left is freed at once.
+     */
+    async function attachPreview(item) {
+        const url = await createLocalPreview(item.file);
+
+        if (!url) {
+            return;
+        }
+
+        if (disposed || !items.includes(item)) {
+            URL.revokeObjectURL(url);
+
+            return;
+        }
+
+        item.previewUrl = url;
     }
 
     function pump() {
@@ -268,6 +293,7 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
      * Stops polling and frees the local previews, when the page goes away.
      */
     function dispose() {
+        disposed = true;
         polls.forEach((state) => clearTimeout(state.timer));
         polls.clear();
         items.forEach((item) => item.previewUrl && URL.revokeObjectURL(item.previewUrl));

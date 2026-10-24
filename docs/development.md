@@ -53,4 +53,6 @@ overmind start          # Procfile.dev указан в .overmind.env
 
 ## PHP и расширения
 
+Превью видео и векторов делают внешние программы: `brew install ffmpeg ghostscript librsvg` (`docs/library.md`, «По типам работ»). Ghostscript нужен именно из Homebrew: ImageMagick из MAMP вызывает свой старый `gs` 9.55, поэтому EPS растеризуется не через Imagick, а вызовом `gs` из `ASSETS_GHOSTSCRIPT`. Тесты векторов и видео пропускаются, если программы нет.
+
 Превью фото делает расширение `imagick`, оно нужно и веб-серверу, и обработчику очереди. Локально в MAMP команда `php` в терминале — алиас с `-c ".../MAMP PRO/conf/php8.3.28.ini"`, а дочерние процессы PHP (задачи `queue:listen`, phpunit из `php artisan test`) запускаются без него, со стандартным `/Applications/MAMP/bin/php/php8.3.28/conf/php.ini`. В этом файле тоже должна быть включена строка `extension=imagick.so`, иначе обработка загрузок и тесты превью падают с «The imagick PHP extension is required for previews».

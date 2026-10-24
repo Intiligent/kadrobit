@@ -9,13 +9,17 @@ use App\Models\Asset;
 use App\Models\AssetFile;
 use App\Models\AssetUpload;
 use App\Services\Assets\PreviewGenerator;
+use App\Services\Assets\UnreadableMedia;
+use App\Services\Assets\VideoTools;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Symfony\Component\Mime\MimeTypes;
@@ -26,13 +30,15 @@ use Throwable;
  * first; the file goes to R2 only after that, right before the work is committed, so the
  * assets/ prefix only ever holds files a work points to:
  *
- * 1. read the metadata from the staged file;
- * 2. make the previews of a photo (PreviewGenerator; videos and vectors come later);
+ * 1. read the metadata from the staged file (EXIF of a photo, ffprobe of a video);
+ * 2. make the previews (PreviewGenerator): of a photo from itself, of a video from a frame plus a light
+ *    H.264 copy (VideoTools), of a vector from its raster companion, which is stored too;
  * 3. store the original on the private disk and the previews on the public one, at their final paths;
  * 4. create the work and its file rows, and mark the upload done, in one transaction;
  * 5. delete the staged file and the temp previews.
  *
- * If the commit fails, every stored file is deleted again. One job per file, in the upload's batch.
+ * If the commit fails, every stored file is deleted again. A file that cannot be read as what it claims
+ * to be (UnreadableMedia) fails at once, without retries. One job per file, in the upload's batch.
  */
 class ProcessAssetUpload implements ShouldQueue
 {
@@ -43,7 +49,13 @@ class ProcessAssetUpload implements ShouldQueue
 
     public const PROGRESS_PREVIEWS = 50;
 
+    /** Videos only: the playback copy is encoded between PROGRESS_PREVIEWS and this, reported as it goes. */
+    public const PROGRESS_VIDEO_PREVIEW = 75;
+
     public const PROGRESS_STORED = 85;
+
+    /** Seconds between progress writes while a video is encoded. */
+    protected const PROGRESS_INTERVAL = 2;
 
     public int $tries = 3;
 
@@ -68,7 +80,7 @@ class ProcessAssetUpload implements ShouldQueue
         return [(new WithoutOverlapping($this->upload->ulid))->releaseAfter(30)->expireAfter($this->timeout + 30)];
     }
 
-    public function handle(PreviewGenerator $previews): void
+    public function handle(PreviewGenerator $previews, VideoTools $videos): void
     {
         // Fresh from the database: an earlier run of this job may have finished it meanwhile.
         $upload = $this->upload->refresh();
@@ -98,16 +110,16 @@ class ProcessAssetUpload implements ShouldQueue
 
         $local = $staging->path($upload->stagingPath());
         $type = MediaType::fromMime($upload->mime);
-        $pixels = $type === MediaType::Photo ? $this->pixelSize($local) : null;
-        $attributes = $type === MediaType::Photo ? $this->photoAttributes($local, $pixels) : [];
-        $upload->update(['progress' => self::PROGRESS_METADATA]);
-
-        $copies = $type === MediaType::Photo ? $previews->forPhoto($local) : [];
-        $upload->update(['progress' => self::PROGRESS_PREVIEWS]);
-
+        $copies = [];
         $stored = [];
 
         try {
+            [$attributes, $pixels, $copies] = match ($type) {
+                MediaType::Video => $this->prepareVideo($local, $previews, $videos),
+                MediaType::Vector => $this->prepareVector($local, $previews),
+                default => $this->preparePhoto($local, $previews),
+            };
+
             $stored[] = $this->store($local, [
                 'role' => AssetFileRole::Original,
                 'mime' => $upload->mime,
@@ -119,7 +131,7 @@ class ProcessAssetUpload implements ShouldQueue
             ], $this->extension());
 
             foreach ($copies as $copy) {
-                $stored[] = $this->store($copy['path'], $copy, 'jpg', $copy['checksum']);
+                $stored[] = $this->store($copy['path'], $copy, $copy['extension'] ?? 'jpg', $copy['checksum']);
             }
 
             $upload->update(['progress' => self::PROGRESS_STORED]);
@@ -137,6 +149,13 @@ class ProcessAssetUpload implements ShouldQueue
             $this->reject(__('library.upload.duplicate', ['name' => $upload->filename]));
 
             return;
+        } catch (UnreadableMedia $e) {
+            // The user's file, not a fault of the app: a warning, not an error report.
+            Log::warning("Upload {$upload->ulid} ({$upload->mime}) cannot be read: {$e->getMessage()}");
+            $this->deleteStored($stored);
+            $this->reject(__('library.upload.processing_failed'));
+
+            return;
         } catch (Throwable $e) {
             $this->deleteStored($stored);
 
@@ -146,6 +165,92 @@ class ProcessAssetUpload implements ShouldQueue
         }
 
         $upload->deleteStagedFile();
+    }
+
+    /**
+     * EXIF size and date, and the thumbnail and preview.
+     *
+     * @return array{0: array<string, mixed>, 1: array{0: int, 1: int}|null, 2: list<array<string, mixed>>}
+     */
+    protected function preparePhoto(string $local, PreviewGenerator $previews): array
+    {
+        $pixels = $this->pixelSize($local);
+        $attributes = $this->photoAttributes($local, $pixels);
+        $this->upload->update(['progress' => self::PROGRESS_METADATA]);
+
+        $copies = $previews->forPhoto($local);
+        $this->upload->update(['progress' => self::PROGRESS_PREVIEWS]);
+
+        return [$attributes, $pixels, $copies];
+    }
+
+    /**
+     * ffprobe data, a thumbnail and preview from a frame, and the playback copy, whose encoding
+     * moves the progress from PROGRESS_PREVIEWS to PROGRESS_VIDEO_PREVIEW.
+     *
+     * @return array{0: array<string, mixed>, 1: array{0: int, 1: int}, 2: list<array<string, mixed>>}
+     */
+    protected function prepareVideo(string $local, PreviewGenerator $previews, VideoTools $videos): array
+    {
+        $probe = $videos->probe($local);
+        $attributes = Arr::only($probe, ['width', 'height', 'duration_ms', 'captured_at', 'media_info']);
+        $this->upload->update(['progress' => self::PROGRESS_METADATA]);
+
+        $frame = $videos->frame($local, $probe['duration_ms']);
+
+        try {
+            $copies = $previews->forPhoto($frame);
+        } finally {
+            @unlink($frame);
+        }
+
+        $this->upload->update(['progress' => self::PROGRESS_PREVIEWS]);
+
+        try {
+            $reported = microtime(true);
+            $preview = $videos->preview($local, $probe['duration_ms'], function (float $done) use (&$reported) {
+                if (microtime(true) - $reported >= self::PROGRESS_INTERVAL) {
+                    $reported = microtime(true);
+                    $span = self::PROGRESS_VIDEO_PREVIEW - self::PROGRESS_PREVIEWS;
+                    $this->upload->update(['progress' => self::PROGRESS_PREVIEWS + (int) floor($span * $done)]);
+                }
+            });
+        } catch (Throwable $e) {
+            $previews->discard($copies);
+
+            throw $e;
+        }
+
+        $copies[] = [
+            'role' => AssetFileRole::VideoPreview,
+            'path' => $preview['path'],
+            'mime' => 'video/mp4',
+            'extension' => 'mp4',
+            'size_bytes' => filesize($preview['path']),
+            'width' => $preview['width'],
+            'height' => $preview['height'],
+            'checksum' => hash_file('sha256', $preview['path']),
+        ];
+        $this->upload->update(['progress' => self::PROGRESS_VIDEO_PREVIEW]);
+
+        return [$attributes, [$probe['stored_width'], $probe['stored_height']], $copies];
+    }
+
+    /**
+     * The vector's own size, its raster companion, thumbnail and preview.
+     *
+     * @return array{0: array<string, mixed>, 1: array{0: int, 1: int}, 2: list<array<string, mixed>>}
+     */
+    protected function prepareVector(string $local, PreviewGenerator $previews): array
+    {
+        $this->upload->update(['progress' => self::PROGRESS_METADATA]);
+
+        $vector = $previews->forVector($local, $this->upload->mime);
+        $this->upload->update(['progress' => self::PROGRESS_PREVIEWS]);
+
+        $size = [$vector['width'], $vector['height']];
+
+        return [['width' => $size[0], 'height' => $size[1]], $size, $vector['copies']];
     }
 
     /**
@@ -199,7 +304,7 @@ class ProcessAssetUpload implements ShouldQueue
     }
 
     /**
-     * @param  array{width?: int, height?: int, captured_at?: Carbon}  $attributes
+     * @param  array{width?: int, height?: int, captured_at?: Carbon, duration_ms?: int, media_info?: array}  $attributes
      * @param  list<array<string, mixed>>  $files
      */
     protected function createAsset(MediaType $type, array $attributes, array $files): void
