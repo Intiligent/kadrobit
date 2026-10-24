@@ -149,7 +149,7 @@ return [
         'category_required' => 'Required',
         'category_optional' => 'Optional',
         'editorial' => 'Editorial use only',
-        'editorial_hint' => 'News, events, recognizable people or brands without releases',
+        'editorial_hint' => 'News, events, people or brands without releases',
         'ai' => 'Created with generative AI',
         'ai_hint' => 'Marketplaces require this to be disclosed',
         'verify_to_edit' => 'Confirm your email to edit works.',

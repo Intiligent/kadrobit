@@ -64,3 +64,14 @@
         }
     }
 }
+
+// ElTooltip
+// Tooltip text one step up, from the extra-small to the small font size (12px → 13px).
+// Element Plus: `.el-popper { font-size: 12px }`, a fixed value with no variable of its own.
+// Tooltips have no class of their own, and selects and dropdowns are tooltips inside too (same
+// .el-tooltip class, role="tooltip"). What sets them apart: their poppers are bare (.is-pure, no
+// padding or arrow), and a popover has .el-popover with its own --el-popover-font-size.
+// Neither the effect (light or dark) nor the theme matters.
+.el-popper:not(.is-pure, .el-popover) {
+    font-size: var(--el-font-size-small);
+}
