@@ -191,6 +191,7 @@ return [
         'needs_metadata' => 'Add a title and keywords to mark it ready',
         'issues' => '{1} :count marketplace needs fixes|[2,*] :count marketplaces need fixes',
         'archive' => 'Archive',
+        'archive_hint' => ':key-click to archive without confirmation',
         'restore' => 'Restore',
         'back_to_draft' => 'Back to draft',
         'mark_ready' => 'Mark as ready',

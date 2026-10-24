@@ -31,8 +31,12 @@ const emit = defineEmits(['update', 'status', 'delete', 'close']);
 // Remembered per browser, like the tile size: the panel reopens on the same tab.
 const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'marketplaces', 'file'] });
 
+// The key that skips the archive confirmation, as the keyboard shows it.
+const MODIFIER_KEY = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
+
 const TYPE_ICON = { photo: Image, video: Film, vector: PenTool, illustration: Sparkles };
-const STATUS_TAG = { draft: 'info', ready: 'success', archived: 'info' };
+// Ready to publish is green, archived (next step: deleted) red, a draft neutral.
+const STATUS_TAG = { draft: 'info', ready: 'success', archived: 'danger' };
 
 const subtitle = computed(() => {
     const a = props.asset;
@@ -143,9 +147,11 @@ const footNote = computed(() => {
 
             <template v-if="asset.status === 'draft'">
                 <!-- ⌘-click (Ctrl-click off macOS) archives without asking: it is undone with Restore. -->
-                <el-button :disabled="readonly" @click="emit('status', 'archived', { confirm: !($event.metaKey || $event.ctrlKey) })">
-                    {{ $t('library.footer.archive') }}
-                </el-button>
+                <el-tooltip :content="$t('library.footer.archive_hint', { key: MODIFIER_KEY })" :disabled="readonly" :show-after="500">
+                    <el-button :disabled="readonly" @click="emit('status', 'archived', { confirm: !($event.metaKey || $event.ctrlKey) })">
+                        {{ $t('library.footer.archive') }}
+                    </el-button>
+                </el-tooltip>
                 <el-button type="primary" :disabled="readonly || !canMarkReady" @click="emit('status', 'ready')">
                     {{ $t('library.footer.mark_ready') }}
                 </el-button>
