@@ -126,4 +126,37 @@ describe('useAssetAutosave', () => {
         expect(api.patch).toHaveBeenCalledTimes(2);
         expect(autosave.unsaved.value).toBe(false);
     });
+    it('forgets the unsent changes of a work that goes away', async () => {
+        const autosave = useAssetAutosave();
+
+        autosave.queue('a1', { title: 'Gone soon' });
+        autosave.forget('a1');
+        vi.advanceTimersByTime(ASSET_AUTOSAVE_DELAY);
+        await flush();
+
+        expect(api.patch).not.toHaveBeenCalled();
+        expect(autosave.state.a1).toBeUndefined();
+        expect(autosave.unsaved.value).toBe(false);
+    });
+    it('ignores a request still running when the work is deleted, and later edits of it', async () => {
+        let fail;
+        api.patch.mockImplementationOnce(() => new Promise((resolve, reject) => { fail = reject; }));
+        const onSaved = vi.fn();
+        const autosave = useAssetAutosave({ onSaved });
+
+        autosave.queue('a1', { title: 'Late' }, { immediate: true });
+        vi.advanceTimersByTime(0);
+        autosave.forget('a1');
+        fail(Object.assign(new Error('Not found'), { status: 404 }));
+        await flush();
+
+        autosave.queue('a1', { title: 'After' });
+        vi.advanceTimersByTime(ASSET_AUTOSAVE_DELAY);
+        await flush();
+
+        expect(api.patch).toHaveBeenCalledTimes(1);
+        expect(autosave.state.a1).toBeUndefined();
+        expect(autosave.unsaved.value).toBe(false);
+        expect(onSaved).not.toHaveBeenCalled();
+    });
 });

@@ -191,6 +191,7 @@ return [
         'needs_metadata' => 'Add a title and keywords to mark it ready',
         'issues' => '{1} :count marketplace needs fixes|[2,*] :count marketplaces need fixes',
         'archive' => 'Archive',
+        'archive_hint' => ':key-click to archive without confirmation',
         'restore' => 'Restore',
         'back_to_draft' => 'Back to draft',
         'mark_ready' => 'Mark as ready',
@@ -199,6 +200,13 @@ return [
         'archive_confirm_title' => 'Archive this work?',
         'archive_confirm' => ':file will be hidden from the library. You can restore it from the Archived tab.',
         'leave_confirm' => 'Changes are still being saved. Leave the page and lose them?',
+        'delete' => 'Delete',
+        'delete_confirm_title' => 'Delete this work for good?',
+        'delete_confirm' => ':file and all its files will be deleted. This cannot be undone.',
+    ],
+
+    'delete' => [
+        'not_archived' => 'Only archived works can be deleted. Archive it first.',
     ],
 
     'validation' => [

@@ -22,15 +22,21 @@ const props = defineProps({
     errors: { type: Object, default: () => ({}) },
     // Read-only until the email is confirmed: the API refuses edits before that.
     readonly: { type: Boolean, default: false },
+    // The delete request is running.
+    deleting: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update', 'status', 'close']);
+const emit = defineEmits(['update', 'status', 'delete', 'close']);
 
 // Remembered per browser, like the tile size: the panel reopens on the same tab.
 const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'marketplaces', 'file'] });
 
+// The key that skips the archive confirmation, as the keyboard shows it.
+const MODIFIER_KEY = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
+
 const TYPE_ICON = { photo: Image, video: Film, vector: PenTool, illustration: Sparkles };
-const STATUS_TAG = { draft: 'info', ready: 'success', archived: 'info' };
+// Ready to publish is green, archived (next step: deleted) red, a draft neutral.
+const STATUS_TAG = { draft: 'info', ready: 'success', archived: 'danger' };
 
 const subtitle = computed(() => {
     const a = props.asset;
@@ -125,7 +131,7 @@ const footNote = computed(() => {
             </el-tab-pane>
         </el-tabs>
 
-        <footer class="flex flex-none items-center gap-2.5 border-t border-[var(--el-border-color-light)] px-5 py-3">
+        <footer class="info-panel__footer flex flex-none items-center gap-2.5 border-t border-[var(--el-border-color-light)] px-5 py-3">
             <!-- One line at most, so the footer keeps its height: warnings are an icon with the text in a tooltip. -->
             <div class="flex min-w-0 flex-1 items-center">
                 <el-tooltip v-if="footNote.warn" :content="footNote.text" placement="top">
@@ -140,7 +146,12 @@ const footNote = computed(() => {
             </div>
 
             <template v-if="asset.status === 'draft'">
-                <el-button :disabled="readonly" @click="emit('status', 'archived')">{{ $t('library.footer.archive') }}</el-button>
+                <!-- ⌘-click (Ctrl-click off macOS) archives without asking: it is undone with Restore. -->
+                <el-tooltip :content="$t('library.footer.archive_hint', { key: MODIFIER_KEY })" :disabled="readonly" :show-after="500">
+                    <el-button :disabled="readonly" @click="emit('status', 'archived', { confirm: !($event.metaKey || $event.ctrlKey) })">
+                        {{ $t('library.footer.archive') }}
+                    </el-button>
+                </el-tooltip>
                 <el-button type="primary" :disabled="readonly || !canMarkReady" @click="emit('status', 'ready')">
                     {{ $t('library.footer.mark_ready') }}
                 </el-button>
@@ -154,7 +165,10 @@ const footNote = computed(() => {
                 </el-tooltip>
             </template>
 
-            <el-button v-else type="primary" :disabled="readonly" @click="emit('status', 'draft')">{{ $t('library.footer.restore') }}</el-button>
+            <template v-else>
+                <el-button type="danger" plain :disabled="readonly" :loading="deleting" @click="emit('delete')">{{ $t('library.footer.delete') }}</el-button>
+                <el-button type="primary" :disabled="readonly || deleting" @click="emit('status', 'draft')">{{ $t('library.footer.restore') }}</el-button>
+            </template>
         </footer>
     </aside>
 </template>
@@ -200,6 +214,11 @@ const footNote = computed(() => {
         color: var(--el-text-color-primary);
         background: var(--el-fill-color);
     }
+}
+
+// The footer's gap spaces its buttons; Element Plus' own margin between adjacent buttons would add to it.
+.info-panel__footer .el-button + .el-button {
+    margin-left: 0;
 }
 
 // Tabs fill the panel: fixed header, scrolling content.
