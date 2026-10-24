@@ -38,9 +38,9 @@ class StoreMarketplaceAccountRequest extends FormRequest
                     ->where('user_id', $this->user()->id)
                     ->where('marketplace_id', $this->marketplace()?->id ?? 0),
             ],
-            'contributor_id' => ['nullable', 'string', 'max:64'],
+            'contributor_id' => [Rule::requiredIf(fn () => $this->loginIsContributorId()), 'nullable', 'string', 'max:64'],
             'host' => [Rule::requiredIf(fn () => ! $this->defaultHost()), 'nullable', 'string', 'max:255', new PublicHostRule],
-            'login' => ['required', 'string', 'max:190'],
+            'login' => [Rule::requiredIf(fn () => ! $this->loginIsContributorId()), 'nullable', 'string', 'max:190'],
             'password' => ['required', 'string', 'max:190'],
         ];
     }
@@ -51,7 +51,8 @@ class StoreMarketplaceAccountRequest extends FormRequest
     }
 
     /**
-     * What the connection check and the account need: the marketplace default server unless changed.
+     * What the connection check and the account need: the marketplace default server unless changed,
+     * and the contributor ID as the login where the marketplace uses it so.
      *
      * @return array{host: string, port: int|null, login: string, password: string}
      */
@@ -60,9 +61,14 @@ class StoreMarketplaceAccountRequest extends FormRequest
         return [
             'host' => $this->input('host') ?: $this->defaultHost(),
             'port' => $this->marketplace()->upload_defaults['port'] ?? null,
-            'login' => $this->input('login'),
+            'login' => $this->input($this->loginIsContributorId() ? 'contributor_id' : 'login'),
             'password' => $this->input('password'),
         ];
+    }
+
+    protected function loginIsContributorId(): bool
+    {
+        return (bool) $this->marketplace()?->loginIsContributorId();
     }
 
     protected function defaultHost(): ?string

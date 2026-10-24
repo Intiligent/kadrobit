@@ -10,7 +10,8 @@ use Illuminate\Validation\Rule;
 
 /**
  * Partial update. Changing the server, login or password signs in again before saving;
- * the name, contributor ID and on/off switch do not.
+ * the name, contributor ID and on/off switch do not. Where the contributor ID is the login
+ * (Adobe Stock), changing it signs in again and the login follows it.
  */
 class UpdateMarketplaceAccountRequest extends FormRequest
 {
@@ -27,6 +28,7 @@ class UpdateMarketplaceAccountRequest extends FormRequest
     public function rules(): array
     {
         $account = $this->account();
+        $contributorLogin = $account->marketplace->loginIsContributorId();
 
         return [
             'label' => [
@@ -39,9 +41,9 @@ class UpdateMarketplaceAccountRequest extends FormRequest
                     ->where('marketplace_id', $account->marketplace_id)
                     ->ignore($account->id),
             ],
-            'contributor_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'contributor_id' => ['sometimes', $contributorLogin ? 'required' : 'nullable', 'string', 'max:64'],
             'host' => ['sometimes', 'required', 'string', 'max:255', new PublicHostRule],
-            'login' => ['sometimes', 'required', 'string', 'max:190'],
+            'login' => $contributorLogin ? ['prohibited'] : ['sometimes', 'required', 'string', 'max:190'],
             'password' => ['sometimes', 'required', 'string', 'max:190'],
             // invalid_credentials is set by checks only.
             'status' => ['sometimes', Rule::in([MarketplaceAccountStatus::Active->value, MarketplaceAccountStatus::Disabled->value])],
@@ -58,7 +60,7 @@ class UpdateMarketplaceAccountRequest extends FormRequest
 
     public function changesConnection(): bool
     {
-        return $this->hasAny(['host', 'login', 'password']);
+        return $this->hasAny(['host', $this->loginField(), 'password']);
     }
 
     /**
@@ -73,8 +75,16 @@ class UpdateMarketplaceAccountRequest extends FormRequest
         return [
             'host' => $this->input('host', $account->host),
             'port' => $account->port,
-            'login' => $this->input('login', $account->login),
+            'login' => $this->input($this->loginField(), $account->login),
             'password' => $this->input('password', $account->credentials['password'] ?? ''),
         ];
+    }
+
+    /**
+     * The field that holds the upload login: the contributor ID on marketplaces that use it so.
+     */
+    protected function loginField(): string
+    {
+        return $this->account()->marketplace->loginIsContributorId() ? 'contributor_id' : 'login';
     }
 }

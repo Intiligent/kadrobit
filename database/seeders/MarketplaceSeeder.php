@@ -50,6 +50,8 @@ class MarketplaceSeeder extends Seeder
                     // Shown in the contributor portal (Upload → Learn More), not in the public docs.
                     'host' => 'sftp.contributor.adobestock.com',
                     'port' => 22,
+                    // The SFTP login is the contributor number: the form asks for it once.
+                    'login_is_contributor_id' => true,
                     // SFTP is available only for "qualified" contributor accounts.
                     'requires_approval' => true,
                 ],

@@ -6,10 +6,11 @@ use App\Enums\MediaType;
 use App\Enums\MetadataDelivery;
 use App\Enums\UploadProtocol;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $logo Path on the "public" disk (storage/app/public), e.g. marketplaces/adobe_stock.svg
  * @property-read string|null $logo_url
  * @property bool $is_active
- * @property \Illuminate\Support\Collection<int, MediaType> $supported_types
+ * @property Collection<int, MediaType> $supported_types
  * @property UploadProtocol $upload_protocol
  * @property array $upload_defaults
  * @property MetadataDelivery|null $metadata_delivery
@@ -71,6 +72,14 @@ class Marketplace extends Model
         return Attribute::get(
             fn (): ?string => $this->logo ? Storage::disk('public')->url($this->logo) : null,
         );
+    }
+
+    /**
+     * The upload login is the contributor ID (Adobe Stock): one field in the connect form, not two.
+     */
+    public function loginIsContributorId(): bool
+    {
+        return (bool) ($this->upload_defaults['login_is_contributor_id'] ?? false);
     }
 
     public function supports(MediaType $type): bool

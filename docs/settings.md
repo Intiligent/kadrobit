@@ -41,6 +41,8 @@
 
 Чужой аккаунт — 404.
 
+**Логин из номера контрибьютора.** У маркетплейсов с `upload_defaults.login_is_contributor_id` (Adobe Stock: логин SFTP — номер контрибьютора) отдельного поля логина нет. `contributor_id` обязателен и служит логином: при добавлении `login` игнорируется, в изменении запрещён, а смена `contributor_id` заново входит на сервер и обновляет `login`.
+
 ## Хранение паролей
 
 - **Отдельный ключ.** `credentials` шифруется ключом `CREDENTIALS_KEY` (AES-256-GCM, `App\Casts\EncryptedCredentials`), не `APP_KEY`. Ключ создаётся командой `php artisan credentials:key` и хранится в секретах окружения, а не в репозитории.

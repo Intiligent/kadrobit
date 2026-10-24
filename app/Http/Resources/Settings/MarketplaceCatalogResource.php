@@ -30,6 +30,7 @@ class MarketplaceCatalogResource extends JsonResource
             'upload_protocol' => $this->upload_protocol->value,
             'default_host' => $this->upload_defaults['host'] ?? null,
             'separate_password' => (bool) ($this->upload_defaults['separate_password'] ?? false),
+            'login_is_contributor_id' => $this->loginIsContributorId(),
             'supported_types' => $this->supported_types->map(fn (MediaType $type) => $type->value)->values()->all(),
             'connectable' => $this->is_active && in_array($this->upload_protocol, UploadProtocol::fileTransfer(), true),
             'note' => Lang::has($note) ? __($note) : null,

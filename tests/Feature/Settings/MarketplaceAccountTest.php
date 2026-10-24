@@ -120,6 +120,68 @@ class MarketplaceAccountTest extends TestCase
         $this->assertSame(0, $this->user->marketplaceAccounts()->count());
     }
 
+    public function test_contributor_id_is_the_login_where_the_marketplace_uses_it_so(): void
+    {
+        $this->mock(ConnectionTester::class, fn (MockInterface $mock) => $mock->shouldReceive('test')
+            ->once()
+            ->withArgs(fn ($marketplace, $connection) => $connection['host'] === 'sftp.contributor.adobestock.com'
+                && $connection['port'] === 22
+                && $connection['login'] === '489119315')
+            ->andReturn(ConnectionResult::ok()));
+
+        // A login sent anyway is ignored: the contributor ID is what Adobe Stock signs in with.
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'adobe_stock',
+            'label' => 'Adobe Stock',
+            'contributor_id' => '489119315',
+            'login' => 'someone@example.com',
+            'password' => self::PASSWORD,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.login', '489119315')
+            ->assertJsonPath('data.contributor_id', '489119315');
+    }
+
+    public function test_contributor_id_is_required_where_it_is_the_login(): void
+    {
+        $this->mock(ConnectionTester::class)->shouldNotReceive('test');
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'adobe_stock',
+            'label' => 'Adobe Stock',
+            'password' => self::PASSWORD,
+        ])
+            ->assertJsonValidationErrors('contributor_id')
+            ->assertJsonMissingValidationErrors('login');
+    }
+
+    public function test_changing_the_contributor_id_signs_in_again_where_it_is_the_login(): void
+    {
+        $this->mock(ConnectionTester::class, fn (MockInterface $mock) => $mock->shouldReceive('test')
+            ->once()
+            ->withArgs(fn ($marketplace, $connection) => $connection['login'] === '500000001'
+                && $connection['password'] === self::PASSWORD)
+            ->andReturn(ConnectionResult::ok()));
+        $account = $this->account('adobe_stock', ['contributor_id' => '489119315', 'login' => '489119315']);
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['contributor_id' => '500000001'])
+            ->assertOk()
+            ->assertJsonPath('data.login', '500000001');
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['login' => 'other'])->assertJsonValidationErrors('login');
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['contributor_id' => null])->assertJsonValidationErrors('contributor_id');
+    }
+
+    public function test_changing_the_contributor_id_elsewhere_does_not_sign_in(): void
+    {
+        $this->mock(ConnectionTester::class)->shouldNotReceive('test');
+        $account = $this->account();
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['contributor_id' => '123'])
+            ->assertOk()
+            ->assertJsonPath('data.login', 'akadrov');
+    }
+
     public function test_server_is_required_when_the_marketplace_has_no_default(): void
     {
         $this->tester();

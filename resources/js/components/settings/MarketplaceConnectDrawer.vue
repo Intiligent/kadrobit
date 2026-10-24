@@ -35,6 +35,9 @@ const connectable = computed(() => props.catalog.filter((m) => m.connectable));
 const connectedCodes = computed(() => new Set(props.accounts.map((a) => a.marketplace.code)));
 const protocol = computed(() => marketplace.value?.upload_protocol.toUpperCase() ?? '');
 const hostLocked = computed(() => Boolean(marketplace.value?.default_host) && !hostEditing.value && (!isEdit.value || form.host === marketplace.value.default_host));
+// Adobe Stock: the contributor ID is the upload login, so there is no separate login field.
+const contributorLogin = computed(() => Boolean(marketplace.value?.login_is_contributor_id));
+const loginField = computed(() => (contributorLogin.value ? 'contributor_id' : 'login'));
 const showSavedPassword = computed(() => isEdit.value && account.value.has_password && !replacing.value);
 
 const title = computed(() => {
@@ -122,18 +125,22 @@ watch(form, () => {
 function changesConnection() {
     const a = account.value;
 
-    return form.host !== (a.host ?? '') || form.login !== (a.login ?? '') || (replacing.value && form.password !== '');
+    const login = loginField.value;
+
+    return form.host !== (a.host ?? '') || form[login] !== (a[login] ?? '') || (replacing.value && form.password !== '');
 }
 
 function payload() {
     if (!isEdit.value) {
-        return { marketplace: code.value, ...form, host: hostLocked.value ? '' : form.host };
+        const { login, ...rest } = form;
+
+        return { marketplace: code.value, ...rest, ...(contributorLogin.value ? {} : { login }), host: hostLocked.value ? '' : form.host };
     }
 
     const a = account.value;
     const data = {};
 
-    for (const field of ['label', 'contributor_id', 'host', 'login']) {
+    for (const field of ['label', 'contributor_id', 'host', ...(contributorLogin.value ? [] : ['login'])]) {
         if (form[field] !== (a[field] ?? '')) {
             data[field] = form[field];
         }
@@ -231,7 +238,9 @@ const beforeClose = (done) => {
                             <template #label>
                                 <span class="flex w-full justify-between">
                                     {{ $t('settings.marketplaces.fields.contributor_id') }}
-                                    <span class="text-xs font-normal text-[var(--el-text-color-placeholder)]">{{ $t('settings.marketplaces.fields.optional') }}</span>
+                                    <span class="text-xs font-normal text-[var(--el-text-color-placeholder)]">
+                                        {{ $t(contributorLogin ? 'settings.marketplaces.fields.contributor_id_login' : 'settings.marketplaces.fields.optional') }}
+                                    </span>
                                 </span>
                             </template>
                             <el-input v-model="form.contributor_id" maxlength="64" :placeholder="$t('settings.marketplaces.fields.contributor_id_placeholder')" />
@@ -252,7 +261,7 @@ const beforeClose = (done) => {
                             </el-input>
                         </el-form-item>
 
-                        <el-form-item :label="$t('settings.marketplaces.fields.login')" :error="fieldErrors.login">
+                        <el-form-item v-if="!contributorLogin" :label="$t('settings.marketplaces.fields.login')" :error="fieldErrors.login">
                             <el-input v-model="form.login" autocomplete="off" spellcheck="false" />
                         </el-form-item>
 

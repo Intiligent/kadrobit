@@ -80,6 +80,7 @@ return [
             'contributor_id' => 'Contributor ID',
             'contributor_id_placeholder' => 'Your author number on the marketplace',
             'optional' => 'Optional',
+            'contributor_id_login' => 'Used as the upload login',
             'sign_in' => 'Upload sign-in',
             'host' => 'Server',
             'host_change' => 'Change',
@@ -130,7 +131,7 @@ return [
 
         // Shown at the top of the connect form, by marketplace code.
         'notes' => [
-            'adobe_stock' => 'SFTP is available to qualified contributor accounts. The SFTP login and password are issued by Adobe, not your Adobe ID: find them under Upload → Learn More in the Adobe Stock Contributor portal.',
+            'adobe_stock' => 'SFTP is available to qualified contributor accounts. Your contributor ID is the SFTP login. The SFTP password is issued by Adobe and differs from your Adobe ID password: find it under Upload → Learn More in the Adobe Stock Contributor portal.',
             'shutterstock' => 'Use your Shutterstock contributor login. Categories and the final submit for review are done on the Shutterstock website after the files arrive.',
             'pond5' => 'Pond5 uses a separate FTP password. Set it in your Pond5 account settings; your account password won\'t work here.',
             'dreamstime' => 'Use your Dreamstime login. Model and property releases are sent as a separate file.',
