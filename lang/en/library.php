@@ -84,7 +84,7 @@ return [
         'batch_full' => 'This upload already has all its files.',
         'leave_confirm' => 'Files are still uploading. Leave the page and stop them?',
         'status' => [
-            'title_active' => 'Uploading {1} :count file|[2,*] :count files',
+            'title_active' => '{1} Uploading :count file|[2,*] Uploading :count files',
             'title_done' => 'Uploads complete',
             'progress' => ':done of :total',
             'queued' => 'Waiting',
