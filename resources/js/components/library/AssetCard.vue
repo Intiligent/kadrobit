@@ -45,11 +45,11 @@ function onDragStart(event) {
         <div class="asset-card__thumb">
             <el-image v-if="asset.thumbnail_url" :src="asset.thumbnail_url" fit="cover" lazy class="size-full">
                 <template #error>
-                    <div class="asset-card__placeholder"><component :is="TYPE_ICON[asset.type]" :size="28" :stroke-width="1.5" /></div>
+                    <div class="asset-card__placeholder"><component :is="TYPE_ICON[asset.type]" :size="36" :stroke-width="1.5" /></div>
                 </template>
             </el-image>
             <div v-else class="asset-card__placeholder">
-                <component :is="TYPE_ICON[asset.type]" :size="28" :stroke-width="1.5" />
+                <component :is="TYPE_ICON[asset.type]" :size="36" :stroke-width="1.5" />
             </div>
 
             <span class="asset-card__status" :class="`is-${asset.status}`">{{ $t(`library.status.${asset.status}`) }}</span>
