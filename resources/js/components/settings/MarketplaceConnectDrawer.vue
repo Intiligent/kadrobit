@@ -189,7 +189,8 @@ const beforeClose = (done) => {
 </script>
 
 <template>
-    <el-drawer v-model="open" :size="460" :with-header="false" :before-close="beforeClose" class="connect-drawer">
+    <!-- Not closed by a click outside: a stray click would lose a half-filled form. -->
+    <el-drawer v-model="open" :size="460" :with-header="false" :close-on-click-modal="false" :before-close="beforeClose" class="connect-drawer">
         <div class="flex h-full flex-col">
             <header class="flex h-16 flex-none items-center gap-2.5 border-b border-[var(--el-border-color-light)] pl-5 pr-4">
                 <el-button v-if="step === 'form' && fromPick" text circle class="-ml-1.5" :aria-label="$t('settings.marketplaces.drawer.back')" @click="step = 'pick'">
@@ -308,7 +309,8 @@ const beforeClose = (done) => {
                 </el-button>
                 <div class="flex-1" />
                 <el-button :disabled="submitting" @click="open = false">{{ $t('settings.marketplaces.submit.cancel') }}</el-button>
-                <el-button type="primary" :loading="submitting" @click="submit">{{ submitLabel }}</el-button>
+                <!-- The footer spaces its buttons with gap: drop Element Plus's margin between adjacent buttons. -->
+                <el-button type="primary" :loading="submitting" class="!ml-0" @click="submit">{{ submitLabel }}</el-button>
             </footer>
         </div>
     </el-drawer>
