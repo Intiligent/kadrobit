@@ -94,7 +94,7 @@ const footNote = computed(() => {
             </div>
             <div class="min-w-0 flex-1">
                 <div class="truncate font-semibold leading-5" :title="asset.original_filename">{{ asset.original_filename }}</div>
-                <div class="mt-0.5 flex items-center gap-1.5 text-[13px] leading-5 text-[var(--el-text-color-secondary)]">
+                <div class="mt-1.5 flex items-center gap-1.5 text-[13px] leading-5 text-[var(--el-text-color-secondary)]">
                     <el-tag size="small" round disable-transitions :type="STATUS_TAG[asset.status]">
                         {{ $t(`library.status.${asset.status}`) }}
                     </el-tag>

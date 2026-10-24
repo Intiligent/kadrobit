@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\CredentialsEncrypter;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,7 +16,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Marketplace credentials have their own key (config/credentials.php), resolved on first use.
+        $this->app->singleton('credentials.encrypter', fn () => CredentialsEncrypter::make(config('credentials')));
     }
 
     /**

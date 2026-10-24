@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Globe, LayoutGrid, LogOut, Send, SlidersHorizontal } from 'lucide-vue-next';
-import { LIBRARY_URL, LOGOUT_URL } from '@/config/constant';
+import { LIBRARY_URL, LOGOUT_URL, SETTINGS_MARKETPLACES_URL, SETTINGS_URL } from '@/config/constant';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -15,13 +15,17 @@ const initials = computed(() => {
 });
 
 // Sections without a page yet stay visible but disabled, so the rail keeps its final shape.
+// `active` is the URL prefix that highlights the item; "Marketplaces" is a shortcut into Settings
+// and stays unhighlighted there, so only one item is active at a time.
 const items = [
-    { key: 'library', icon: LayoutGrid, label: 'library.nav.library', href: LIBRARY_URL },
+    { key: 'library', icon: LayoutGrid, label: 'library.nav.library', href: LIBRARY_URL, active: LIBRARY_URL },
     { key: 'publishing', icon: Send, label: 'library.nav.publishing', href: null },
-    { key: 'marketplaces', icon: Globe, label: 'library.nav.marketplaces', href: null },
+    { key: 'marketplaces', icon: Globe, label: 'library.nav.marketplaces', href: SETTINGS_MARKETPLACES_URL, active: null },
 ];
 
-const isActive = (item) => item.href && page.url.startsWith(item.href);
+const settings = { label: 'library.nav.settings', href: SETTINGS_URL, active: SETTINGS_URL };
+
+const isActive = (item) => Boolean(item.active) && page.url.startsWith(item.active);
 
 const logout = () => router.post(LOGOUT_URL);
 </script>
@@ -48,10 +52,10 @@ const logout = () => router.post(LOGOUT_URL);
 
         <div class="flex-1" />
 
-        <el-tooltip :content="$t('library.nav.soon', { section: $t('library.nav.settings') })" placement="right">
-            <span class="app-rail__item is-disabled">
+        <el-tooltip :content="$t(settings.label)" placement="right">
+            <Link :href="settings.href" class="app-rail__item" :class="{ 'is-active': isActive(settings) }">
                 <SlidersHorizontal :size="20" :stroke-width="1.75" />
-            </span>
+            </Link>
         </el-tooltip>
 
         <el-dropdown placement="right-end" trigger="click">

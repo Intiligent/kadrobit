@@ -24,6 +24,49 @@ const asset = (overrides = {}) => ({
 
 const levels = (result) => result.items.map((item) => `${item.level}:${item.key.split('.').at(-1)}`);
 
+describe('checkAsset: file rules', () => {
+    const adobe = (overrides = {}) => account('adobe_stock', { keywords_max: 49 }, {
+        marketplace: {
+            code: 'adobe_stock',
+            name: 'Adobe Stock',
+            supported_types: ['photo', 'illustration', 'video'],
+            metadata_delivery: 'csv',
+            metadata_rules: { keywords_max: 49 },
+            file_rules: { photo: { min_megapixels: 4, max_megapixels: 100, max_file_mb: 45 } },
+        },
+        ...overrides,
+    });
+
+    it('rejects a photo below the minimum resolution', () => {
+        // IMG_8559.jpeg: 1536 × 2048 px, refused by Adobe Stock as "resolution is too small".
+        const result = checkAsset(asset({ width: 1536, height: 2048, size_bytes: 2_385_293 }), adobe());
+
+        expect(result.needsFix).toBe(true);
+        expect(levels(result)).toEqual(['error:resolution_min', 'ok:keywords_ok']);
+        expect(result.items[0].params).toEqual({ width: 1536, height: 2048, mp: 3.1, min: 4 });
+    });
+
+    it('passes a photo at the minimum and shows megapixels rounded down', () => {
+        expect(levels(checkAsset(asset({ width: 2000, height: 2000 }), adobe()))).toEqual(['ok:keywords_ok']);
+
+        const justUnder = checkAsset(asset({ width: 1999, height: 2000 }), adobe());
+        expect(justUnder.items[0]).toMatchObject({ key: 'library.checks.resolution_min', params: { mp: 3.9 } });
+    });
+
+    it('rejects too large photos and files', () => {
+        expect(levels(checkAsset(asset({ width: 12000, height: 9000 }), adobe()))[0]).toBe('error:resolution_max');
+
+        const big = checkAsset(asset({ width: 6000, height: 4000, size_bytes: 50 * 1024 * 1024 }), adobe());
+        expect(big.items[0]).toMatchObject({ key: 'library.checks.file_too_large', params: { size: 50, max: 45 } });
+    });
+
+    it('skips file checks without rules for the type or before the size is known', () => {
+        expect(levels(checkAsset(asset({ type: 'video', width: 640, height: 480 }), adobe()))).toEqual(['ok:keywords_ok']);
+        expect(levels(checkAsset(asset({ width: null, height: null }), adobe()))).toEqual(['ok:keywords_ok']);
+        expect(levels(checkAsset(asset({ width: 640, height: 480 }), account('shutterstock')))).toEqual(['ok:keywords_ok']);
+    });
+});
+
 describe('checkAsset', () => {
     it('passes when keywords fit the limits', () => {
         const result = checkAsset(asset(), account('adobe_stock', { keywords_max: 49 }));

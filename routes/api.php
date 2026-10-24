@@ -3,6 +3,7 @@
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetUploadController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\Settings\MarketplaceAccountController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,14 @@ Route::as('api.')->middleware('auth:api')->group(function () {
             Route::post('/', 'store')->name('store');
             Route::patch('{folder}', 'update')->whereUlid('folder')->name('update');
             Route::delete('{folder}', 'destroy')->whereUlid('folder')->name('destroy');
+        });
+
+        // Settings → Marketplaces. Sign-ins to marketplace servers are throttled in the controller.
+        Route::controller(MarketplaceAccountController::class)->prefix('marketplace-accounts')->name('marketplace-accounts.')->group(function () {
+            Route::post('/', 'store')->name('store');
+            Route::patch('{account}', 'update')->whereNumber('account')->name('update');
+            Route::post('{account}/check', 'check')->whereNumber('account')->name('check');
+            Route::delete('{account}', 'destroy')->whereNumber('account')->name('destroy');
         });
     });
 });

@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Dev\EmailPreviewController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Settings\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -49,6 +50,11 @@ Route::middleware('auth')->group(function () {
 
     // The user's working library: the main page after login (see HomeController).
     Route::get('library', [AssetController::class, 'index'])->name('library');
+
+    Route::prefix('settings')->name('settings.')->controller(SettingsController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('marketplaces', 'marketplaces')->name('marketplaces');
+    });
 
     Route::prefix('verify-email')->name('verification.')->controller(VerifyEmailController::class)->group(function () {
         Route::get('/', 'notice')->name('notice');

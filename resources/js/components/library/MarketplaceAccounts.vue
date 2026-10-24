@@ -1,4 +1,7 @@
 <script setup>
+import { Link } from '@inertiajs/vue3';
+import { SETTINGS_MARKETPLACES_URL } from '@/config/constant';
+
 defineProps({
     accounts: { type: Array, default: () => [] },
 });
@@ -16,10 +19,9 @@ const DOT = {
             <p class="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--el-text-color-placeholder)]">
                 {{ $t('library.explorer.marketplaces') }}
             </p>
-            <!-- TODO: link to the marketplaces page once it exists. -->
-            <el-tooltip :content="$t('library.nav.soon', { section: $t('library.nav.marketplaces') })" placement="top">
-                <span class="cursor-not-allowed text-[13px] text-[var(--el-color-primary)]">{{ $t('library.explorer.manage') }}</span>
-            </el-tooltip>
+            <Link :href="SETTINGS_MARKETPLACES_URL" class="text-[13px] text-[var(--el-color-primary)] hover:underline">
+                {{ $t('library.explorer.manage') }}
+            </Link>
         </div>
 
         <p v-if="!accounts.length" class="text-[13px] text-[var(--el-text-color-secondary)]">
