@@ -11,9 +11,11 @@ use App\Models\Marketplace;
 use App\Models\MarketplaceAccount;
 use App\Services\Marketplaces\ConnectionResult;
 use App\Services\Marketplaces\ConnectionTester;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -22,6 +24,9 @@ use Illuminate\Validation\ValidationException;
  */
 class MarketplaceAccountController extends Controller
 {
+    /** Sign-ins to marketplace servers per user and minute, see test(). */
+    public const SIGN_INS_PER_MINUTE = 10;
+
     public function __construct(protected ConnectionTester $tester) {}
 
     public function store(StoreMarketplaceAccountRequest $request): JsonResponse
@@ -29,7 +34,7 @@ class MarketplaceAccountController extends Controller
         $marketplace = $request->marketplace();
         $connection = $request->connection();
 
-        $this->signIn($marketplace, $connection);
+        $this->signIn($request, $marketplace, $connection);
 
         $account = $request->user()->marketplaceAccounts()->create([
             'marketplace_id' => $marketplace->id,
@@ -50,16 +55,17 @@ class MarketplaceAccountController extends Controller
     public function update(UpdateMarketplaceAccountRequest $request): MarketplaceConnectionResource
     {
         $account = $request->account();
+        $rejected = $account->status === MarketplaceAccountStatus::InvalidCredentials || $account->last_error === ConnectionResult::AUTH;
         $account->fill($request->safe()->only(['label', 'contributor_id', 'status']));
 
         // Turning an account on does not lift a rejected sign-in: only working credentials do.
-        if ($account->status === MarketplaceAccountStatus::Active && $account->last_error === ConnectionResult::AUTH) {
+        if ($account->status === MarketplaceAccountStatus::Active && $rejected) {
             $account->status = MarketplaceAccountStatus::InvalidCredentials;
         }
 
         if ($request->changesConnection()) {
             $connection = $request->connection();
-            $this->signIn($account->marketplace, $connection);
+            $this->signIn($request, $account->marketplace, $connection);
 
             $account->fill([
                 'host' => $connection['host'],
@@ -83,14 +89,15 @@ class MarketplaceAccountController extends Controller
 
     /**
      * "Check now" with the saved credentials. A wrong password marks the account; an unreachable
-     * server only records the reason, since the password may still be right. A turned-off account
-     * stays off either way.
+     * server only records the reason, since the password may still be right. A rejected password stays
+     * the recorded reason until a sign-in succeeds: a failure to reach the server says nothing about it.
+     * A turned-off account stays off either way.
      */
     public function check(Request $request, string $account): MarketplaceConnectionResource
     {
         $account = $this->find($request, $account);
 
-        $result = $this->tester->test($account->marketplace, [
+        $result = $this->test($request, $account->marketplace, [
             'host' => $account->host,
             'port' => $account->port,
             'login' => $account->login,
@@ -98,7 +105,10 @@ class MarketplaceAccountController extends Controller
         ]);
 
         $account->last_verified_at = now();
-        $account->last_error = $result->reason;
+
+        if ($result->ok || $result->isAuthError() || $account->last_error !== ConnectionResult::AUTH) {
+            $account->last_error = $result->reason;
+        }
 
         if ($result->isAuthError() && $account->status === MarketplaceAccountStatus::Active) {
             $account->status = MarketplaceAccountStatus::InvalidCredentials;
@@ -124,9 +134,9 @@ class MarketplaceAccountController extends Controller
     /**
      * @param  array{host: string, port: int|null, login: string, password: string}  $connection
      */
-    protected function signIn(Marketplace $marketplace, #[\SensitiveParameter] array $connection): void
+    protected function signIn(Request $request, Marketplace $marketplace, #[\SensitiveParameter] array $connection): void
     {
-        $result = $this->tester->test($marketplace, $connection);
+        $result = $this->test($request, $marketplace, $connection);
 
         if (! $result->ok) {
             throw ValidationException::withMessages([
@@ -136,6 +146,27 @@ class MarketplaceAccountController extends Controller
                 ]),
             ]);
         }
+    }
+
+    /**
+     * Every sign-in to a marketplace server counts against one limit per user, whichever action makes it.
+     * Limits password guessing through Kadrobit and keeps marketplaces from locking the account after
+     * repeated failures. Counted here rather than in route middleware: an update signs in only when it
+     * changes the server, login or password.
+     *
+     * @param  array{host: string, port: int|null, login: string, password: string}  $connection
+     */
+    protected function test(Request $request, Marketplace $marketplace, #[\SensitiveParameter] array $connection): ConnectionResult
+    {
+        $key = 'marketplace-sign-in:'.$request->user()->getAuthIdentifier();
+
+        if (RateLimiter::tooManyAttempts($key, self::SIGN_INS_PER_MINUTE)) {
+            throw new ThrottleRequestsException(headers: ['Retry-After' => RateLimiter::availableIn($key)]);
+        }
+
+        RateLimiter::hit($key);
+
+        return $this->tester->test($marketplace, $connection);
     }
 
     protected function find(Request $request, string $id): MarketplaceAccount

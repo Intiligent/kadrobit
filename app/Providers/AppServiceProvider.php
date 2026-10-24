@@ -53,13 +53,6 @@ class AppServiceProvider extends ServiceProvider
         // API token re-issue: per user.
         RateLimiter::for('api-token', fn (Request $request) => Limit::perMinute(30)
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
-
-        // Sign-ins to marketplace servers (connect, change, check): per user. Limits password guessing
-        // through Kadrobit and keeps marketplaces from locking the account after repeated failures.
-        // A change without server, login or password (rename, on/off) does not sign in and is not counted.
-        RateLimiter::for('marketplace-check', fn (Request $request) => $request->isMethod('patch') && ! $request->hasAny(['host', 'login', 'password'])
-            ? Limit::none()
-            : Limit::perMinute(10)->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
     }
 
     /**

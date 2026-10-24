@@ -69,13 +69,4 @@ class StoreMarketplaceAccountRequest extends FormRequest
     {
         return $this->marketplace()?->upload_defaults['host'] ?? null;
     }
-
-    protected function prepareForValidation(): void
-    {
-        // The password is taken as typed: spaces may be part of it.
-        $this->merge(collect(['label', 'contributor_id', 'host', 'login'])
-            ->filter(fn (string $field) => is_string($this->input($field)))
-            ->mapWithKeys(fn (string $field) => [$field => trim($this->input($field))])
-            ->all());
-    }
 }

@@ -4,6 +4,7 @@ import { getActiveLanguage, trans } from 'laravel-vue-i18n';
 import { ChevronLeft, Info, Lock, TriangleAlert, X } from 'lucide-vue-next';
 import MarketplaceLogo from '@/components/settings/MarketplaceLogo.vue';
 import api from '@/core/api';
+import { nextAccountLabel } from '@/utils/marketplaceConnection';
 import { MARKETPLACE_ACCOUNTS_API_URL } from '@/config/constant';
 
 const open = defineModel({ type: Boolean, default: false });
@@ -68,9 +69,7 @@ const submitLabel = computed(() => {
 
 // A second account on the same marketplace gets "Shutterstock 2" as its starting name.
 function defaultLabel(item) {
-    const taken = props.accounts.filter((a) => a.marketplace.code === item.code).length;
-
-    return taken ? `${item.name} ${taken + 1}` : item.name;
+    return nextAccountLabel(item.name, props.accounts.filter((a) => a.marketplace.code === item.code).map((a) => a.label));
 }
 
 function startForm(item, picked = false) {

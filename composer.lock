@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7458e709fd429d69454228f15be76827",
+    "content-hash": "40f3653d17f89c1707ba51f14bafad00",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2448,56 +2448,6 @@
                 "source": "https://github.com/thephpleague/flysystem-aws-s3-v3/tree/3.35.3"
             },
             "time": "2026-08-08T16:19:23+00:00"
-        },
-        {
-            "name": "league/flysystem-ftp",
-            "version": "3.36.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/thephpleague/flysystem-ftp.git",
-                "reference": "878dde9b0e5baf5076855adb0e7737d8553876da"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/flysystem-ftp/zipball/878dde9b0e5baf5076855adb0e7737d8553876da",
-                "reference": "878dde9b0e5baf5076855adb0e7737d8553876da",
-                "shasum": ""
-            },
-            "require": {
-                "ext-ftp": "*",
-                "league/flysystem": "^3.0.0",
-                "league/mime-type-detection": "^1.0.0",
-                "php": "^8.0.2"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "League\\Flysystem\\Ftp\\": ""
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Frank de Jonge",
-                    "email": "info@frankdejonge.nl"
-                }
-            ],
-            "description": "FTP filesystem adapter for Flysystem.",
-            "keywords": [
-                "Flysystem",
-                "file",
-                "files",
-                "filesystem",
-                "ftp",
-                "ftpd"
-            ],
-            "support": {
-                "source": "https://github.com/thephpleague/flysystem-ftp/tree/3.36.0"
-            },
-            "time": "2026-09-02T07:55:04+00:00"
         },
         {
             "name": "league/flysystem-local",
@@ -10146,7 +10096,8 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.3"
+        "php": "^8.3",
+        "ext-ftp": "*"
     },
     "platform-dev": [],
     "plugin-api-version": "2.6.0"

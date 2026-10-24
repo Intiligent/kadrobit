@@ -136,7 +136,7 @@ class MarketplaceAccountTest extends TestCase
     {
         $this->mock(ConnectionTester::class)->shouldNotReceive('test');
 
-        foreach (['127.0.0.1', '10.0.0.5', '169.254.169.254', 'localhost'] as $host) {
+        foreach (['127.0.0.1', '10.0.0.5', '169.254.169.254', '::1', 'localhost', 'ftp.example.com/upload'] as $host) {
             $this->postJson('/api/marketplace-accounts', [
                 'marketplace' => 'depositphotos',
                 'label' => 'Depositphotos',
@@ -151,15 +151,17 @@ class MarketplaceAccountTest extends TestCase
     {
         $this->tester();
 
-        $this->postJson('/api/marketplace-accounts', [
-            'marketplace' => 'depositphotos',
-            'label' => 'Depositphotos',
-            'host' => '8.8.8.8',
-            'login' => 'akadrov',
-            'password' => self::PASSWORD,
-        ])
-            ->assertCreated()
-            ->assertJsonPath('data.host', '8.8.8.8');
+        foreach (['8.8.8.8', '2001:4860:4860::8888'] as $i => $host) {
+            $this->postJson('/api/marketplace-accounts', [
+                'marketplace' => 'depositphotos',
+                'label' => "Depositphotos {$i}",
+                'host' => $host,
+                'login' => 'akadrov',
+                'password' => self::PASSWORD,
+            ])
+                ->assertCreated()
+                ->assertJsonPath('data.host', $host);
+        }
     }
 
     public function test_web_only_marketplaces_cannot_be_connected(): void
@@ -265,6 +267,64 @@ class MarketplaceAccountTest extends TestCase
         $this->patchJson("/api/marketplace-accounts/{$account->id}", ['status' => 'active'])
             ->assertOk()
             ->assertJsonPath('data.status', 'invalid_credentials');
+    }
+
+    public function test_unreachable_server_keeps_a_rejected_password_on_record(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::CONNECT));
+        $account = $this->account(attributes: ['status' => MarketplaceAccountStatus::InvalidCredentials, 'last_error' => 'auth']);
+
+        $this->postJson("/api/marketplace-accounts/{$account->id}/check")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'invalid_credentials')
+            ->assertJsonPath('data.last_error', 'auth');
+
+        // Off and on again: still rejected, since no sign-in has succeeded.
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['status' => 'disabled'])->assertJsonPath('data.status', 'disabled');
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['status' => 'active'])->assertJsonPath('data.status', 'invalid_credentials');
+    }
+
+    public function test_turning_on_a_rejected_account_keeps_it_rejected(): void
+    {
+        $account = $this->account(attributes: ['status' => MarketplaceAccountStatus::InvalidCredentials, 'last_error' => 'connect']);
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['status' => 'active'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'invalid_credentials');
+    }
+
+    public function test_successful_check_clears_a_rejected_password(): void
+    {
+        $this->tester();
+        $account = $this->account(attributes: ['status' => MarketplaceAccountStatus::InvalidCredentials, 'last_error' => 'auth']);
+
+        $this->postJson("/api/marketplace-accounts/{$account->id}/check")
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.last_error', null);
+    }
+
+    public function test_sign_ins_are_limited_per_user_whatever_the_action(): void
+    {
+        $this->tester();
+        $account = $this->account();
+
+        foreach (range(1, 9) as $i) {
+            $this->postJson("/api/marketplace-accounts/{$account->id}/check")->assertOk();
+        }
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['password' => 'new-ftp-password'])->assertOk();
+        $this->postJson("/api/marketplace-accounts/{$account->id}/check")->assertTooManyRequests()->assertHeader('Retry-After');
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['login' => 'other'])->assertTooManyRequests();
+    }
+
+    public function test_renaming_and_turning_off_do_not_count_as_sign_ins(): void
+    {
+        $this->mock(ConnectionTester::class)->shouldNotReceive('test');
+        $account = $this->account();
+
+        foreach (range(1, 12) as $i) {
+            $this->patchJson("/api/marketplace-accounts/{$account->id}", ['label' => "Main {$i}", 'status' => $i % 2 ? 'disabled' : 'active'])->assertOk();
+        }
     }
 
     public function test_check_keeps_a_turned_off_account_off(): void

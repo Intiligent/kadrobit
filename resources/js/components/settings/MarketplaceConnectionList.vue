@@ -2,6 +2,7 @@
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
 import { Trash2 } from 'lucide-vue-next';
 import MarketplaceLogo from '@/components/settings/MarketplaceLogo.vue';
+import { connectionState as state } from '@/utils/marketplaceConnection';
 import { formatRelative } from '@/utils/relativeTime';
 
 defineProps({
@@ -15,6 +16,7 @@ const emit = defineEmits(['check', 'toggle', 'edit', 'remove']);
 const DOT = {
     active: 'bg-[var(--el-color-success)]',
     unreachable: 'bg-[var(--el-color-warning)]',
+    check_failed: 'bg-[var(--el-color-warning)]',
     invalid_credentials: 'bg-[var(--el-color-danger)]',
     disabled: 'bg-[var(--el-border-color-darker)]',
     checking: 'bg-[var(--el-text-color-placeholder)]',
@@ -22,25 +24,11 @@ const DOT = {
 
 const TEXT = {
     unreachable: 'text-[var(--el-color-warning-dark-2)]',
+    check_failed: 'text-[var(--el-color-warning-dark-2)]',
     invalid_credentials: 'text-[var(--el-color-danger)]',
     disabled: 'text-[var(--el-text-color-secondary)]',
     checking: 'text-[var(--el-text-color-secondary)]',
 };
-
-/**
- * What the status column shows: a reachable-but-failed check is "unreachable", not a wrong password.
- */
-function state(account, checking) {
-    if (checking.has(account.id)) {
-        return 'checking';
-    }
-
-    if (account.status === 'active' && account.last_error === 'connect') {
-        return 'unreachable';
-    }
-
-    return account.status;
-}
 
 function detail(account, current) {
     if (current === 'checking') {
@@ -94,7 +82,7 @@ const subline = (account) => [
                             {{ $t('settings.marketplaces.status.update_password') }}
                         </el-link>
                     </template>
-                    <template v-else-if="['active', 'unreachable'].includes(state(account, checking))">
+                    <template v-else-if="['active', 'unreachable', 'check_failed'].includes(state(account, checking))">
                         <el-link type="primary" underline="never" class="!text-xs" @click="emit('check', account)">
                             {{ $t('settings.marketplaces.status.check_now') }}
                         </el-link>

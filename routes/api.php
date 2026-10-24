@@ -29,11 +29,11 @@ Route::as('api.')->middleware('auth:api')->group(function () {
             Route::delete('{folder}', 'destroy')->whereUlid('folder')->name('destroy');
         });
 
-        // Settings → Marketplaces. Store, update and check sign in to the marketplace server: throttled.
+        // Settings → Marketplaces. Sign-ins to marketplace servers are throttled in the controller.
         Route::controller(MarketplaceAccountController::class)->prefix('marketplace-accounts')->name('marketplace-accounts.')->group(function () {
-            Route::post('/', 'store')->middleware('throttle:marketplace-check')->name('store');
-            Route::patch('{account}', 'update')->whereNumber('account')->middleware('throttle:marketplace-check')->name('update');
-            Route::post('{account}/check', 'check')->whereNumber('account')->middleware('throttle:marketplace-check')->name('check');
+            Route::post('/', 'store')->name('store');
+            Route::patch('{account}', 'update')->whereNumber('account')->name('update');
+            Route::post('{account}/check', 'check')->whereNumber('account')->name('check');
             Route::delete('{account}', 'destroy')->whereNumber('account')->name('destroy');
         });
     });

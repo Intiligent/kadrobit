@@ -52,6 +52,7 @@ return [
         'status' => [
             'active' => 'Connected',
             'unreachable' => 'Server unreachable',
+            'check_failed' => 'Check failed',
             'invalid_credentials' => 'Sign-in failed',
             'disabled' => 'Off',
             'checking' => 'Checking…',

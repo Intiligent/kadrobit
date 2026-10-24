@@ -77,12 +77,4 @@ class UpdateMarketplaceAccountRequest extends FormRequest
             'password' => $this->input('password', $account->credentials['password'] ?? ''),
         ];
     }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge(collect(['label', 'contributor_id', 'host', 'login'])
-            ->filter(fn (string $field) => is_string($this->input($field)))
-            ->mapWithKeys(fn (string $field) => [$field => trim($this->input($field))])
-            ->all());
-    }
 }
