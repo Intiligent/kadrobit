@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { CircleCheck, CircleX, Film, Image, X } from 'lucide-vue-next';
 import { percentOf } from '@/composables/useAssetUpload';
+import { isVideoFile } from '@/utils/localPreview';
 
 const props = defineProps({
     // From useAssetUpload
@@ -71,7 +72,7 @@ watch(() => props.summary.total, (total, previous) => {
             <div v-for="item in items" :key="item.key" class="upload-row">
                 <div class="upload-row__thumb">
                     <img v-if="item.previewUrl || item.thumbnailUrl" :src="item.previewUrl || item.thumbnailUrl" alt="" class="size-full object-cover">
-                    <component :is="item.mime?.startsWith('video/') ? Film : Image" v-else :size="16" :stroke-width="1.75" />
+                    <component :is="isVideoFile({ type: item.mime, name: item.name }) ? Film : Image" v-else :size="16" :stroke-width="1.75" />
                 </div>
 
                 <div class="min-w-0 flex-1">

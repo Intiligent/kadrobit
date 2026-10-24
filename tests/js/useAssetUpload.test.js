@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('laravel-vue-i18n', () => ({ trans: (key, params) => (params ? `${key} ${JSON.stringify(params)}` : key) }));
+vi.mock('@/utils/localPreview', () => ({ createLocalPreview: vi.fn() }));
 vi.mock('@/core/api', () => ({
     default: { post: vi.fn(), get: vi.fn(), upload: vi.fn() },
 }));
 
 const { default: api } = await import('@/core/api');
+const { createLocalPreview } = await import('@/utils/localPreview');
 const { useAssetUpload, percentOf } = await import('@/composables/useAssetUpload');
 const { ASSET_UPLOAD_CONCURRENCY, ASSET_UPLOAD_POLL_INTERVAL } = await import('@/config/constant');
 
@@ -208,5 +210,28 @@ describe('useAssetUpload', () => {
 
         uploader.clearSettled();
         expect(uploader.interrupted.value).toBe(0);
+    });
+    it('shows the local preview once it is made, and frees one that comes too late', async () => {
+        let late;
+        createLocalPreview
+            .mockResolvedValueOnce('blob:a')
+            .mockImplementationOnce(() => new Promise((resolve) => { late = resolve; }));
+        api.upload.mockReturnValue(new Promise(() => {}));
+        const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+        const uploader = useAssetUpload();
+
+        await uploader.add([file('a.mp4'), file('b.mp4')]);
+        await flush();
+
+        expect(createLocalPreview).toHaveBeenCalledWith(expect.objectContaining({ name: 'a.mp4' }));
+        expect(uploader.items[0].previewUrl).toBe('blob:a');
+        expect(uploader.items[1].previewUrl).toBeNull();
+
+        uploader.dispose();
+        late('blob:b');
+        await flush();
+
+        expect(revoke).toHaveBeenCalledWith('blob:b');
+        revoke.mockRestore();
     });
 });
