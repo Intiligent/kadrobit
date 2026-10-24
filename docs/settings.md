@@ -34,7 +34,7 @@
 
 | Метод | URL | Что делает |
 |---|---|---|
-| `POST` | `/api/marketplace-accounts` | Входит на сервер маркетплейса и при успехе сохраняет аккаунт. Ошибка входа — 422 с полем `connection` |
+| `POST` | `/api/marketplace-accounts` | Входит на сервер маркетплейса и сохраняет аккаунт при любом исходе (201). Неудачный вход: статус `invalid_credentials`, причина в `last_error`, текст ошибки в `message`; аккаунт не участвует в публикации, пока «Check now» или новый пароль не дадут успешный вход |
 | `PATCH` | `/api/marketplace-accounts/{id}` | Частичное изменение. Смена `host`, `login` или `password` — сначала вход, потом сохранение. `label`, `contributor_id`, `status` (`active`/`disabled`) — без проверки. Включение аккаунта в `invalid_credentials` или с `last_error = auth` оставляет его в `invalid_credentials` |
 | `POST` | `/api/marketplace-accounts/{id}/check` | Вход с сохранёнными данными. Неверный пароль → `invalid_credentials` (выключенный аккаунт остаётся выключенным, записывается только `last_error`); недоступный сервер → только `last_error = connect`. Причина `auth` сохраняется до первого успешного входа: недоступный сервер её не затирает |
 | `DELETE` | `/api/marketplace-accounts/{id}` | Удаляет аккаунт вместе с паролем (без мягкого удаления) |

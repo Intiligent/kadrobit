@@ -117,6 +117,7 @@ return [
         'toasts' => [
             'connected' => ':label connected',
             'saved' => ':label saved',
+            'saved_off' => ':label saved but kept off: sign-in failed',
             'removed' => ':label removed. Its login and password are deleted',
             'turned_on' => ':label turned on',
             'turned_off' => ':label turned off. It\'s skipped when you publish',

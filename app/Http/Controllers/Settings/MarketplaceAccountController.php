@@ -19,8 +19,9 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Marketplace connections. New and changed sign-in details are saved only after a successful sign-in,
- * so an account in the list always had working credentials at some point.
+ * Marketplace connections. A new account is saved whatever its first sign-in gives: a failed one is kept
+ * off (InvalidCredentials) until a sign-in succeeds, so the user fixes the password instead of retyping
+ * everything. Changed sign-in details of an existing account are saved only after a successful sign-in.
  */
 class MarketplaceAccountController extends Controller
 {
@@ -34,7 +35,7 @@ class MarketplaceAccountController extends Controller
         $marketplace = $request->marketplace();
         $connection = $request->connection();
 
-        $this->signIn($request, $marketplace, $connection);
+        $result = $this->test($request, $marketplace, $connection);
 
         $account = $request->user()->marketplaceAccounts()->create([
             'marketplace_id' => $marketplace->id,
@@ -44,12 +45,16 @@ class MarketplaceAccountController extends Controller
             'port' => $connection['port'],
             'login' => $connection['login'],
             'credentials' => ['password' => $connection['password']],
-            'status' => MarketplaceAccountStatus::Active,
+            'status' => $result->ok ? MarketplaceAccountStatus::Active : MarketplaceAccountStatus::InvalidCredentials,
             'last_verified_at' => now(),
+            'last_error' => $result->reason,
             'credentials_changed_at' => now(),
         ]);
 
-        return MarketplaceConnectionResource::make($account->load('marketplace'))->response()->setStatusCode(201);
+        return MarketplaceConnectionResource::make($account->load('marketplace'))
+            ->additional($result->ok ? [] : ['message' => $this->failureMessage($result, $marketplace, $connection)])
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function update(UpdateMarketplaceAccountRequest $request): MarketplaceConnectionResource
@@ -139,13 +144,19 @@ class MarketplaceAccountController extends Controller
         $result = $this->test($request, $marketplace, $connection);
 
         if (! $result->ok) {
-            throw ValidationException::withMessages([
-                'connection' => __("settings.marketplaces.check.{$result->reason}", [
-                    'name' => $marketplace->name,
-                    'host' => $connection['host'],
-                ]),
-            ]);
+            throw ValidationException::withMessages(['connection' => $this->failureMessage($result, $marketplace, $connection)]);
         }
+    }
+
+    /**
+     * @param  array{host: string, port: int|null, login: string, password: string}  $connection
+     */
+    protected function failureMessage(ConnectionResult $result, Marketplace $marketplace, #[\SensitiveParameter] array $connection): string
+    {
+        return __("settings.marketplaces.check.{$result->reason}", [
+            'name' => $marketplace->name,
+            'host' => $connection['host'],
+        ]);
     }
 
     /**

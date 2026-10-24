@@ -104,7 +104,7 @@ class MarketplaceAccountTest extends TestCase
         $this->assertSame(self::PASSWORD, $this->user->marketplaceAccounts()->sole()->credentials['password']);
     }
 
-    public function test_nothing_is_saved_when_the_sign_in_fails(): void
+    public function test_account_is_saved_off_when_the_first_sign_in_fails(): void
     {
         $this->tester(ConnectionResult::failed(ConnectionResult::AUTH));
 
@@ -114,10 +114,47 @@ class MarketplaceAccountTest extends TestCase
             'login' => 'akadrov',
             'password' => 'wrong',
         ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('connection');
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'invalid_credentials')
+            ->assertJsonPath('data.last_error', 'auth')
+            ->assertJsonPath('message', __('settings.marketplaces.check.auth', ['name' => 'Shutterstock', 'host' => 'ftps.shutterstock.com']))
+            ->assertDontSee('wrong');
 
-        $this->assertSame(0, $this->user->marketplaceAccounts()->count());
+        $account = $this->user->marketplaceAccounts()->sole();
+        $this->assertSame(MarketplaceAccountStatus::InvalidCredentials, $account->status);
+        $this->assertSame('wrong', $account->credentials['password']);
+    }
+
+    public function test_account_is_saved_off_when_the_server_is_unreachable(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::CONNECT));
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'shutterstock',
+            'label' => 'Shutterstock',
+            'login' => 'akadrov',
+            'password' => self::PASSWORD,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'invalid_credentials')
+            ->assertJsonPath('data.last_error', 'connect');
+    }
+
+    public function test_account_saved_off_is_turned_on_by_a_successful_check(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::CONNECT), ConnectionResult::ok());
+
+        $id = $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'shutterstock',
+            'label' => 'Shutterstock',
+            'login' => 'akadrov',
+            'password' => self::PASSWORD,
+        ])->json('data.id');
+
+        $this->postJson("/api/marketplace-accounts/{$id}/check")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.last_error', null);
     }
 
     public function test_contributor_id_is_the_login_where_the_marketplace_uses_it_so(): void

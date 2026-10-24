@@ -27,8 +27,10 @@ const replacing = ref(false);
 const submitting = ref(false);
 const connectionError = ref('');
 const fieldErrors = ref({});
+// An account saved by this drawer although its first sign-in failed: the form goes on editing it.
+const created = ref(null);
 
-const account = computed(() => props.target?.account ?? null);
+const account = computed(() => props.target?.account ?? created.value);
 const isEdit = computed(() => Boolean(account.value));
 const marketplace = computed(() => props.catalog.find((m) => m.code === code.value) ?? null);
 const connectable = computed(() => props.catalog.filter((m) => m.connectable));
@@ -106,6 +108,8 @@ watch(open, (value) => {
         return;
     }
 
+    created.value = null;
+
     if (props.target?.account) {
         startEdit(props.target);
     } else if (props.target?.code) {
@@ -166,7 +170,18 @@ async function submit() {
             ? await api.patch(`${MARKETPLACE_ACCOUNTS_API_URL}/${account.value.id}`, payload(), { silent: [422] })
             : await api.post(MARKETPLACE_ACCOUNTS_API_URL, payload(), { silent: [422] });
 
-        emit('saved', response.data, isEdit.value);
+        const saved = response.data;
+        emit('saved', saved, isEdit.value);
+
+        // A failed first sign-in still saves the account, turned off: stay on it so the password can be fixed.
+        if (!isEdit.value && response.message) {
+            created.value = saved;
+            replacing.value = true;
+            connectionError.value = response.message;
+
+            return;
+        }
+
         open.value = false;
     } catch (error) {
         if (error.status === 422) {

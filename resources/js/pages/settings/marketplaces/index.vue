@@ -60,6 +60,14 @@ function openDrawer(target = null) {
 
 function onSaved(saved, isEdit) {
     replace(saved);
+
+    // A failed first sign-in: the drawer stays open with the reason.
+    if (!isEdit && saved.status !== 'active') {
+        notify.warning({ message: trans('settings.marketplaces.toasts.saved_off', { label: saved.label }), duration: 3000 });
+
+        return;
+    }
+
     notify.success({
         message: trans(isEdit ? 'settings.marketplaces.toasts.saved' : 'settings.marketplaces.toasts.connected', { label: saved.label }),
         duration: 3000,
