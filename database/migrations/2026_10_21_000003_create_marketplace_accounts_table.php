@@ -15,11 +15,19 @@ return new class extends Migration
             $table->foreignId('marketplace_id')->constrained()->restrictOnDelete();
             $table->string('contributor_id')->nullable();
             $table->string('label');
+            // Upload server and login are plain columns: the settings page shows them without decrypting anything
+            $table->string('host')->nullable();
+            $table->unsignedInteger('port')->nullable();
+            $table->string('login')->nullable();
+            // Secrets only (password, later an SFTP key), encrypted with CREDENTIALS_KEY
             $table->text('credentials')->nullable();
             $table->jsonb('settings')->default('{}');
             $table->enum('status', array_column(MarketplaceAccountStatus::cases(), 'value'))
                 ->default(MarketplaceAccountStatus::Active->value);
             $table->timestampTz('last_verified_at')->nullable();
+            // Reason of the last failed check: auth | connect | other
+            $table->string('last_error', 32)->nullable();
+            $table->timestampTz('credentials_changed_at')->nullable();
             $table->timestampsTz();
 
             $table->unique(['user_id', 'marketplace_id', 'label']);

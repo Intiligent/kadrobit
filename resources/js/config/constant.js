@@ -24,6 +24,11 @@ export const ASSETS_MOVE_API_URL = '/api/assets/move';
 export const FOLDERS_API_URL = '/api/folders';
 export const ASSET_UPLOADS_API_URL = '/api/assets/uploads';
 
+// Settings and their JSON endpoints
+export const SETTINGS_URL = '/settings';
+export const SETTINGS_MARKETPLACES_URL = '/settings/marketplaces';
+export const MARKETPLACE_ACCOUNTS_API_URL = '/api/marketplace-accounts';
+
 // Uploads: files sent at once, and how often a batch's processing is polled (ms)
 export const ASSET_UPLOAD_CONCURRENCY = 3;
 export const ASSET_UPLOAD_POLL_INTERVAL = 3000;

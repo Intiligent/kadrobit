@@ -1,0 +1,299 @@
+<?php
+
+namespace Tests\Feature\Settings;
+
+use App\Enums\MarketplaceAccountStatus;
+use App\Models\Marketplace;
+use App\Models\MarketplaceAccount;
+use App\Models\User;
+use App\Services\Marketplaces\ConnectionResult;
+use App\Services\Marketplaces\ConnectionTester;
+use Database\Seeders\MarketplaceSeeder;
+use Database\Seeders\OauthSeeder;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Passport\Passport;
+use Mockery\MockInterface;
+use Tests\TestCase;
+
+class MarketplaceAccountTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected const PASSWORD = 'secret-ftp-password';
+
+    protected User $user;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed([OauthSeeder::class, MarketplaceSeeder::class]);
+        $this->user = User::factory()->create();
+        Passport::actingAs($this->user);
+    }
+
+    protected function tester(ConnectionResult ...$results): MockInterface
+    {
+        return $this->mock(ConnectionTester::class, function (MockInterface $mock) use ($results) {
+            $mock->shouldReceive('test')->andReturn(...($results ?: [ConnectionResult::ok()]));
+        });
+    }
+
+    protected function account(string $code = 'shutterstock', array $attributes = [], ?User $user = null): MarketplaceAccount
+    {
+        $marketplace = Marketplace::where('code', $code)->sole();
+
+        return ($user ?? $this->user)->marketplaceAccounts()->create([
+            'marketplace_id' => $marketplace->id,
+            'label' => $marketplace->name,
+            'host' => $marketplace->upload_defaults['host'] ?? 'ftp.example.com',
+            'login' => 'akadrov',
+            'credentials' => ['password' => self::PASSWORD],
+            'status' => MarketplaceAccountStatus::Active,
+            ...$attributes,
+        ]);
+    }
+
+    public function test_settings_open_on_marketplaces(): void
+    {
+        $this->actingAs($this->user, 'web')->get('/settings')->assertRedirect('/settings/marketplaces');
+    }
+
+    public function test_marketplaces_page_lists_accounts_and_catalog_without_passwords(): void
+    {
+        $this->account();
+
+        $response = $this->actingAs($this->user, 'web')->get('/settings/marketplaces')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('settings/marketplaces/index')
+                ->has('accounts', 1)
+                ->where('accounts.0.login', 'akadrov')
+                ->where('accounts.0.has_password', true)
+                ->missing('accounts.0.credentials')
+                ->where('catalog', fn ($catalog) => collect($catalog)->firstWhere('code', 'istock')['connectable'] === false));
+
+        $this->assertStringNotContainsString(self::PASSWORD, $response->getContent());
+    }
+
+    public function test_marketplace_is_connected_after_a_successful_sign_in(): void
+    {
+        // No server sent: the marketplace default is used.
+        $this->mock(ConnectionTester::class, fn (MockInterface $mock) => $mock->shouldReceive('test')
+            ->once()
+            ->withArgs(fn ($marketplace, $connection) => $connection['host'] === 'ftps.shutterstock.com'
+                && $connection['password'] === self::PASSWORD)
+            ->andReturn(ConnectionResult::ok()));
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'shutterstock',
+            'label' => 'Shutterstock',
+            'login' => 'akadrov',
+            'password' => self::PASSWORD,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.host', 'ftps.shutterstock.com')
+            ->assertJsonMissingPath('data.password')
+            ->assertDontSee(self::PASSWORD);
+
+        $this->assertSame(self::PASSWORD, $this->user->marketplaceAccounts()->sole()->credentials['password']);
+    }
+
+    public function test_nothing_is_saved_when_the_sign_in_fails(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::AUTH));
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'shutterstock',
+            'label' => 'Shutterstock',
+            'login' => 'akadrov',
+            'password' => 'wrong',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('connection');
+
+        $this->assertSame(0, $this->user->marketplaceAccounts()->count());
+    }
+
+    public function test_server_is_required_when_the_marketplace_has_no_default(): void
+    {
+        $this->tester();
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'depositphotos',
+            'label' => 'Depositphotos',
+            'login' => 'akadrov',
+            'password' => self::PASSWORD,
+        ])->assertJsonValidationErrors('host');
+    }
+
+    public function test_server_in_a_private_network_is_rejected_without_signing_in(): void
+    {
+        $this->mock(ConnectionTester::class)->shouldNotReceive('test');
+
+        foreach (['127.0.0.1', '10.0.0.5', '169.254.169.254', 'localhost'] as $host) {
+            $this->postJson('/api/marketplace-accounts', [
+                'marketplace' => 'depositphotos',
+                'label' => 'Depositphotos',
+                'host' => $host,
+                'login' => 'akadrov',
+                'password' => self::PASSWORD,
+            ])->assertJsonValidationErrors('host');
+        }
+    }
+
+    public function test_custom_server_is_saved(): void
+    {
+        $this->tester();
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'depositphotos',
+            'label' => 'Depositphotos',
+            'host' => '8.8.8.8',
+            'login' => 'akadrov',
+            'password' => self::PASSWORD,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.host', '8.8.8.8');
+    }
+
+    public function test_web_only_marketplaces_cannot_be_connected(): void
+    {
+        $this->tester();
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'istock',
+            'label' => 'iStock',
+            'host' => '8.8.8.8',
+            'login' => 'akadrov',
+            'password' => self::PASSWORD,
+        ])->assertJsonValidationErrors('marketplace');
+    }
+
+    public function test_account_names_are_unique_per_marketplace(): void
+    {
+        $this->tester();
+        $this->account();
+
+        $this->postJson('/api/marketplace-accounts', [
+            'marketplace' => 'shutterstock',
+            'label' => 'Shutterstock',
+            'login' => 'second',
+            'password' => self::PASSWORD,
+        ])->assertJsonValidationErrors('label');
+    }
+
+    public function test_password_is_encrypted_with_the_credentials_key_not_the_app_key(): void
+    {
+        $account = $this->account();
+        $raw = DB::table('marketplace_accounts')->where('id', $account->id)->value('credentials');
+
+        $this->assertStringNotContainsString(self::PASSWORD, $raw);
+        $this->assertSame(self::PASSWORD, json_decode(app('credentials.encrypter')->decryptString($raw), true)['password']);
+
+        $this->expectException(DecryptException::class);
+        Crypt::decryptString($raw);
+    }
+
+    public function test_renaming_does_not_sign_in_again(): void
+    {
+        $this->mock(ConnectionTester::class)->shouldNotReceive('test');
+        $account = $this->account();
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['label' => 'Main', 'status' => 'disabled'])
+            ->assertOk()
+            ->assertJsonPath('data.label', 'Main')
+            ->assertJsonPath('data.status', 'disabled');
+    }
+
+    public function test_new_password_is_checked_and_lifts_a_failed_state(): void
+    {
+        $this->tester();
+        $account = $this->account('dreamstime', ['status' => MarketplaceAccountStatus::InvalidCredentials, 'last_error' => 'auth']);
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['password' => 'new-ftp-password'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.last_error', null);
+
+        $this->assertSame('new-ftp-password', $account->fresh()->credentials['password']);
+    }
+
+    public function test_wrong_new_password_keeps_the_saved_one(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::AUTH));
+        $account = $this->account();
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['password' => 'wrong'])
+            ->assertJsonValidationErrors('connection');
+
+        $this->assertSame(self::PASSWORD, $account->fresh()->credentials['password']);
+    }
+
+    public function test_check_marks_rejected_credentials(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::AUTH));
+        $account = $this->account();
+
+        $this->postJson("/api/marketplace-accounts/{$account->id}/check")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'invalid_credentials')
+            ->assertJsonPath('data.last_error', 'auth');
+    }
+
+    public function test_unreachable_server_does_not_mark_the_password_wrong(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::CONNECT));
+        $account = $this->account();
+
+        $this->postJson("/api/marketplace-accounts/{$account->id}/check")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.last_error', 'connect');
+    }
+
+    public function test_turning_on_does_not_lift_a_rejected_sign_in(): void
+    {
+        $this->mock(ConnectionTester::class)->shouldNotReceive('test');
+        $account = $this->account(attributes: ['status' => MarketplaceAccountStatus::Disabled, 'last_error' => 'auth']);
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['status' => 'active'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'invalid_credentials');
+    }
+
+    public function test_check_keeps_a_turned_off_account_off(): void
+    {
+        $this->tester(ConnectionResult::failed(ConnectionResult::AUTH));
+        $account = $this->account(attributes: ['status' => MarketplaceAccountStatus::Disabled]);
+
+        $this->postJson("/api/marketplace-accounts/{$account->id}/check")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'disabled')
+            ->assertJsonPath('data.last_error', 'auth');
+    }
+
+    public function test_removing_deletes_the_account_and_its_credentials(): void
+    {
+        $account = $this->account();
+
+        $this->deleteJson("/api/marketplace-accounts/{$account->id}")->assertNoContent();
+        $this->assertDatabaseMissing('marketplace_accounts', ['id' => $account->id]);
+    }
+
+    public function test_someone_elses_account_is_not_found(): void
+    {
+        $this->tester();
+        $account = $this->account(user: User::factory()->create());
+
+        $this->patchJson("/api/marketplace-accounts/{$account->id}", ['label' => 'Mine'])->assertNotFound();
+        $this->postJson("/api/marketplace-accounts/{$account->id}/check")->assertNotFound();
+        $this->deleteJson("/api/marketplace-accounts/{$account->id}")->assertNotFound();
+        $this->assertDatabaseHas('marketplace_accounts', ['id' => $account->id]);
+    }
+}
