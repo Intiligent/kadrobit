@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AssetStatus;
 use App\Enums\MediaType;
+use App\Exceptions\ExceptionWithMessage;
 use App\Http\Requests\Assets\MoveAssetsRequest;
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
 use App\Http\Requests\Assets\UpdateAssetRequest;
@@ -10,10 +12,13 @@ use App\Http\Resources\AssetResource;
 use App\Http\Resources\AssetUploadResource;
 use App\Http\Resources\FolderResource;
 use App\Http\Resources\MarketplaceAccountResource;
+use App\Jobs\DeleteAssetStorage;
 use App\Models\MarketplaceCategory;
 use App\Services\Assets\UploadBatches;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,6 +72,31 @@ class AssetController extends Controller
         $asset->update($request->assetAttributes());
 
         return AssetResource::make($asset->load(['files', 'folder:id,ulid']));
+    }
+
+    /**
+     * Deletes an archived work for good: its rows now, its files in R2 right after (DeleteAssetStorage).
+     * Only from the archive, so a work is never lost in one click from the library.
+     */
+    public function destroy(Request $request, string $asset): HttpResponse
+    {
+        $user = $request->user();
+
+        DB::transaction(function () use ($asset, $user) {
+            // Locked and checked in the transaction: a restore from another tab cannot slip in between.
+            $work = $user->ownAsset($asset, lock: true);
+
+            if ($work->status !== AssetStatus::Archived) {
+                throw new ExceptionWithMessage(__('library.delete.not_archived'), 409);
+            }
+
+            // Not a soft delete: the work and its file rows (cascade) are gone, and the same file can be uploaded again.
+            $work->forceDelete();
+
+            DeleteAssetStorage::dispatch($user->ulid, $work->ulid)->afterCommit();
+        });
+
+        return response()->noContent();
     }
 
     /**

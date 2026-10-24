@@ -20,6 +20,7 @@ Route::as('api.')->middleware('auth:api')->group(function () {
 
         Route::post('assets/move', [AssetController::class, 'move'])->name('assets.move');
         Route::patch('assets/{asset}', [AssetController::class, 'update'])->whereUlid('asset')->name('assets.update');
+        Route::delete('assets/{asset}', [AssetController::class, 'destroy'])->whereUlid('asset')->name('assets.destroy');
 
         Route::controller(FolderController::class)->prefix('folders')->name('folders.')->group(function () {
             Route::post('/', 'store')->name('store');

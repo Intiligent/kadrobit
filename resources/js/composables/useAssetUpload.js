@@ -187,7 +187,11 @@ export function useAssetUpload({ maxSizeMb, maxBatchFiles = 100, onCompleted } =
 
         item.status = 'done';
         item.thumbnailUrl = upload.asset?.thumbnail_url ?? null;
-        onCompleted?.(upload.asset);
+
+        // A done upload has no work any more once that work was deleted (e.g. from another tab).
+        if (upload.asset) {
+            onCompleted?.(upload.asset);
+        }
     }
 
     /**

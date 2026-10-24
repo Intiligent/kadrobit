@@ -11,7 +11,9 @@ import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetAutosave } from '@/composables/useAssetAutosave';
 import { useAssetUpload } from '@/composables/useAssetUpload';
 import { useFolders } from '@/composables/useFolders';
+import api from '@/core/api';
 import notify from '@/core/notify';
+import { ASSETS_API_URL } from '@/config/constant';
 import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 
@@ -267,10 +269,60 @@ function update(patch, options = {}) {
     autosave.queue(asset.id, patch, options);
 }
 
-async function setStatus(next) {
+// Archived works only (the API refuses others): the work and its files are gone for good.
+const deleting = ref(false);
+
+async function deleteAsset() {
     const asset = selected.value;
 
-    if (next === 'archived') {
+    if (!asset || asset.status !== 'archived' || readonly.value || deleting.value) {
+        return;
+    }
+
+    const confirmed = await notify.confirm({
+        key: 'delete-asset',
+        title: trans('library.footer.delete_confirm_title'),
+        message: trans('library.footer.delete_confirm', { file: asset.original_filename }),
+        confirmText: trans('library.footer.delete'),
+        cancelText: trans('common.actions.cancel'),
+    });
+
+    if (!confirmed) {
+        return;
+    }
+
+    deleting.value = true;
+
+    try {
+        // The archive may still be on its way (or other edits): the server must have them before the delete.
+        await autosave.flush(asset.id);
+
+        if (autosave.state[asset.id] === 'error') {
+            // Not saved, so the server may not see the work as archived; the footer tells why.
+            return;
+        }
+
+        await api.delete(`${ASSETS_API_URL}/${asset.id}`);
+    } catch {
+        // Reported by the API client; the work and its edits stay.
+        return;
+    } finally {
+        deleting.value = false;
+    }
+
+    autosave.forget(asset.id);
+    assets.value = assets.value.filter((a) => a.id !== asset.id);
+
+    if (selectedId.value === asset.id) {
+        selectedId.value = null;
+    }
+}
+
+// `confirm: false` (⌘-click on Archive) skips the question: archiving is undone with Restore.
+async function setStatus(next, { confirm = true } = {}) {
+    const asset = selected.value;
+
+    if (next === 'archived' && confirm) {
         const confirmed = await notify.confirm({
             title: trans('library.footer.archive_confirm_title'),
             message: trans('library.footer.archive_confirm', { file: asset.original_filename }),
@@ -423,6 +475,8 @@ function addFiles(files) {
         :readonly="readonly"
         @update="update"
         @status="setStatus"
+        :deleting="deleting"
+        @delete="deleteAsset"
         @close="selectedId = null"
     />
 </template>
