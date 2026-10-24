@@ -130,7 +130,7 @@ return [
 
         // Shown at the top of the connect form, by marketplace code.
         'notes' => [
-            'adobe_stock' => 'SFTP is available to qualified contributor accounts. Copy the server, login and password from the upload options in the Adobe Stock Contributor portal.',
+            'adobe_stock' => 'SFTP is available to qualified contributor accounts. The SFTP login and password are issued by Adobe, not your Adobe ID: find them under Upload → Learn More in the Adobe Stock Contributor portal.',
             'shutterstock' => 'Use your Shutterstock contributor login. Categories and the final submit for review are done on the Shutterstock website after the files arrive.',
             'pond5' => 'Pond5 uses a separate FTP password. Set it in your Pond5 account settings; your account password won\'t work here.',
             'dreamstime' => 'Use your Dreamstime login. Model and property releases are sent as a separate file.',

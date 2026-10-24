@@ -1,5 +1,6 @@
 /**
- * Checks a work's base metadata against a marketplace's rules (marketplaces.metadata_rules).
+ * Checks a work against a marketplace's rules: its file (marketplaces.file_rules, by media type)
+ * and its base metadata (marketplaces.metadata_rules).
  * Pure functions, so the info panel and the publish flow show the same verdict.
  *
  * Every item: { level: 'ok' | 'warning' | 'error' | 'info' | 'off', key, params, choice }.
@@ -30,7 +31,7 @@ export function checkAsset(asset, account) {
         return verdict([item('off', 'unsupported_type')], { off: true });
     }
 
-    const items = [];
+    const items = fileItems(asset, marketplace.file_rules?.[asset.type]);
 
     if (!asset.title?.trim()) {
         items.push(item('warning', 'title_required'));
@@ -67,6 +68,41 @@ export function checkAsset(asset, account) {
     }
 
     return verdict(items);
+}
+
+// Rounded down, so a file just under the minimum never reads as "4.0 MP".
+const megapixels = (width, height) => Math.floor((width * height) / 100_000) / 10;
+
+const megabytes = (bytes) => Math.round(bytes / 104_857.6) / 10;
+
+/**
+ * File limits the marketplace rejects on upload. Errors, not warnings: editing metadata cannot fix them.
+ * Skipped while the work's size is not known yet (still processing).
+ */
+function fileItems(asset, rules) {
+    if (!rules) {
+        return [];
+    }
+
+    const items = [];
+    const { width, height, size_bytes: size } = asset;
+
+    if (width && height) {
+        const mp = megapixels(width, height);
+        const params = { width, height, mp };
+
+        if (rules.min_megapixels && (width * height) < rules.min_megapixels * 1_000_000) {
+            items.push(item('error', 'resolution_min', { ...params, min: rules.min_megapixels }));
+        } else if (rules.max_megapixels && (width * height) > rules.max_megapixels * 1_000_000) {
+            items.push(item('error', 'resolution_max', { ...params, max: rules.max_megapixels }));
+        }
+    }
+
+    if (size && rules.max_file_mb && size > rules.max_file_mb * 1024 * 1024) {
+        items.push(item('error', 'file_too_large', { size: megabytes(size), max: rules.max_file_mb }));
+    }
+
+    return items;
 }
 
 /**

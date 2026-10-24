@@ -199,9 +199,10 @@ client_body_timeout 300s;
 
 ### Проверки маркетплейсов
 
-`utils/marketplaceRules.js` сравнивает базовые метаданные с `marketplaces.metadata_rules` каждого подключённого маркетплейса — чистые функции, чтобы панель и будущая публикация показывали одно и то же:
+`utils/marketplaceRules.js` сравнивает файл с `marketplaces.file_rules`, а базовые метаданные — с `marketplaces.metadata_rules` каждого подключённого маркетплейса. Это чистые функции, чтобы панель и будущая публикация показывали одно и то же:
 
 - аккаунт с ошибкой входа (`invalid_credentials`) — ошибка, выключенный аккаунт и неподдерживаемый тип работы — маркетплейс неактивен;
+- файл: `file_rules` по типу работы — `min_megapixels`, `max_megapixels` (ширина × высота), `max_file_mb`. Нарушение — ошибка: маркетплейс не примет файл, а метаданными это не исправить. Пока размеры работы неизвестны (идёт обработка), проверка пропускается. Сейчас правила заданы у Adobe Stock: фото и иллюстрации от 4 до 100 Мп, до 45 МБ ([требования Adobe](https://helpx.adobe.com/stock/contributor/submit-your-content/submit-photos/technical-legal-requirements-photo-submission.html));
 - нужен заголовок; если метаданные вводятся на самом маркетплейсе (`metadata_delivery: manual`), остальное не проверяется;
 - число ключевых слов в пределах `keywords_min` / `keywords_max`; категория, если `categories_min` больше нуля.
 

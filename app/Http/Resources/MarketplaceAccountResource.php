@@ -33,6 +33,7 @@ class MarketplaceAccountResource extends JsonResource
                 'supported_types' => $marketplace->supported_types->map(fn (MediaType $type) => $type->value)->values()->all(),
                 'metadata_delivery' => $marketplace->metadata_delivery?->value,
                 'metadata_rules' => (object) $marketplace->metadata_rules,
+                'file_rules' => (object) $marketplace->file_rules,
             ],
         ];
     }

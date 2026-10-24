@@ -47,6 +47,9 @@ class MarketplaceSeeder extends Seeder
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Sftp,
                 'upload_defaults' => [
+                    // Shown in the contributor portal (Upload → Learn More), not in the public docs.
+                    'host' => 'sftp.contributor.adobestock.com',
+                    'port' => 22,
                     // SFTP is available only for "qualified" contributor accounts.
                     'requires_approval' => true,
                 ],
@@ -60,7 +63,13 @@ class MarketplaceSeeder extends Seeder
                     'csv_upload' => 'web',
                     'submit' => 'web',
                 ],
-                'file_rules' => [],
+                // Per media type. Photos and illustrations: 4 to 100 MP, up to 45 MB (helpx.adobe.com,
+                // "Technical and legal requirements for photo submission"). The portal rejects smaller
+                // files with "resolution is too small".
+                'file_rules' => [
+                    'photo' => ['min_megapixels' => 4, 'max_megapixels' => 100, 'max_file_mb' => 45],
+                    'illustration' => ['min_megapixels' => 4, 'max_megapixels' => 100, 'max_file_mb' => 45],
+                ],
             ],
             [
                 'code' => 'shutterstock',
