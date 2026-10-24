@@ -142,7 +142,10 @@ const footNote = computed(() => {
             </div>
 
             <template v-if="asset.status === 'draft'">
-                <el-button :disabled="readonly" @click="emit('status', 'archived')">{{ $t('library.footer.archive') }}</el-button>
+                <!-- ⌘-click (Ctrl-click off macOS) archives without asking: it is undone with Restore. -->
+                <el-button :disabled="readonly" @click="emit('status', 'archived', { confirm: !($event.metaKey || $event.ctrlKey) })">
+                    {{ $t('library.footer.archive') }}
+                </el-button>
                 <el-button type="primary" :disabled="readonly || !canMarkReady" @click="emit('status', 'ready')">
                     {{ $t('library.footer.mark_ready') }}
                 </el-button>

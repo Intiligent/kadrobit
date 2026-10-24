@@ -318,10 +318,11 @@ async function deleteAsset() {
     }
 }
 
-async function setStatus(next) {
+// `confirm: false` (⌘-click on Archive) skips the question: archiving is undone with Restore.
+async function setStatus(next, { confirm = true } = {}) {
     const asset = selected.value;
 
-    if (next === 'archived') {
+    if (next === 'archived' && confirm) {
         const confirmed = await notify.confirm({
             title: trans('library.footer.archive_confirm_title'),
             message: trans('library.footer.archive_confirm', { file: asset.original_filename }),
