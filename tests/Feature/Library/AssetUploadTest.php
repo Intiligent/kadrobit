@@ -9,7 +9,6 @@ use App\Jobs\ProcessAssetUpload;
 use App\Models\Asset;
 use App\Models\AssetUpload;
 use App\Models\User;
-use App\Services\Assets\PreviewGenerator;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -58,7 +57,7 @@ class AssetUploadTest extends TestCase
 
     protected function process(AssetUpload $upload): void
     {
-        (new ProcessAssetUpload($upload))->handle(app(PreviewGenerator::class));
+        app()->call([new ProcessAssetUpload($upload), 'handle']);
     }
 
     public function test_opening_a_batch_records_the_owner_and_the_file_count(): void

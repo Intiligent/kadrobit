@@ -7,6 +7,9 @@ const props = defineProps({
     asset: { type: Object, required: true },
 });
 
+// An image preview; a video shows its thumbnail when it has no playback copy.
+const image = computed(() => (props.asset.type === 'video' ? props.asset.thumbnail_url : props.asset.preview_url));
+
 const rows = computed(() => {
     const a = props.asset;
     const locale = getActiveLanguage();
@@ -30,7 +33,21 @@ const rows = computed(() => {
 <template>
     <div class="flex flex-col gap-4">
         <div class="aspect-[4/3] overflow-hidden rounded-lg bg-[var(--el-fill-color-dark)]">
-            <el-image v-if="asset.preview_url" :src="asset.preview_url" fit="contain" class="size-full" :preview-src-list="[asset.preview_url]" />
+            <!-- A video's preview is its playback copy, without sound; the thumbnail shows until it starts. -->
+            <video
+                v-if="asset.type === 'video' && asset.preview_url"
+                :key="asset.preview_url"
+                :src="asset.preview_url"
+                :poster="asset.thumbnail_url || undefined"
+                controls
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                class="size-full object-contain"
+            />
+            <!-- A video without its playback copy (uploaded before KB-19) shows the thumbnail. -->
+            <el-image v-else-if="image" :src="image" fit="contain" class="size-full" :preview-src-list="[image]" />
         </div>
 
         <el-descriptions :column="1" size="small" class="file-info">

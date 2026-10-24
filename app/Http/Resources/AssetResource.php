@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\AssetFileRole;
+use App\Enums\MediaType;
 use App\Models\Asset;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,8 +19,12 @@ class AssetResource extends JsonResource
     public function toArray(Request $request): array
     {
         $original = $this->file(AssetFileRole::Original);
-        $thumbnail = $this->file(AssetFileRole::Thumbnail);
-        $preview = $this->file(AssetFileRole::Preview);
+        $thumbnail = $this->file(AssetFileRole::Thumbnail) ?? $this->file(AssetFileRole::Preview);
+        // The work as it is viewed in the panel: an image, or for a video its playback copy
+        // (whose poster is the thumbnail). Its type follows the work's type, never a fallback.
+        $preview = $this->type === MediaType::Video
+            ? $this->file(AssetFileRole::VideoPreview)
+            : $this->file(AssetFileRole::Preview) ?? $thumbnail;
 
         return [
             'id' => $this->ulid,
@@ -42,8 +47,8 @@ class AssetResource extends JsonResource
             'captured_at' => $this->captured_at?->toIso8601String(),
             'location' => $this->location,
             'checksum' => $this->checksum,
-            'thumbnail_url' => ($thumbnail ?? $preview)?->url(),
-            'preview_url' => ($preview ?? $thumbnail)?->url(),
+            'thumbnail_url' => $thumbnail?->url(),
+            'preview_url' => $preview?->url(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

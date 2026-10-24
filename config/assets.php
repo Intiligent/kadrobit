@@ -39,4 +39,47 @@ return [
 
     'imagick_memory_mb' => (int) env('ASSETS_IMAGICK_MEMORY_MB', 512),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Videos
+    |--------------------------------------------------------------------------
+    |
+    | ffprobe reads a video's size, length and date; ffmpeg takes the frame for
+    | its thumbnail and preview and makes a light H.264 copy for playback in
+    | the library (no sound, short side up to video_preview_height). Each run is
+    | cut off after ffmpeg_timeout seconds, inside the job's own 300 s.
+    |
+    */
+
+    'ffmpeg' => env('ASSETS_FFMPEG', 'ffmpeg'),
+
+    'ffprobe' => env('ASSETS_FFPROBE', 'ffprobe'),
+
+    'ffmpeg_threads' => (int) env('ASSETS_FFMPEG_THREADS', 2),
+
+    'ffmpeg_timeout' => (int) env('ASSETS_FFMPEG_TIMEOUT', 240),
+
+    'video_preview_height' => 720,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vectors
+    |--------------------------------------------------------------------------
+    |
+    | EPS (Ghostscript) and SVG (rsvg-convert from librsvg) are
+    | rasterized into the JPEG some marketplaces take together with the vector,
+    | at about this many megapixels (Adobe Stock used to ask for 15 MP); the
+    | thumbnail and preview are made from it.
+    |
+    */
+
+    'raster_companion_mp' => 16,
+
+    'rsvg_convert' => env('ASSETS_RSVG_CONVERT', 'rsvg-convert'),
+
+    'ghostscript' => env('ASSETS_GHOSTSCRIPT', 'gs'),
+
+    // Seconds one rendering may take; Ghostscript can hang on a malformed file.
+    'vector_timeout' => (int) env('ASSETS_VECTOR_TIMEOUT', 120),
+
 ];
