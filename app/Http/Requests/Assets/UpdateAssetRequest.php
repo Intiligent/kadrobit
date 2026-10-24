@@ -91,7 +91,7 @@ class UpdateAssetRequest extends FormRequest
      */
     public function asset(): Asset
     {
-        return $this->asset ??= $this->user()->assets()->where('ulid', $this->route('asset'))->firstOrFail();
+        return $this->asset ??= $this->user()->ownAsset($this->route('asset'));
     }
 
     /**

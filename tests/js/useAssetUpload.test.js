@@ -209,4 +209,18 @@ describe('useAssetUpload', () => {
         uploader.clearSettled();
         expect(uploader.interrupted.value).toBe(0);
     });
+    it('does not report a work for a done upload whose work was deleted meanwhile', async () => {
+        api.upload.mockResolvedValue({ data: upload('u1') });
+        api.get.mockResolvedValue(poll([upload('u1', 'done', { asset: null })]));
+        const onCompleted = vi.fn();
+        const uploader = useAssetUpload({ onCompleted });
+
+        await uploader.add([file('a.mp4')]);
+        await flush();
+        vi.advanceTimersByTime(ASSET_UPLOAD_POLL_INTERVAL);
+        await flush();
+
+        expect(uploader.items[0].status).toBe('done');
+        expect(onCompleted).not.toHaveBeenCalled();
+    });
 });

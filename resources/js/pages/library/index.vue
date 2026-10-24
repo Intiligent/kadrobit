@@ -270,14 +270,17 @@ function update(patch, options = {}) {
 }
 
 // Archived works only (the API refuses others): the work and its files are gone for good.
+const deleting = ref(false);
+
 async function deleteAsset() {
     const asset = selected.value;
 
-    if (!asset || asset.status !== 'archived') {
+    if (!asset || asset.status !== 'archived' || readonly.value || deleting.value) {
         return;
     }
 
     const confirmed = await notify.confirm({
+        key: 'delete-asset',
         title: trans('library.footer.delete_confirm_title'),
         message: trans('library.footer.delete_confirm', { file: asset.original_filename }),
         confirmText: trans('library.footer.delete'),
@@ -288,15 +291,26 @@ async function deleteAsset() {
         return;
     }
 
-    autosave.forget(asset.id);
+    deleting.value = true;
 
     try {
+        // The archive may still be on its way (or other edits): the server must have them before the delete.
+        await autosave.flush(asset.id);
+
+        if (autosave.state[asset.id] === 'error') {
+            // Not saved, so the server may not see the work as archived; the footer tells why.
+            return;
+        }
+
         await api.delete(`${ASSETS_API_URL}/${asset.id}`);
     } catch {
-        // Reported by the API client; the work stays.
+        // Reported by the API client; the work and its edits stay.
         return;
+    } finally {
+        deleting.value = false;
     }
 
+    autosave.forget(asset.id);
     assets.value = assets.value.filter((a) => a.id !== asset.id);
 
     if (selectedId.value === asset.id) {
@@ -460,6 +474,7 @@ function addFiles(files) {
         :readonly="readonly"
         @update="update"
         @status="setStatus"
+        :deleting="deleting"
         @delete="deleteAsset"
         @close="selectedId = null"
     />

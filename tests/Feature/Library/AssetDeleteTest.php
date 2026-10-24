@@ -146,6 +146,17 @@ class AssetDeleteTest extends TestCase
             && $job->userUlid === $this->user->ulid);
     }
 
+    public function test_a_disk_that_could_not_delete_makes_the_job_retry(): void
+    {
+        // A disk configured with throw => false reports a failure only by returning false.
+        Storage::shouldReceive('disk')->andReturn($disk = \Mockery::mock());
+        $disk->shouldReceive('deleteDirectory')->andReturnFalse();
+
+        $this->expectException(RuntimeException::class);
+
+        (new DeleteAssetStorage($this->user->ulid, 'gone'))->handle();
+    }
+
     public function test_files_left_after_the_last_try_are_logged(): void
     {
         Log::spy();

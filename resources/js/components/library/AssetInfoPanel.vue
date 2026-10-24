@@ -22,6 +22,8 @@ const props = defineProps({
     errors: { type: Object, default: () => ({}) },
     // Read-only until the email is confirmed: the API refuses edits before that.
     readonly: { type: Boolean, default: false },
+    // The delete request is running.
+    deleting: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update', 'status', 'delete', 'close']);
@@ -155,8 +157,8 @@ const footNote = computed(() => {
             </template>
 
             <template v-else>
-                <el-button type="danger" plain :disabled="readonly" @click="emit('delete')">{{ $t('library.footer.delete') }}</el-button>
-                <el-button type="primary" :disabled="readonly" @click="emit('status', 'draft')">{{ $t('library.footer.restore') }}</el-button>
+                <el-button type="danger" plain :disabled="readonly" :loading="deleting" @click="emit('delete')">{{ $t('library.footer.delete') }}</el-button>
+                <el-button type="primary" :disabled="readonly || deleting" @click="emit('status', 'draft')">{{ $t('library.footer.restore') }}</el-button>
             </template>
         </footer>
     </aside>

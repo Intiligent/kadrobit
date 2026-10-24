@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -28,7 +29,10 @@ class DeleteAssetStorage implements ShouldQueue
     public function handle(): void
     {
         foreach ($this->disks() as $disk) {
-            Storage::disk($disk)->deleteDirectory($this->prefix());
+            // The R2 disks throw on failure; others (throw => false) only return false, which must retry too.
+            if (! Storage::disk($disk)->deleteDirectory($this->prefix())) {
+                throw new RuntimeException("Could not delete {$this->prefix()} on disk {$disk}.");
+            }
         }
     }
 

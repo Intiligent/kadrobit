@@ -81,13 +81,15 @@ class AssetController extends Controller
     public function destroy(Request $request, string $asset): HttpResponse
     {
         $user = $request->user();
-        $work = $user->assets()->where('ulid', $asset)->firstOrFail();
 
-        if ($work->status !== AssetStatus::Archived) {
-            throw new ExceptionWithMessage(__('library.delete.not_archived'), 409);
-        }
+        DB::transaction(function () use ($asset, $user) {
+            // Locked and checked in the transaction: a restore from another tab cannot slip in between.
+            $work = $user->ownAsset($asset, lock: true);
 
-        DB::transaction(function () use ($work, $user) {
+            if ($work->status !== AssetStatus::Archived) {
+                throw new ExceptionWithMessage(__('library.delete.not_archived'), 409);
+            }
+
             // Not a soft delete: the work and its file rows (cascade) are gone, and the same file can be uploaded again.
             $work->forceDelete();
 

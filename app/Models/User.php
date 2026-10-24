@@ -143,6 +143,15 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
         return $this->hasMany(Asset::class);
     }
 
+    /**
+     * One of the user's works by its ulid; someone else's work is not found (404), not forbidden.
+     * `$lock` holds the row until the transaction ends.
+     */
+    public function ownAsset(string $ulid, bool $lock = false): Asset
+    {
+        return $this->assets()->where('ulid', $ulid)->when($lock, fn ($query) => $query->lockForUpdate())->firstOrFail();
+    }
+
     public function assetUploads(): HasMany
     {
         return $this->hasMany(AssetUpload::class);

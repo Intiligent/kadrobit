@@ -26,8 +26,14 @@ export function useAssetAutosave({ onSaved } = {}) {
     const inFlight = new Map();
     // id → Set of fields rejected by the last 422
     const rejected = new Map();
+    // Works deleted meanwhile: their late responses and edits are ignored.
+    const gone = new Set();
 
     function queue(id, patch, { immediate = false, onError = null } = {}) {
+        if (gone.has(id)) {
+            return;
+        }
+
         const entry = queued.get(id) ?? { patch: {}, timer: null, onError: [] };
 
         Object.assign(entry.patch, patch);
@@ -86,9 +92,18 @@ export function useAssetAutosave({ onSaved } = {}) {
         try {
             const response = await api.patch(`${ASSETS_API_URL}/${id}`, entry.patch, { silent: [422] });
 
+            if (gone.has(id)) {
+                return;
+            }
+
             state[id] = queued.has(id) ? 'pending' : rejected.get(id)?.size ? 'error' : 'saved';
             onSaved?.(response.data, localFields(id));
         } catch (error) {
+            // Deleted while this request ran: nothing to report or to send again.
+            if (gone.has(id)) {
+                return;
+            }
+
             entry.onError.forEach((callback) => callback(error));
 
             if (error.status === 422) {
@@ -133,9 +148,11 @@ export function useAssetAutosave({ onSaved } = {}) {
     }
 
     /**
-     * Drops everything not yet sent for a work that is going away (deleted): a late PATCH would only 404.
+     * For a deleted work: drops what was not sent, and ignores a request still running and any later
+     * edit, which would only get a 404. Called once the delete has succeeded.
      */
     function forget(id) {
+        gone.add(id);
         clearTimeout(queued.get(id)?.timer);
         queued.delete(id);
         rejected.delete(id);
