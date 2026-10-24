@@ -11,7 +11,9 @@ import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetAutosave } from '@/composables/useAssetAutosave';
 import { useAssetUpload } from '@/composables/useAssetUpload';
 import { useFolders } from '@/composables/useFolders';
+import api from '@/core/api';
 import notify from '@/core/notify';
+import { ASSETS_API_URL } from '@/config/constant';
 import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 
@@ -267,6 +269,41 @@ function update(patch, options = {}) {
     autosave.queue(asset.id, patch, options);
 }
 
+// Archived works only (the API refuses others): the work and its files are gone for good.
+async function deleteAsset() {
+    const asset = selected.value;
+
+    if (!asset || asset.status !== 'archived') {
+        return;
+    }
+
+    const confirmed = await notify.confirm({
+        title: trans('library.footer.delete_confirm_title'),
+        message: trans('library.footer.delete_confirm', { file: asset.original_filename }),
+        confirmText: trans('library.footer.delete'),
+        cancelText: trans('common.actions.cancel'),
+    });
+
+    if (!confirmed) {
+        return;
+    }
+
+    autosave.forget(asset.id);
+
+    try {
+        await api.delete(`${ASSETS_API_URL}/${asset.id}`);
+    } catch {
+        // Reported by the API client; the work stays.
+        return;
+    }
+
+    assets.value = assets.value.filter((a) => a.id !== asset.id);
+
+    if (selectedId.value === asset.id) {
+        selectedId.value = null;
+    }
+}
+
 async function setStatus(next) {
     const asset = selected.value;
 
@@ -423,6 +460,7 @@ function addFiles(files) {
         :readonly="readonly"
         @update="update"
         @status="setStatus"
+        @delete="deleteAsset"
         @close="selectedId = null"
     />
 </template>

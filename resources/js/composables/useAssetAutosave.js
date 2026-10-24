@@ -132,6 +132,17 @@ export function useAssetAutosave({ onSaved } = {}) {
         return new Set([...Object.keys(queued.get(id)?.patch ?? {}), ...(rejected.get(id) ?? [])]);
     }
 
+    /**
+     * Drops everything not yet sent for a work that is going away (deleted): a late PATCH would only 404.
+     */
+    function forget(id) {
+        clearTimeout(queued.get(id)?.timer);
+        queued.delete(id);
+        rejected.delete(id);
+        delete state[id];
+        delete errors[id];
+    }
+
     function flushAll() {
         return Promise.all([...new Set([...queued.keys(), ...inFlight.keys()])].map(flush));
     }
@@ -143,5 +154,5 @@ export function useAssetAutosave({ onSaved } = {}) {
         queued.forEach((entry) => clearTimeout(entry.timer));
     }
 
-    return { state, errors, unsaved, queue, flush, flushAll, dispose };
+    return { state, errors, unsaved, queue, flush, flushAll, forget, dispose };
 }

@@ -24,7 +24,7 @@ const props = defineProps({
     readonly: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update', 'status', 'close']);
+const emit = defineEmits(['update', 'status', 'delete', 'close']);
 
 // Remembered per browser, like the tile size: the panel reopens on the same tab.
 const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'marketplaces', 'file'] });
@@ -125,7 +125,7 @@ const footNote = computed(() => {
             </el-tab-pane>
         </el-tabs>
 
-        <footer class="flex flex-none items-center gap-2.5 border-t border-[var(--el-border-color-light)] px-5 py-3">
+        <footer class="info-panel__footer flex flex-none items-center gap-2.5 border-t border-[var(--el-border-color-light)] px-5 py-3">
             <!-- One line at most, so the footer keeps its height: warnings are an icon with the text in a tooltip. -->
             <div class="flex min-w-0 flex-1 items-center">
                 <el-tooltip v-if="footNote.warn" :content="footNote.text" placement="top">
@@ -154,7 +154,10 @@ const footNote = computed(() => {
                 </el-tooltip>
             </template>
 
-            <el-button v-else type="primary" :disabled="readonly" @click="emit('status', 'draft')">{{ $t('library.footer.restore') }}</el-button>
+            <template v-else>
+                <el-button type="danger" plain :disabled="readonly" @click="emit('delete')">{{ $t('library.footer.delete') }}</el-button>
+                <el-button type="primary" :disabled="readonly" @click="emit('status', 'draft')">{{ $t('library.footer.restore') }}</el-button>
+            </template>
         </footer>
     </aside>
 </template>
@@ -200,6 +203,11 @@ const footNote = computed(() => {
         color: var(--el-text-color-primary);
         background: var(--el-fill-color);
     }
+}
+
+// The footer's gap spaces its buttons; Element Plus' own margin between adjacent buttons would add to it.
+.info-panel__footer .el-button + .el-button {
+    margin-left: 0;
 }
 
 // Tabs fill the panel: fixed header, scrolling content.

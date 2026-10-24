@@ -126,4 +126,16 @@ describe('useAssetAutosave', () => {
         expect(api.patch).toHaveBeenCalledTimes(2);
         expect(autosave.unsaved.value).toBe(false);
     });
+    it('forgets the unsent changes of a work that goes away', async () => {
+        const autosave = useAssetAutosave();
+
+        autosave.queue('a1', { title: 'Gone soon' });
+        autosave.forget('a1');
+        vi.advanceTimersByTime(ASSET_AUTOSAVE_DELAY);
+        await flush();
+
+        expect(api.patch).not.toHaveBeenCalled();
+        expect(autosave.state.a1).toBeUndefined();
+        expect(autosave.unsaved.value).toBe(false);
+    });
 });
