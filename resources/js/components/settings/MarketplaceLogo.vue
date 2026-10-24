@@ -20,7 +20,8 @@ const initials = computed(() => {
 </script>
 
 <template>
-    <el-avatar shape="square" :size="size" :src="logoUrl || undefined" class="marketplace-logo">{{ initials }}</el-avatar>
+    <!-- contain: some logos are not square (Magnific), cover would crop them. -->
+    <el-avatar shape="square" :size="size" :src="logoUrl || undefined" fit="contain" class="marketplace-logo">{{ initials }}</el-avatar>
 </template>
 
 <style scoped lang="scss">
