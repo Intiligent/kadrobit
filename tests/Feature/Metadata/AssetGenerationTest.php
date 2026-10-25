@@ -114,6 +114,73 @@ class AssetGenerationTest extends TestCase
         $this->assertSame(0, AssetGeneration::count());
     }
 
+    public function test_filling_skips_a_work_where_it_could_write_nothing(): void
+    {
+        Http::fake();
+        // The cleared description is the user's; no marketplace is turned on, so no categories can be chosen.
+        $asset = $this->asset([
+            'title' => 'A', 'keywords' => ['c'], 'description' => '',
+            'metadata_sources' => ['title' => 'file', 'keywords' => 'file', 'description' => 'user'],
+        ]);
+
+        GenerateAssetMetadata::dispatchSync($asset);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_a_second_job_for_the_same_work_is_dropped_not_released(): void
+    {
+        $middleware = (new GenerateAssetMetadata($this->asset()))->middleware()[0];
+
+        $this->assertNull($middleware->releaseAfter);
+    }
+
+    public function test_without_a_provider_key_generation_on_request_is_unavailable(): void
+    {
+        Http::fake();
+        Queue::fake();
+        config(['metadata.drivers.openai.key' => null]);
+        $asset = $this->asset();
+
+        $this->postJson("/api/assets/{$asset->ulid}/generations")->assertStatus(503)->assertJsonPath('message', __('library.generation.unavailable'));
+        $this->postJson('/api/assets/generations', ['assets' => [$asset->ulid]])->assertStatus(503);
+
+        Http::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
+    public function test_a_generation_the_user_waits_for_makes_one_try(): void
+    {
+        Http::fake(['api.openai.com/*' => Http::sequence([
+            Http::response(['error' => ['message' => 'Overloaded']], 503),
+            Http::response(OpenAiMetadataGeneratorTest::response()),
+        ])]);
+        $asset = $this->asset();
+
+        $this->postJson("/api/assets/{$asset->ulid}/generations")->assertStatus(502);
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_restored_categories_keep_only_connected_marketplaces_and_listed_categories(): void
+    {
+        $this->seed(MarketplaceSeeder::class);
+        $adobe = Marketplace::where('code', 'adobe_stock')->sole();
+        MarketplaceCategory::create(['marketplace_id' => $adobe->id, 'external_id' => '11', 'name' => 'Landscapes', 'media_types' => ['photo']]);
+        $this->user->marketplaceAccounts()->create(['marketplace_id' => $adobe->id, 'label' => 'Adobe', 'status' => MarketplaceAccountStatus::Active]);
+        $asset = $this->asset();
+        $generation = $asset->generations()->make([
+            'user_id' => $this->user->id, 'trigger' => 'manual', 'model' => 'm',
+            // Shutterstock is not connected any more; "99" is no longer on the Adobe list.
+            'result' => ['categories' => ['adobe_stock' => ['99', '11'], 'shutterstock' => ['Nature']]],
+        ]);
+        $generation->save();
+
+        $this->postJson("/api/assets/{$asset->ulid}/generations/{$generation->id}/apply", ['fields' => ['categories']])
+            ->assertOk()
+            ->assertJsonPath('data.categories', ['adobe_stock' => ['11']]);
+    }
+
     public function test_the_monthly_limit_stops_generation(): void
     {
         Http::fake();

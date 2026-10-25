@@ -215,6 +215,7 @@ return [
     'generation' => [
         'failed' => 'Could not generate metadata right now. Try again in a minute.',
         'limit_reached' => 'You have used all :limit metadata generations for this month.',
+        'unavailable' => 'Metadata generation is not available right now.',
     ],
 
     'validation' => [

@@ -118,6 +118,15 @@ class FileMetadataReaderTest extends TestCase
         );
     }
 
+    public function test_a_keyword_list_written_as_one_entry_is_split_and_long_keywords_are_cut(): void
+    {
+        $path = $this->file($this->jpegWithIptc(['2#025' => ['Cat, dog; pet', str_repeat('x', 120)]]));
+
+        $keywords = (new FileMetadataReader)->read($path, 'image/jpeg')['keywords'];
+
+        $this->assertSame(['cat', 'dog', 'pet', str_repeat('x', FileMetadataReader::KEYWORD_MAX)], $keywords);
+    }
+
     public function test_long_texts_and_keyword_lists_are_capped(): void
     {
         $path = $this->file($this->jpegWithIptc([

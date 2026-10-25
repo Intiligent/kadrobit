@@ -40,7 +40,9 @@ return [
             'image_detail' => env('OPENAI_METADATA_IMAGE_DETAIL', 'auto'),
             'max_output_tokens' => (int) env('OPENAI_METADATA_MAX_OUTPUT_TOKENS', 4000),
             'timeout' => (int) env('OPENAI_METADATA_TIMEOUT', 40),
-            // Pause before a retry after 429 or 5xx, times the attempt number.
+            // HTTP tries on 429 or 5xx in the background job; a generation the user waits for makes one.
+            'tries' => 3,
+            // Pause before a retry, times the attempt number.
             'retry_delay_ms' => (int) env('OPENAI_METADATA_RETRY_DELAY_MS', 2000),
         ],
     ],

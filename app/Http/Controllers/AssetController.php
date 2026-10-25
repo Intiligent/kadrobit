@@ -73,15 +73,20 @@ class AssetController extends Controller
         $asset = $request->asset();
         $attributes = $request->assetAttributes();
 
-        // A field the user edits is theirs from now on: generation no longer fills it on its own.
+        $asset->update($attributes);
+
+        // A field the user edits is theirs from now on: generation no longer fills it on its own. Merged in the
+        // database, not from this copy of the work: a generation applied meanwhile keeps its marks for other fields.
         // Status, folder and flags alone leave the sources as they are.
-        $edited = array_intersect(AssetMetadataService::FIELDS, array_keys($attributes));
+        $edited = array_values(array_intersect(AssetMetadataService::FIELDS, array_keys($attributes)));
 
         if ($edited) {
-            $attributes['metadata_sources'] = [...($asset->metadata_sources ?? []), ...array_fill_keys($edited, MetadataSource::User->value)];
+            DB::update('update assets set metadata_sources = metadata_sources || ?::jsonb where id = ?', [
+                json_encode(array_fill_keys($edited, MetadataSource::User->value)),
+                $asset->id,
+            ]);
+            $asset->refresh();
         }
-
-        $asset->update($attributes);
 
         return AssetResource::make($asset->load(['files', 'folder:id,ulid']));
     }

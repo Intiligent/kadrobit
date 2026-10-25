@@ -21,7 +21,7 @@ use JsonException;
 class OpenAiMetadataGenerator implements MetadataGenerator
 {
     /**
-     * @param  array{key: ?string, base_url: string, model: string, reasoning_effort: ?string, image_detail: string, max_output_tokens: int, timeout: int, retry_delay_ms: int}  $config
+     * @param  array{key: ?string, base_url: string, model: string, reasoning_effort: ?string, image_detail: string, max_output_tokens: int, timeout: int, tries?: int, retry_delay_ms: int}  $config
      */
     public function __construct(
         protected array $config,
@@ -117,13 +117,13 @@ class OpenAiMetadataGenerator implements MetadataGenerator
     protected function send(array $payload): array
     {
         try {
-            // Rate limits (429) and server errors pass: two more tries with a growing pause. Other errors fail at once.
+            // Rate limits (429) and server errors: more tries with a growing pause. Other errors fail at once.
             $response = Http::withToken($this->config['key'])
                 ->baseUrl($this->config['base_url'])
                 ->timeout($this->config['timeout'])
                 ->connectTimeout(10)
                 ->retry(
-                    3,
+                    $this->config['tries'] ?? 3,
                     fn (int $attempt) => $attempt * $this->config['retry_delay_ms'],
                     fn ($e) => $e instanceof RequestException && ($e->response->status() === 429 || $e->response->serverError()),
                     throw: false,

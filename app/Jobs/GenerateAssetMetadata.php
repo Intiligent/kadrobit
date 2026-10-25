@@ -44,15 +44,17 @@ class GenerateAssetMetadata implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping("asset-metadata:{$this->asset->id}"))->releaseAfter(30)->expireAfter($this->timeout + 30)];
+        // A second job for a work that is being generated is dropped, not released: the running one fills it,
+        // and releases would use up the tries and end in a false failure.
+        return [(new WithoutOverlapping("asset-metadata:{$this->asset->id}"))->dontRelease()->expireAfter($this->timeout + 30)];
     }
 
     public function handle(AssetMetadataService $metadata): void
     {
         $asset = $this->asset->refresh();
 
-        // Nothing left to fill: do not pay for a generation.
-        if (collect(AssetMetadataService::FIELDS)->every(fn (string $field) => filled($asset->{$field}))) {
+        // Nothing it could write: do not pay for a generation.
+        if (! $metadata->needsFilling($asset)) {
             return;
         }
 

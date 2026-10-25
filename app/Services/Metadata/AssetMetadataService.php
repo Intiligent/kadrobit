@@ -6,8 +6,10 @@ use App\Enums\GenerationTrigger;
 use App\Enums\MetadataSource;
 use App\Models\Asset;
 use App\Models\AssetGeneration;
+use App\Models\Marketplace;
+use App\Models\MarketplaceCategory;
 use App\Models\User;
-use App\Services\Metadata\Contracts\MetadataGenerator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -23,8 +25,11 @@ class AssetMetadataService
     /** Fields a generation writes. */
     public const FIELDS = ['title', 'description', 'keywords', 'categories'];
 
+    /** A generation the user waits for in the request: one try, so it ends well within web server timeouts. */
+    protected const WAITING_OVERRIDES = ['tries' => 1, 'timeout' => 30];
+
     public function __construct(
-        protected MetadataGenerator $generator,
+        protected MetadataGeneratorFactory $generators,
         protected ImagePreparer $images,
     ) {}
 
@@ -33,7 +38,31 @@ class AssetMetadataService
      */
     public function available(): bool
     {
-        return $this->generator->available();
+        return $this->generators->make()->available();
+    }
+
+    /**
+     * Whether a filling generation would write anything: a field that is empty and not the user's, or
+     * a turned-on marketplace with a category list the work has no categories for. Otherwise it is not paid for.
+     */
+    public function needsFilling(Asset $asset): bool
+    {
+        $sources = $asset->metadata_sources ?? [];
+        $open = fn (string $field) => ($sources[$field] ?? null) !== MetadataSource::User->value;
+
+        foreach (['title', 'description', 'keywords'] as $field) {
+            if ($open($field) && blank($asset->{$field})) {
+                return true;
+            }
+        }
+
+        if (! $open('categories')) {
+            return false;
+        }
+
+        [$lists] = GenerationRequest::categoryLists($this->activeMarketplaces($asset), $asset->type);
+
+        return (bool) array_diff_key($lists, $asset->categories ?? []);
     }
 
     /**
@@ -48,18 +77,19 @@ class AssetMetadataService
      * @throws GenerationLimitReached
      * @throws GenerationException
      */
-    public function generate(Asset $asset, GenerationTrigger $trigger): AssetGeneration
+    public function generate(Asset $asset, GenerationTrigger $trigger, bool $waiting = false): AssetGeneration
     {
         if ($this->remaining($asset->user) < 1) {
             throw new GenerationLimitReached;
         }
 
-        $result = $this->generator->generate(GenerationRequest::forAsset($asset, $this->images->fromAsset($asset)));
+        $generator = $this->generators->make(overrides: $waiting ? self::WAITING_OVERRIDES : []);
+        $result = $generator->generate(GenerationRequest::forAsset($asset, $this->images->fromAsset($asset)));
 
         $generation = $asset->generations()->make([
             'user_id' => $asset->user_id,
             'trigger' => $trigger,
-            'model' => $this->generator->name(),
+            'model' => $generator->name(),
             'result' => [
                 'title' => $result->title,
                 'description' => $result->description,
@@ -95,7 +125,7 @@ class AssetMetadataService
 
             foreach ($fields ?? self::FIELDS as $field) {
                 $value = $field === 'categories'
-                    ? $this->categories($asset->categories, $result['categories'] ?? [], replace: $fields !== null)
+                    ? $this->categories($asset->categories ?? [], $this->allowedCategories($asset, $result['categories'] ?? []), replace: $fields !== null)
                     : $result[$field] ?? null;
 
                 $writable = $fields !== null
@@ -114,6 +144,49 @@ class AssetMetadataService
 
             return $asset;
         });
+    }
+
+    /**
+     * The generated categories that are still valid, as UpdateAssetRequest would accept them: marketplaces the user
+     * is connected to, categories on their current list for the work type, within their limit. A generation restored
+     * from the history may predate a disconnected marketplace or a changed list.
+     *
+     * @param  array<string, list<string>>  $categories
+     * @return array<string, list<string>>
+     */
+    protected function allowedCategories(Asset $asset, array $categories): array
+    {
+        if (! $categories) {
+            return [];
+        }
+
+        $marketplaces = Marketplace::query()
+            ->whereIn('code', array_keys($categories))
+            ->whereIn('id', $asset->user->marketplaceAccounts()->select('marketplace_id'))
+            ->get();
+
+        $allowed = [];
+
+        foreach ($marketplaces as $marketplace) {
+            $known = MarketplaceCategory::query()->where('marketplace_id', $marketplace->id)
+                ->whereIn('external_id', $categories[$marketplace->code])->forMediaType($asset->type)
+                ->pluck('external_id')->all();
+            $valid = array_values(array_intersect($categories[$marketplace->code], $known));
+
+            if ($valid) {
+                $allowed[$marketplace->code] = array_slice($valid, 0, (int) ($marketplace->metadata_rules['categories_max'] ?? 1));
+            }
+        }
+
+        return $allowed;
+    }
+
+    /**
+     * @return Collection<int, Marketplace>
+     */
+    protected function activeMarketplaces(Asset $asset): Collection
+    {
+        return $asset->user->marketplaceAccounts()->active()->with('marketplace')->get()->pluck('marketplace')->unique('id');
     }
 
     /**

@@ -26,6 +26,8 @@ class FileMetadataReader
 
     public const KEYWORDS_MAX = 50;
 
+    public const KEYWORD_MAX = 100;
+
     /**
      * @return array{title: ?string, description: ?string, keywords: list<string>, is_ai_generated: bool}
      */
@@ -100,7 +102,8 @@ class FileMetadataReader
     }
 
     /**
-     * Stored like edited keywords: trimmed, lowercase, unique, in order, at most KEYWORDS_MAX.
+     * Stored like edited keywords: trimmed, lowercase, unique, in order, at most KEYWORDS_MAX of at most
+     * KEYWORD_MAX characters. Some tools write the whole list as one entry ("cat, dog; pet"): it is split.
      *
      * @param  list<string>  $keywords
      * @return list<string>
@@ -108,7 +111,8 @@ class FileMetadataReader
     protected function keywords(array $keywords): array
     {
         return collect($keywords)
-            ->map(fn ($word) => mb_strtolower(Str::squish($this->utf8((string) $word))))
+            ->flatMap(fn ($entry) => preg_split('/[,;]/', $this->utf8((string) $entry)))
+            ->map(fn (string $word) => mb_substr(mb_strtolower(Str::squish($word)), 0, self::KEYWORD_MAX))
             ->filter()
             ->unique()
             ->take(self::KEYWORDS_MAX)

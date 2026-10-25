@@ -45,9 +45,10 @@ class AssetGenerationController extends Controller
     public function store(GenerateMetadataRequest $request, string $asset): JsonResponse
     {
         $work = $request->user()->ownAsset($asset);
+        $this->ensureAvailable();
 
         try {
-            $generation = $this->metadata->generate($work, GenerationTrigger::Manual);
+            $generation = $this->metadata->generate($work, GenerationTrigger::Manual, waiting: true);
         } catch (GenerationException $e) {
             Log::warning("Metadata generation failed for work {$work->ulid}: {$e->getMessage()}");
 
@@ -75,6 +76,7 @@ class AssetGenerationController extends Controller
     public function batch(GenerateMetadataBatchRequest $request): JsonResponse
     {
         $user = $request->user();
+        $this->ensureAvailable();
         $works = $user->assets()->whereIn('ulid', $request->input('assets'))->get();
 
         if ($works->count() > $this->metadata->remaining($user)) {
@@ -84,6 +86,16 @@ class AssetGenerationController extends Controller
         $works->each(fn (Asset $work) => GenerateAssetMetadata::dispatch($work, GenerationTrigger::Manual));
 
         return response()->json(['data' => ['queued' => $works->count()]], 202);
+    }
+
+    /**
+     * Without a configured provider a generation can never succeed: say so instead of queuing or retrying.
+     */
+    protected function ensureAvailable(): void
+    {
+        if (! $this->metadata->available()) {
+            throw new ExceptionWithMessage(__('library.generation.unavailable'), 503);
+        }
     }
 
     protected function answer(Request $request, Asset $work, AssetGeneration $generation, int $status = 200): JsonResponse
