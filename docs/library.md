@@ -235,7 +235,7 @@ client_body_timeout 300s;
 
 ## Стили
 
-Цвета, рамки, фоны берутся только из CSS-переменных Element Plus (`--el-color-primary`, `--el-text-color-secondary`, `--el-border-color-light`, `--el-fill-color`, `--el-bg-color-page` и т. д.). Палитра задаётся в `resources/style/theme/variables.scss`; hex-значения в компонентах не используются.
+Цвета, рамки, фоны берутся только из CSS-переменных Element Plus (`--el-color-primary`, `--el-text-color-secondary`, `--el-border-color-light`, `--el-fill-color`, `--el-bg-color-page` и т. д.). Палитра задаётся в `resources/style/theme/variables.scss`; hex-значения в компонентах не используются. Цвета сверх пяти цветов Element Plus — в `$project-colors` там же; `theme/element.scss` выводит их CSS-переменными с теми же оттенками (`--kb-color-<имя>`, `-light-9`, `-dark-2`). Сейчас это `submitted` — синий статус «Отправлено» на карточках и в панели, чтобы его не путали ни с красным основным цветом, ни с зелёным «Готово».
 
 ## Что дальше
 

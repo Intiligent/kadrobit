@@ -2,6 +2,18 @@
 // and project overrides of component styles. Loaded once, from app.scss.
 @use 'element-plus/theme-chalk/src/base.scss';
 @use 'element-plus/theme-chalk/src/dark/css-vars.scss';
+@use 'sass:color';
+// Theme variables: additionalData (vite.config.js) reaches only the entry file, not modules it loads.
+@use 'variables' as *;
+
+// Project colours (theme/variables.scss, $project-colors), shaded as Element Plus shades its own.
+:root {
+    @each $name, $value in $project-colors {
+        --kb-color-#{$name}: #{$value};
+        --kb-color-#{$name}-light-9: #{color.mix(#fff, $value, 90%)};
+        --kb-color-#{$name}-dark-2: #{color.mix(#000, $value, 20%)};
+    }
+}
 
 // Component overrides, grouped by component.
 // Element Plus component styles load after this file (app.scss and on-demand imports from JS),

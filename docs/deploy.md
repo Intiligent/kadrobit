@@ -65,7 +65,7 @@ ASSETS_RSVG_CONVERT=/home/ix569599/opt/media/bin/rsvg-convert
 - В CLI PHP 8.4 есть `ftp` (с `ftp_ssl_connect`) и `openssl`, в `disable_functions` ничего нет, `max_execution_time` = 0.
 - Исходящие соединения на порт 21 и на высокие порты (нужны пассивному режиму FTP) открыты.
 - `ftps.shutterstock.com:21` с сервера доступен: явный TLS устанавливается, на вход с неверным логином сервер отвечает «Authentication failed», то есть до проверки пароля дело доходит. Передача файла с настоящим аккаунтом ещё не проверялась.
-- `exiftool` нет. Если IPTC окажется недостаточно и понадобится XMP, его можно поставить: `perl` 5.26 есть, а `exiftool` написан на Perl (или пакет `exiftool` из conda-forge через micromamba, как Ghostscript выше).
+- `exiftool` нет и не нужен: IPTC пишет `iptcembed()`, XMP собирается в коде (`JpegMetadata`, `docs/publishing.md`). Если понадобится — `perl` 5.26 есть, а `exiftool` написан на Perl (или пакет из conda-forge через micromamba, как Ghostscript выше).
 
 ## Что ещё настроить при выкладке
 

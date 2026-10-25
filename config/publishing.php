@@ -41,6 +41,13 @@ return [
     'timeout' => (int) env('PUBLISHING_TIMEOUT', 3600),
 
     /*
+    | Seconds one network operation of an FTP upload may wait (each write of a
+    | large file), above the sign-in timeout (credentials.connect_timeout).
+    */
+
+    'transfer_timeout' => (int) env('PUBLISHING_TRANSFER_TIMEOUT', 120),
+
+    /*
     | Tries to reach a marketplace server before the uploads fail with "connect",
     | and the pause before each next try, in seconds.
     */
@@ -65,6 +72,8 @@ return [
     | fails its uploads with "unsupported".
     */
 
-    'deliveries' => [],
+    'deliveries' => [
+        'shutterstock' => App\Services\Marketplaces\Delivery\ShutterstockDelivery::class,
+    ],
 
 ];

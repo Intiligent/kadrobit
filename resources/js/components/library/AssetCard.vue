@@ -158,8 +158,8 @@ function onDragStart(event) {
     }
 
     &.is-submitted {
-        color: var(--el-color-primary-dark-2);
-        background: var(--el-color-primary-light-9);
+        color: var(--kb-color-submitted-dark-2);
+        background: var(--kb-color-submitted-light-9);
     }
 
     &.is-archived {
