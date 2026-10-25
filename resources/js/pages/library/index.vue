@@ -142,6 +142,8 @@ const selected = computed(() => assets.value.find((a) => a.id === selectedId.val
 // Several works picked with Cmd/Ctrl- or Shift-click (utils/selection.js): the selection panel instead of the info
 // panel. One picked work is `selectedId`, as before; the anchor is where the next Shift-click spans from.
 const picked = ref([]);
+// The explorer is folding or unfolding: the grid keeps its layout meanwhile (AssetGrid.vue, `frozen`).
+const explorerResizing = ref(false);
 let anchor = null;
 
 const selectedIds = computed(() => (picked.value.length ? picked.value : selectedId.value ? [selectedId.value] : []));
@@ -584,6 +586,7 @@ function addFiles(files) {
         @delete="deleteFolder"
         @move-folder="moveFolder"
         @move-assets="moveAssets"
+        @resizing="explorerResizing = $event"
     />
 
     <main class="flex min-w-0 flex-1 flex-col">
@@ -616,6 +619,7 @@ function addFiles(files) {
             :assets="visible"
             :accounts="accounts"
             :selected-ids="selectedIds"
+            :frozen="explorerResizing"
             :size="size"
             :accept="upload.accept"
             :empty-title="empty.title"

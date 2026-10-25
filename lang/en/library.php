@@ -12,6 +12,8 @@ return [
     ],
 
     'explorer' => [
+        'collapse' => 'Hide the library panel',
+        'expand' => 'Show the library panel',
         'library' => 'Library',
         'new_folder' => 'New folder',
         'views' => [

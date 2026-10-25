@@ -142,7 +142,7 @@ async function copyKeywords() {
                         multiple
                         :multiple-limit="field.max"
                         filterable
-                        collapse-tags
+                        :collapse-tags="field.max > 2"
                         collapse-tags-tooltip
                         :placeholder="$t(field.min ? 'library.fields.category_required' : 'library.fields.category_optional')"
                         @update:model-value="setCategories(field.code, $event)"
