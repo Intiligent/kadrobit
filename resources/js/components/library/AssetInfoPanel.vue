@@ -162,6 +162,10 @@ const footNote = computed(() => {
                 <el-button v-if="asset.status === 'draft'" type="primary" :disabled="readonly || !canMarkReady" @click="emit('status', 'ready')">
                     {{ $t('library.footer.mark_ready') }}
                 </el-button>
+                <!-- Into the next batch again, e.g. for a newly connected marketplace: sent pairs are not repeated. -->
+                <el-button v-else type="primary" :disabled="readonly" @click="emit('status', 'ready')">
+                    {{ $t('library.footer.back_to_ready') }}
+                </el-button>
             </template>
 
             <!-- Ready works go out together with the publish button of the library toolbar (KB-32), not one by one. -->

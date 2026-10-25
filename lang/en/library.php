@@ -249,6 +249,7 @@ return [
         'restore' => 'Restore',
         'back_to_draft' => 'Back to draft',
         'mark_ready' => 'Mark as ready',
+        'back_to_ready' => 'Back to ready',
         'archive_confirm_title' => 'Archive this work?',
         'archive_confirm' => ':file will be hidden from the library. You can restore it from the Archived tab.',
         'leave_confirm' => 'Changes are still being saved. Leave the page and lose them?',
@@ -265,6 +266,7 @@ return [
     'publishing' => [
         'cancel_too_late' => 'The upload has already started or is over.',
         'retry_not_failed' => 'Only a failed or cancelled upload can be sent again.',
+        'retry_not_ready' => 'Mark the work ready to send it again.',
     ],
 
     'generation' => [

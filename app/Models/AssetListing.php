@@ -112,6 +112,11 @@ class AssetListing extends Model
 
     public function scopePending(Builder $query): void
     {
-        $query->whereIn('status', [ListingStatus::Queued, ListingStatus::Sending]);
+        $query->whereIn('status', ListingStatus::PENDING);
+    }
+
+    public function scopeRetryable(Builder $query): void
+    {
+        $query->whereIn('status', ListingStatus::RETRYABLE);
     }
 }

@@ -22,15 +22,19 @@ enum ListingStatus: string
     /** Taken out of the queue by the user or because the work left the batch. Can be retried. */
     case Cancelled = 'cancelled';
 
-    /** In the queue or on its way: the work cannot be deleted and the listing is not queued again. */
+    /** In the queue or on its way: not queued again. */
+    public const PENDING = [self::Queued, self::Sending];
+
+    /** The next batch or a retry may queue it again. */
+    public const RETRYABLE = [self::Failed, self::Cancelled];
+
     public function isPending(): bool
     {
-        return $this === self::Queued || $this === self::Sending;
+        return in_array($this, self::PENDING, true);
     }
 
-    /** The next batch may queue it again. */
     public function isRetryable(): bool
     {
-        return $this === self::Failed || $this === self::Cancelled;
+        return in_array($this, self::RETRYABLE, true);
     }
 }

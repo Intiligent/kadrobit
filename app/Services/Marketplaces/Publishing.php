@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\DB;
  *
  * A batch is every ready work of the user × the accounts they pick, except pairs already queued, on their way or
  * sent. The upload itself is PublishListings: one session per account that takes the queued listings one by one.
- * A work whose listings are all sent becomes "submitted"; one with a failed listing stays ready for the next batch.
+ * A work whose listings are all sent becomes "submitted"; one with a failed or cancelled listing stays ready for
+ * the next batch.
  */
 class Publishing
 {
@@ -58,7 +59,7 @@ class Publishing
      * Accounts that are turned off or lost their sign-in are skipped.
      *
      * @param  list<int>  $accountIds
-     * @return array<int, int> Listings queued, by account id
+     * @return array<int, int> Listings queued, by account id: only those this request queued itself
      */
     public function queue(User $user, array $accountIds): array
     {
@@ -72,7 +73,9 @@ class Publishing
                 continue;
             }
 
-            DB::transaction(function () use ($account, $plan) {
+            $count = DB::transaction(function () use ($account, $plan) {
+                $count = 0;
+
                 foreach ($plan['items'] as ['asset' => $asset, 'check' => $check, 'listing' => $listing]) {
                     $attributes = [
                         'status' => ListingStatus::Queued,
@@ -83,14 +86,14 @@ class Publishing
 
                     if ($listing) {
                         // Failed or cancelled: queued again only if nothing changed it meanwhile.
-                        AssetListing::query()->whereKey($listing->id)->whereIn('status', [ListingStatus::Failed, ListingStatus::Cancelled])->update([
+                        $count += AssetListing::query()->whereKey($listing->id)->retryable()->update([
                             ...$attributes,
                             'warnings' => json_encode($check->warnings),
                             'updated_at' => now(),
                         ]);
                     } else {
                         // Another request may have queued the pair a moment ago: the unique index keeps one.
-                        AssetListing::query()->insertOrIgnore([
+                        $count += AssetListing::query()->insertOrIgnore([
                             ...$attributes,
                             'asset_id' => $asset->id,
                             'marketplace_account_id' => $account->id,
@@ -101,10 +104,16 @@ class Publishing
                     }
                 }
 
-                PublishListings::dispatch($account)->afterCommit();
+                if ($count) {
+                    PublishListings::dispatch($account)->afterCommit();
+                }
+
+                return $count;
             });
 
-            $queued[$account->id] = count($plan['items']);
+            if ($count) {
+                $queued[$account->id] = $count;
+            }
         }
 
         return $queued;
@@ -132,7 +141,7 @@ class Publishing
     public function retry(AssetListing $listing, ListingCheck $check): bool
     {
         return DB::transaction(function () use ($listing, $check) {
-            $queued = AssetListing::query()->whereKey($listing->id)->whereIn('status', [ListingStatus::Failed, ListingStatus::Cancelled])->update([
+            $queued = AssetListing::query()->whereKey($listing->id)->retryable()->update([
                 'status' => ListingStatus::Queued,
                 'warnings' => json_encode($check->warnings),
                 'error' => null,
@@ -151,7 +160,8 @@ class Publishing
 
     /**
      * The next queued listing of the account, moved to "sending" with the metadata it is sent with. A listing whose
-     * work left the batch (back to draft, archived, deleted) is cancelled on the way.
+     * work left the batch (back to draft, archived, deleted) is cancelled on the way; the work keeps it for the next
+     * batch once it is ready again.
      */
     public function claim(MarketplaceAccount $account): ?AssetListing
     {
@@ -165,10 +175,10 @@ class Publishing
 
                 $asset = Asset::withTrashed()->with('files')->find($listing->asset_id);
 
-                if ($asset->trashed() || ! in_array($asset->status, [AssetStatus::Ready, AssetStatus::Submitted], true)) {
+                if (! $asset || $asset->trashed() || $asset->status !== AssetStatus::Ready) {
                     $listing->update(['status' => ListingStatus::Cancelled]);
 
-                    return $listing->setRelation('asset', $asset);
+                    return $asset ? $listing->setRelation('asset', $asset) : $listing;
                 }
 
                 $listing->update([
@@ -184,7 +194,9 @@ class Publishing
                 return $listing;
             }
 
-            $this->notify($listing->asset);
+            if ($listing->relationLoaded('asset')) {
+                $this->notify($listing->asset);
+            }
         }
     }
 
@@ -203,7 +215,7 @@ class Publishing
 
     public function hasQueued(MarketplaceAccount $account): bool
     {
-        return $account->listings()->whereIn('status', [ListingStatus::Queued, ListingStatus::Sending])->exists();
+        return $account->listings()->pending()->exists();
     }
 
     public function sent(AssetListing $listing, string $remoteFilename): void
@@ -248,11 +260,12 @@ class Publishing
 
         $account->listings()->pending()->update(['status' => ListingStatus::Failed, 'error' => $reason, 'updated_at' => now()]);
 
-        Asset::withTrashed()->whereKey($assets)->get()->each(fn (Asset $asset) => $this->notify($asset));
+        Asset::withTrashed()->whereKey($assets)->with('user')->get()->each(fn (Asset $asset) => $this->notify($asset));
     }
 
     /**
-     * A ready work whose listings are all sent (none queued, on its way or failed) becomes submitted.
+     * A ready work whose listings are all sent becomes submitted. One queued, on its way, failed or cancelled keeps
+     * it ready: the next batch still has to deliver that pair.
      */
     public function settle(Asset $asset): void
     {
@@ -260,7 +273,7 @@ class Publishing
             ->whereKey($asset->id)
             ->where('status', AssetStatus::Ready)
             ->whereHas('listings', fn ($query) => $query->where('status', ListingStatus::Sent))
-            ->whereDoesntHave('listings', fn ($query) => $query->whereIn('status', [ListingStatus::Queued, ListingStatus::Sending, ListingStatus::Failed]))
+            ->whereDoesntHave('listings', fn ($query) => $query->where('status', '!=', ListingStatus::Sent))
             ->update(['status' => AssetStatus::Submitted, 'updated_at' => now()]);
 
         $this->notify($asset);

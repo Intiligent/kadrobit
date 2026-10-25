@@ -442,11 +442,11 @@ class PublishingTest extends TestCase
         $this->patchJson("/api/assets/{$asset->ulid}", ['status' => 'submitted'])->assertUnprocessable()->assertJsonValidationErrors('status');
     }
 
-    public function test_a_work_being_sent_cannot_be_deleted(): void
+    public function test_a_work_whose_file_is_being_uploaded_cannot_be_deleted(): void
     {
         $account = $this->account();
         $asset = $this->work(['status' => AssetStatus::Archived]);
-        $listing = $this->listing($asset, $account);
+        $listing = $this->listing($asset, $account, ['status' => ListingStatus::Sending]);
 
         $this->deleteJson("/api/assets/{$asset->ulid}")
             ->assertConflict()
@@ -456,6 +456,63 @@ class PublishingTest extends TestCase
         $listing->update(['status' => ListingStatus::Sent]);
         $this->deleteJson("/api/assets/{$asset->ulid}")->assertNoContent();
         $this->assertSame(0, AssetListing::count());
+    }
+
+    public function test_an_archived_work_with_a_queued_listing_can_be_deleted(): void
+    {
+        $asset = $this->work(['status' => AssetStatus::Archived]);
+        $this->listing($asset, $this->account());
+
+        $this->deleteJson("/api/assets/{$asset->ulid}")->assertNoContent();
+
+        $this->assertSame(0, AssetListing::count());
+    }
+
+    public function test_a_cancelled_listing_keeps_the_work_ready_for_the_next_batch(): void
+    {
+        Queue::fake();
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        $asset = $this->work();
+        $this->listing($asset, $alamy, ['status' => ListingStatus::Sent]);
+        $listing = $this->listing($asset, $shutterstock);
+
+        $this->postJson("/api/listings/{$listing->id}/cancel")->assertOk();
+
+        // Sent to Alamy only: not submitted, Shutterstock still has to get it.
+        $this->assertSame(AssetStatus::Ready, $asset->refresh()->status);
+        $this->postJson('/api/listings/batch', ['accounts' => [$shutterstock->id, $alamy->id]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', [$shutterstock->id => 1]);
+    }
+
+    public function test_a_listing_of_a_work_out_of_the_batch_is_not_retried(): void
+    {
+        Queue::fake();
+        $asset = $this->work(['status' => AssetStatus::Archived]);
+        $listing = $this->listing($asset, $this->account(), ['status' => ListingStatus::Failed, 'error' => 'other']);
+
+        $this->postJson("/api/listings/{$listing->id}/retry")
+            ->assertConflict()
+            ->assertJsonPath('message', __('library.publishing.retry_not_ready'));
+
+        $this->assertSame(ListingStatus::Failed, $listing->refresh()->status);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_a_session_that_gave_up_fails_its_listings(): void
+    {
+        $account = $this->account();
+        $queued = $this->listing($this->work(), $account);
+        $sending = $this->listing($this->work(), $account, ['status' => ListingStatus::Sending]);
+        $sent = $this->listing($this->work(), $account, ['status' => ListingStatus::Sent]);
+
+        (new PublishListings($account))->failed(new \RuntimeException('Gave up'));
+
+        $this->assertSame('other', $queued->refresh()->error);
+        $this->assertSame(ListingStatus::Failed, $queued->status);
+        $this->assertSame(ListingStatus::Failed, $sending->refresh()->status);
+        $this->assertSame(ListingStatus::Sent, $sent->refresh()->status);
     }
 }
 

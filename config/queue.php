@@ -51,8 +51,8 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => 'publishing',
-            // Above the publishing job timeout (PUBLISHING_TIMEOUT, 3600 s).
-            'retry_after' => (int) env('DB_PUBLISHING_QUEUE_RETRY_AFTER', 3660),
+            // Above the publishing job timeout, or a running upload is handed to a second worker.
+            'retry_after' => (int) env('DB_PUBLISHING_QUEUE_RETRY_AFTER', (int) env('PUBLISHING_TIMEOUT', 3600) + 60),
             'after_commit' => false,
         ],
 

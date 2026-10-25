@@ -16,6 +16,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Throwable;
 
 /**
  * One publishing session of a marketplace account: signs in once and uploads its queued listings one by one
@@ -57,8 +58,10 @@ class PublishListings implements ShouldQueue
     }
 
     /**
-     * Holds the account's lock for the session. A follow-up session (a pause after a lost connection, or the rest
-     * of a long batch) is queued only after the lock is let go, so it never finds its own account still locked.
+     * Holds the account's lock for the session. Not the WithoutOverlapping middleware: its lock is let go only after
+     * handle() returns, so a follow-up session (a pause after a lost connection, the rest of a long batch) queued from
+     * inside would find its own account still locked, and on a synchronous queue would never run. Here the follow-up
+     * is queued after the lock is let go.
      */
     public function handle(Publishing $publishing, DeliveryFactory $deliveries): void
     {
@@ -190,6 +193,17 @@ class PublishListings implements ShouldQueue
         $publishing->failQueued($account, $reason);
 
         return null;
+    }
+
+    /**
+     * Gave up for good (retryUntil ran out, e.g. the account stayed locked): its listings must not stay queued or
+     * "sending", which no batch, cancel or retry would touch again.
+     */
+    public function failed(?Throwable $e): void
+    {
+        Log::warning("Publishing session for marketplace account {$this->account->id} failed: {$e?->getMessage()}");
+
+        app(Publishing::class)->failQueued($this->account, ConnectionResult::OTHER);
     }
 
     /** Only the reason: the server's message may contain the login. */

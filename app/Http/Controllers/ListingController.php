@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AssetStatus;
 use App\Exceptions\ExceptionWithMessage;
 use App\Http\Resources\AssetListingResource;
 use App\Models\AssetListing;
@@ -57,11 +58,17 @@ class ListingController extends Controller
     }
 
     /**
-     * Queues a failed or cancelled listing again. Not for an account that is turned off or lost its sign-in.
+     * Queues a failed or cancelled listing again. Only for a ready work (one moved out of the batch would be
+     * cancelled at once), and not for an account that is turned off or lost its sign-in.
      */
     public function retry(Request $request, string $listing, ListingChecks $checks): AssetListingResource
     {
         $listing = $this->find($request, $listing);
+
+        if ($listing->asset->status !== AssetStatus::Ready) {
+            throw new ExceptionWithMessage(__('library.publishing.retry_not_ready'), 409);
+        }
+
         $check = $checks->check($listing->asset->load('files'), $listing->account);
 
         if (! $check->sendable()) {

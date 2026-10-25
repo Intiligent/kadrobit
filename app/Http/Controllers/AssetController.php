@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AssetStatus;
+use App\Enums\ListingStatus;
 use App\Enums\MediaType;
 use App\Enums\MetadataSource;
 use App\Exceptions\ExceptionWithMessage;
@@ -110,9 +111,9 @@ class AssetController extends Controller
                 throw new ExceptionWithMessage(__('library.delete.not_archived'), 409);
             }
 
-            // Its upload may be running: the file must stay until it is over. A sent work can go, the marketplace
-            // keeps its copy (docs/publishing.md).
-            if ($work->listings()->pending()->exists()) {
+            // Its upload is running: the file must stay until it is over. Queued listings go with the work (a session
+            // would cancel them anyway: the work is archived), and a sent work can go, the marketplace keeps its copy.
+            if ($work->listings()->where('status', ListingStatus::Sending)->exists()) {
                 throw new ExceptionWithMessage(__('library.delete.publishing'), 409);
             }
 
