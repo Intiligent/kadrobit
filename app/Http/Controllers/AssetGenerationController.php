@@ -8,7 +8,6 @@ use App\Http\Requests\Assets\GenerateMetadataBatchRequest;
 use App\Http\Requests\Assets\GenerateMetadataRequest;
 use App\Http\Resources\AssetGenerationResource;
 use App\Http\Resources\AssetResource;
-use App\Jobs\GenerateAssetMetadata;
 use App\Models\Asset;
 use App\Models\AssetGeneration;
 use App\Services\Metadata\AssetMetadataService;
@@ -83,7 +82,7 @@ class AssetGenerationController extends Controller
             throw new GenerationLimitReached;
         }
 
-        $works->each(fn (Asset $work) => GenerateAssetMetadata::dispatch($work, GenerationTrigger::Manual));
+        $works->each(fn (Asset $work) => $this->metadata->queue($work, GenerationTrigger::Manual));
 
         return response()->json(['data' => ['queued' => $works->count()]], 202);
     }

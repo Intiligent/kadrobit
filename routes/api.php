@@ -19,6 +19,9 @@ Route::as('api.')->middleware('auth:api')->group(function () {
         Route::patch('/', 'update')->name('update');
     });
 
+    // Fresh versions of some works (?ids[]=…), e.g. after a real-time notice: browsing, so no confirmed email needed.
+    Route::get('assets', [AssetController::class, 'list'])->name('assets.list');
+
     // Uploads, edits and folders need a confirmed email; browsing the library does not.
     Route::middleware('verified')->group(function () {
         Route::controller(AssetUploadController::class)->prefix('assets/uploads')->name('assets.uploads.')->group(function () {

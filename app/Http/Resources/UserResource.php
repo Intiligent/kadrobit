@@ -18,6 +18,8 @@ class UserResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // Names the user's private real-time channel (routes/channels.php).
+            'ulid' => $this->ulid,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
             'username' => $this->username,

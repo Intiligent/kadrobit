@@ -49,28 +49,33 @@ class GenerateAssetMetadata implements ShouldQueue
         return [(new WithoutOverlapping("asset-metadata:{$this->asset->id}"))->dontRelease()->expireAfter($this->timeout + 30)];
     }
 
+    /**
+     * Ends with finish() unless the provider failed: then the job is retried and the work stays "generating"
+     * until a later try succeeds or failed() gives up.
+     */
     public function handle(AssetMetadataService $metadata): void
     {
         $asset = $this->asset->refresh();
 
-        // Nothing it could write: do not pay for a generation.
-        if (! $metadata->needsFilling($asset)) {
-            return;
-        }
-
         try {
-            $generation = $metadata->generate($asset, $this->trigger);
+            // Nothing it could write: do not pay for a generation.
+            if ($metadata->needsFilling($asset)) {
+                $metadata->apply($asset, $metadata->generate($asset, $this->trigger));
+            }
         } catch (GenerationLimitReached) {
             Log::info("Metadata generation skipped for work {$asset->ulid}: monthly limit reached.");
-
-            return;
         }
 
-        $metadata->apply($asset, $generation);
+        $metadata->finish($asset);
     }
 
     public function failed(?Throwable $e): void
     {
         Log::warning("Metadata generation failed for work {$this->asset->ulid}: {$e?->getMessage()}");
+
+        // The work may be gone by now; then there is nothing to unmark.
+        if ($this->asset->exists && Asset::query()->whereKey($this->asset->id)->exists()) {
+            app(AssetMetadataService::class)->finish($this->asset);
+        }
     }
 }

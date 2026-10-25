@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { Film, Image, PenTool, Play, Sparkles } from 'lucide-vue-next';
+import { Film, Image, LoaderCircle, PenTool, Play, Sparkles } from 'lucide-vue-next';
 import { DRAG_ASSETS } from '@/config/constant';
 import { formatDuration } from '@/utils/format';
 
@@ -63,7 +63,11 @@ function onDragStart(event) {
             <div class="truncate font-medium leading-5" :class="{ 'text-[var(--el-text-color-placeholder)]': !asset.title }">
                 {{ asset.title || $t('library.card.untitled', { file: asset.original_filename }) }}
             </div>
+            <div v-if="asset.metadata_pending" class="flex items-center gap-1.5 text-[13px] leading-5 text-[var(--el-text-color-secondary)]">
+                <LoaderCircle :size="13" :stroke-width="2" class="flex-none animate-spin" />{{ $t('library.generation.pending') }}
+            </div>
             <div
+                v-else
                 class="text-[13px] leading-5"
                 :class="keywordCount ? 'text-[var(--el-text-color-secondary)]' : 'text-[var(--el-color-warning-dark-2)]'"
             >

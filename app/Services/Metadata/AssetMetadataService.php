@@ -4,11 +4,13 @@ namespace App\Services\Metadata;
 
 use App\Enums\GenerationTrigger;
 use App\Enums\MetadataSource;
+use App\Jobs\GenerateAssetMetadata;
 use App\Models\Asset;
 use App\Models\AssetGeneration;
 use App\Models\Marketplace;
 use App\Models\MarketplaceCategory;
 use App\Models\User;
+use App\Support\Realtime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -39,6 +41,28 @@ class AssetMetadataService
     public function available(): bool
     {
         return $this->generators->make()->available();
+    }
+
+    /**
+     * Queues filling for a work and marks it as generating, so the library shows it and waits for the notice.
+     * Inside a transaction the job is queued only once it commits.
+     */
+    public function queue(Asset $asset, GenerationTrigger $trigger): void
+    {
+        $asset->forceFill(['metadata_generating_at' => now()])->save();
+
+        GenerateAssetMetadata::dispatch($asset, $trigger)->afterCommit();
+    }
+
+    /**
+     * The queued generation is over, whatever the outcome: the mark goes and the user's browsers are told
+     * to fetch the work again.
+     */
+    public function finish(Asset $asset): void
+    {
+        Asset::query()->whereKey($asset->id)->update(['metadata_generating_at' => null]);
+
+        Realtime::changed($asset->user, 'asset', $asset->ulid, 'metadata');
     }
 
     /**

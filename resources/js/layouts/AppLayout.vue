@@ -1,11 +1,15 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import AppRail from '@/components/app/AppRail.vue';
+import { startRealtime, stopRealtime } from '@/core/realtime';
 import { VERIFY_EMAIL_URL } from '@/config/constant';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
+
+// The layout stays across pages: one real-time connection for the whole session.
+watch(() => user.value?.ulid, (ulid) => (ulid ? startRealtime(ulid) : stopRealtime()), { immediate: true });
 </script>
 
 <template>

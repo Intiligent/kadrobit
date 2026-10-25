@@ -9,6 +9,7 @@ import AssetToolbar from '@/components/library/AssetToolbar.vue';
 import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
 import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetAutosave } from '@/composables/useAssetAutosave';
+import { usePendingAssets } from '@/composables/usePendingAssets';
 import { useAssetUpload } from '@/composables/useAssetUpload';
 import { useFolders } from '@/composables/useFolders';
 import api from '@/core/api';
@@ -149,22 +150,25 @@ const page = usePage();
 // The API takes edits only from a confirmed email.
 const readonly = computed(() => !page.props.auth.user?.email_verified);
 
-const autosave = useAssetAutosave({
-    onSaved(saved, local) {
-        const asset = assets.value.find((a) => a.id === saved.id);
+// The server's version of a work into the grid and panel; fields edited meanwhile or rejected keep their local value.
+function mergeAsset(saved, local = autosave.localFields(saved.id)) {
+    const asset = assets.value.find((a) => a.id === saved.id);
 
-        if (!asset) {
-            return;
-        }
+    if (!asset) {
+        return;
+    }
 
-        // Fields edited meanwhile or rejected keep their local value.
-        for (const [field, value] of Object.entries(saved)) {
-            if (!local.has(field)) {
-                asset[field] = value;
-            }
+    for (const [field, value] of Object.entries(saved)) {
+        if (!local.has(field)) {
+            asset[field] = value;
         }
-    },
-});
+    }
+}
+
+const autosave = useAssetAutosave({ onSaved: mergeAsset });
+
+// Works whose metadata is being generated in the background are refreshed when it is done (KB-44).
+usePendingAssets({ assets, merge: (saved) => mergeAsset(saved) });
 
 // Folders: an inline name field in the tree for a new folder or a rename, deleting, moving folders and works.
 

@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
-import { Film, Image, PenTool, Sparkles, TriangleAlert, X } from 'lucide-vue-next';
+import { Film, Image, LoaderCircle, PenTool, Sparkles, TriangleAlert, X } from 'lucide-vue-next';
 import AssetFileInfo from '@/components/library/AssetFileInfo.vue';
 import AssetMetadataForm from '@/components/library/AssetMetadataForm.vue';
 import MarketplaceChecks from '@/components/library/MarketplaceChecks.vue';
@@ -108,6 +108,13 @@ const footNote = computed(() => {
 
         <el-tabs v-model="tab" class="info-panel__tabs">
             <el-tab-pane name="metadata" :label="$t('library.panel.tabs.metadata')">
+                <div v-if="asset.metadata_pending" class="mb-4 flex gap-2.5 rounded-lg bg-[var(--el-fill-color-light)] px-3 py-2.5">
+                    <LoaderCircle :size="16" :stroke-width="2" class="mt-0.5 flex-none animate-spin text-[var(--el-color-primary)]" />
+                    <div class="min-w-0">
+                        <p class="font-medium">{{ $t('library.generation.pending') }}</p>
+                        <p class="text-pretty text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ $t('library.generation.pending_hint') }}</p>
+                    </div>
+                </div>
                 <AssetMetadataForm
                     :asset="asset"
                     :accounts="accounts"

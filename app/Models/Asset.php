@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_editorial
  * @property bool $is_ai_generated
  * @property array<string, string> $metadata_sources App\Enums\MetadataSource by field: title, description, keywords, categories
+ * @property Carbon|null $metadata_generating_at Set while a generation is queued or running
  * @property Carbon|null $captured_at
  * @property array|null $location
  * @property string $original_filename
@@ -43,6 +44,9 @@ class Asset extends Model
 {
     use HasUlids, SoftDeletes;
 
+    /** See isGeneratingMetadata(). */
+    public const GENERATING_STALE_MINUTES = 20;
+
     protected $fillable = [
         'folder_id',
         'type',
@@ -54,6 +58,7 @@ class Asset extends Model
         'is_editorial',
         'is_ai_generated',
         'metadata_sources',
+        'metadata_generating_at',
         'captured_at',
         'location',
         'original_filename',
@@ -89,6 +94,7 @@ class Asset extends Model
             'is_editorial' => 'boolean',
             'is_ai_generated' => 'boolean',
             'metadata_sources' => 'array',
+            'metadata_generating_at' => 'datetime',
             'captured_at' => 'datetime',
             'location' => 'array',
             'media_info' => 'array',
@@ -114,6 +120,15 @@ class Asset extends Model
     public function folder(): BelongsTo
     {
         return $this->belongsTo(Folder::class);
+    }
+
+    /**
+     * A generation is queued or running. One that has not finished in GENERATING_STALE_MINUTES is taken as lost
+     * (a worker killed mid-job), so the library does not wait for it forever.
+     */
+    public function isGeneratingMetadata(): bool
+    {
+        return $this->metadata_generating_at?->gt(now()->subMinutes(self::GENERATING_STALE_MINUTES)) ?? false;
     }
 
     public function generations(): HasMany

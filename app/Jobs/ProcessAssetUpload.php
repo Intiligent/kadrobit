@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\AssetFileRole;
 use App\Enums\AssetUploadStatus;
+use App\Enums\GenerationTrigger;
 use App\Enums\MediaType;
 use App\Enums\MetadataSource;
 use App\Enums\UserSettingKey;
@@ -41,7 +42,8 @@ use Throwable;
  * 3. store the original on the private disk and the previews on the public one, at their final paths;
  * 4. create the work and its file rows, and mark the upload done, in one transaction;
  * 5. delete the staged file and the temp previews;
- * 6. with the "Fill in metadata on upload" setting on, queue the generation of what is still empty (GenerateAssetMetadata).
+ * 6. with the "Fill in metadata on upload" setting on, queue the generation of what is still empty
+ *    (AssetMetadataService::queue(), GenerateAssetMetadata).
  *
  * If the commit fails, every stored file is deleted again. A file that cannot be read as what it claims
  * to be (UnreadableMedia) fails at once, without retries. One job per file, in the upload's batch.
@@ -357,7 +359,7 @@ class ProcessAssetUpload implements ShouldQueue
         $asset->files()->createMany($files);
 
         if ($asset->user->setting(UserSettingKey::MetadataAutofillOnUpload) && app(AssetMetadataService::class)->available()) {
-            GenerateAssetMetadata::dispatch($asset)->afterCommit();
+            app(AssetMetadataService::class)->queue($asset, GenerationTrigger::Upload);
         }
 
         $upload->update(['status' => AssetUploadStatus::Done, 'progress' => 100, 'asset_id' => $asset->id, 'error' => null]);

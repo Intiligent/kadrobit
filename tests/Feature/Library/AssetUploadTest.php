@@ -456,6 +456,8 @@ class AssetUploadTest extends TestCase
         $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->image('IMG_1.jpg', 60, 40)])->assertCreated();
 
         Queue::assertPushed(GenerateAssetMetadata::class, fn ($job) => $job->asset->is(Asset::sole()));
+        // Marked as generating, so the library waits for the notice.
+        $this->assertNotNull(Asset::sole()->metadata_generating_at);
     }
 
     public function test_generation_is_not_queued_with_the_setting_off_or_without_a_key(): void

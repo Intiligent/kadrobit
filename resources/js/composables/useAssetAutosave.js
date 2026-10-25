@@ -15,7 +15,8 @@ import { ASSET_AUTOSAVE_DELAY, ASSETS_API_URL } from '@/config/constant';
  *
  * `state[id]`: 'pending' | 'saving' | 'saved' | 'error'; `errors[id]`: { field: message } from a 422.
  * `onSaved(asset, local)`: the server's version of the work, and the fields whose local value is newer
- * (still queued or rejected) and must not be overwritten.
+ * (still queued or rejected) and must not be overwritten. `localFields(id)` gives the same set at any time,
+ * for other fresh versions of a work (e.g. after a background generation).
  */
 export function useAssetAutosave({ onSaved } = {}) {
     const state = reactive({});
@@ -171,5 +172,5 @@ export function useAssetAutosave({ onSaved } = {}) {
         queued.forEach((entry) => clearTimeout(entry.timer));
     }
 
-    return { state, errors, unsaved, queue, flush, flushAll, forget, dispose };
+    return { state, errors, unsaved, queue, flush, flushAll, forget, dispose, localFields };
 }
