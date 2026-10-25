@@ -1,15 +1,20 @@
 import { onScopeDispose, watch } from 'vue';
 import api from '@/core/api';
 import { onEntityChanged, onReconnect, realtime } from '@/core/realtime';
-import { ASSETS_API_URL, REALTIME_FALLBACK_POLL_INTERVAL, REALTIME_SAFETY_POLL_INTERVAL } from '@/config/constant';
+import { ASSETS_API_LIST_MAX, ASSETS_API_URL, REALTIME_FALLBACK_POLL_INTERVAL, REALTIME_SAFETY_POLL_INTERVAL } from '@/config/constant';
+import { hasPendingListings } from '@/utils/publishing';
 
-export const pendingAssetIds = (assets) => assets.filter((asset) => asset.metadata_pending).map((asset) => asset.id);
+/** Works waiting for a background generation or for their uploads to marketplaces. */
+export const pendingAssetIds = (assets) => assets
+    .filter((asset) => asset.metadata_pending || hasPendingListings(asset))
+    .map((asset) => asset.id);
 
 /** How long a notice for a work not in the list yet is kept: it may arrive before the upload poll brings the work. */
 const EARLY_NOTICE_MS = 60_000;
 
 /**
- * Works waiting for a background generation (`metadata_pending`) are fetched again when it is over:
+ * Works waiting for a background generation (`metadata_pending`) or with uploads to marketplaces in the queue
+ * (`listings`) are fetched again when it is over:
  * - on the server's real-time notice, also one that came before the work reached the list;
  * - after a reconnect: notices sent meanwhile may have been missed;
  * - by a poll: every `interval` while there is no real-time connection, and every `safetyInterval` while there
@@ -28,15 +33,14 @@ export function usePendingAssets({
     let lastPoll = Date.now();
 
     async function refresh(ids) {
-        if (!ids.length) {
-            return;
-        }
-
-        try {
-            const { data } = await api.get(ASSETS_API_URL, { ids }, { silent: true });
-            data.forEach((asset) => merge(asset));
-        } catch {
-            // Tried again on the next notice, reconnect or poll.
+        // The API takes ASSETS_API_LIST_MAX works per request; a large publishing batch needs several.
+        for (let start = 0; start < ids.length; start += ASSETS_API_LIST_MAX) {
+            try {
+                const { data } = await api.get(ASSETS_API_URL, { ids: ids.slice(start, start + ASSETS_API_LIST_MAX) }, { silent: true });
+                data.forEach((asset) => merge(asset));
+            } catch {
+                // Tried again on the next notice, reconnect or poll.
+            }
         }
     }
 

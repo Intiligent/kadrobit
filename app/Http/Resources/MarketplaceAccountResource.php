@@ -30,6 +30,7 @@ class MarketplaceAccountResource extends JsonResource
                 'code' => $marketplace->code,
                 'name' => $marketplace->name,
                 'logo_url' => $marketplace->logo_url,
+                'upload_protocol' => $marketplace->upload_protocol->value,
                 'supported_types' => $marketplace->supported_types->map(fn (MediaType $type) => $type->value)->values()->all(),
                 'metadata_delivery' => $marketplace->metadata_delivery?->value,
                 'metadata_rules' => (object) $marketplace->metadata_rules,

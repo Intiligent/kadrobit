@@ -20,6 +20,14 @@ return [
     'connection' => env('PUBLISHING_QUEUE_CONNECTION', 'publishing'),
 
     /*
+    | Works in one send from the publish popover. The rest waits for the next one:
+    | the popover lists a batch the user can still read through, and one send
+    | never ties the account's uploads up for a whole day.
+    */
+
+    'batch_works' => (int) env('PUBLISHING_BATCH_WORKS', 100),
+
+    /*
     | Seconds a session keeps taking new files; the rest goes on in a new job.
     | Below the job timeout by the time one large file may take.
     */

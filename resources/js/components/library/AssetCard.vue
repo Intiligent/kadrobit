@@ -2,10 +2,13 @@
 import { computed, ref } from 'vue';
 import { Film, Image, LoaderCircle, PenTool, Play, Sparkles } from 'lucide-vue-next';
 import { DRAG_ASSETS } from '@/config/constant';
+import ListingBadges from '@/components/library/ListingBadges.vue';
 import { formatDuration } from '@/utils/format';
 
 const props = defineProps({
     asset: { type: Object, required: true },
+    // Connected marketplace accounts, for the delivery badges
+    accounts: { type: Array, default: () => [] },
     selected: { type: Boolean, default: false },
     captions: { type: Boolean, default: true },
     // Can be dragged onto a folder in the explorer.
@@ -57,6 +60,8 @@ function onDragStart(event) {
             <span v-if="asset.type === 'video' && asset.duration_ms" class="asset-card__duration">
                 <Play :size="10" fill="currentColor" :stroke-width="0" />{{ formatDuration(asset.duration_ms) }}
             </span>
+
+            <ListingBadges :listings="asset.listings" :accounts="accounts" />
         </div>
 
         <div v-if="captions" class="mt-2.5 min-w-0 text-left">

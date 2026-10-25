@@ -154,6 +154,12 @@ class Asset extends Model
             : $this->files()->where('role', $role)->first();
     }
 
+    /** The small image shown for the work in lists: the thumbnail, or the preview while there is none. */
+    public function thumbnailFile(): ?AssetFile
+    {
+        return $this->file(AssetFileRole::Thumbnail) ?? $this->file(AssetFileRole::Preview);
+    }
+
     /** Full-text search over title, keywords and description. */
     public function scopeSearchText(Builder $query, string $terms): void
     {

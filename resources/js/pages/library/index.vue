@@ -7,6 +7,7 @@ import AssetGrid from '@/components/library/AssetGrid.vue';
 import AssetInfoPanel from '@/components/library/AssetInfoPanel.vue';
 import AssetToolbar from '@/components/library/AssetToolbar.vue';
 import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
+import PublishPopover from '@/components/library/PublishPopover.vue';
 import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetAutosave } from '@/composables/useAssetAutosave';
 import { usePendingAssets } from '@/composables/usePendingAssets';
@@ -15,7 +16,8 @@ import { useAssetUpload } from '@/composables/useAssetUpload';
 import { useFolders } from '@/composables/useFolders';
 import api from '@/core/api';
 import notify from '@/core/notify';
-import { ASSETS_API_URL } from '@/config/constant';
+import { ASSETS_API_URL, LISTINGS_API_URL } from '@/config/constant';
+import { readyCount } from '@/utils/publishing';
 import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 
@@ -164,8 +166,46 @@ function applyServerAsset(saved, local = autosave.localFields(saved.id)) {
 
 const autosave = useAssetAutosave({ onSaved: applyServerAsset });
 
-// Works whose metadata is being generated in the background are refreshed when it is done (KB-44).
-usePendingAssets({ assets, merge: (saved) => applyServerAsset(saved) });
+// Works whose metadata is being generated in the background (KB-44) or whose uploads to marketplaces are in the
+// queue (KB-32) are refreshed when it is over.
+const pending = usePendingAssets({ assets, merge: (saved) => applyServerAsset(saved) });
+
+// Publishing: the ready works go out in one batch from the toolbar popover (docs/publishing.md).
+
+const ready = computed(() => readyCount(assets.value, props.accounts));
+
+// The batch is queued: fetch the ready works with their new listings, then the poll follows them until sent.
+function onPublished() {
+    pending.refresh(assets.value.filter((a) => a.status === 'ready').map((a) => a.id));
+}
+
+// Listing ids with a cancel or retry request on its way
+const listingsBusy = ref([]);
+
+async function changeListing(listing, action) {
+    const assetId = selected.value?.id;
+
+    if (!assetId || readonly.value || listingsBusy.value.includes(listing.id)) {
+        return;
+    }
+
+    listingsBusy.value = [...listingsBusy.value, listing.id];
+
+    try {
+        const { data } = await api.post(`${LISTINGS_API_URL}/${listing.id}/${action}`);
+        // Looked up again: the list may have been replaced while the request was on its way.
+        const asset = assets.value.find((a) => a.id === assetId);
+
+        if (asset) {
+            asset.listings = asset.listings.map((l) => (l.id === data.id ? data : l));
+        }
+    } catch {
+        // Reported by the API client (409 says why); a fresh copy shows the listing as it is now.
+        pending.refresh([assetId]);
+    } finally {
+        listingsBusy.value = listingsBusy.value.filter((id) => id !== listing.id);
+    }
+}
 
 // Folders: an inline name field in the tree for a new folder or a rename, deleting, moving folders and works.
 
@@ -441,6 +481,7 @@ function addFiles(files) {
             :types="types"
         >
             <template #actions>
+                <PublishPopover :count="ready" :accounts="accounts" :disabled="readonly" @published="onPublished" />
                 <UploadStatus
                     :items="uploader.items"
                     :summary="uploader.summary.value"
@@ -454,6 +495,7 @@ function addFiles(files) {
 
         <AssetGrid
             :assets="visible"
+            :accounts="accounts"
             :selected-id="selectedId"
             :size="size"
             :accept="upload.accept"
@@ -478,6 +520,10 @@ function addFiles(files) {
         @status="setStatus"
         :deleting="deleting"
         @delete="deleteAsset"
+        :listings-busy="listingsBusy"
+        @cancel-listing="changeListing($event, 'cancel')"
+        @retry-listing="changeListing($event, 'retry')"
         @close="selectedId = null"
     />
+
 </template>

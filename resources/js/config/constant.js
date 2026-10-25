@@ -23,6 +23,11 @@ export const ASSETS_API_URL = '/api/assets';
 export const ASSETS_MOVE_API_URL = '/api/assets/move';
 export const FOLDERS_API_URL = '/api/folders';
 export const ASSET_UPLOADS_API_URL = '/api/assets/uploads';
+// Works per GET /api/assets request (AssetController::LIST_MAX)
+export const ASSETS_API_LIST_MAX = 100;
+// Publishing to marketplaces: the batch of ready works, and cancelling or retrying one delivery
+export const LISTINGS_BATCH_API_URL = '/api/listings/batch';
+export const LISTINGS_API_URL = '/api/listings';
 
 // Settings and their JSON endpoints
 export const SETTINGS_URL = '/settings';

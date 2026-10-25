@@ -100,7 +100,11 @@ const SIZES = [
 .toolbar__sizes {
     flex: none;
 
+    // As tall as the search and sort next to it (the theme's component size), not the radio button's own 32px.
     :deep(.el-radio-button__inner) {
+        display: flex;
+        align-items: center;
+        height: var(--el-component-size);
         padding-right: 8px;
         padding-left: 8px;
         color: var(--el-text-color-secondary);

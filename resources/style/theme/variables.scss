@@ -74,6 +74,13 @@
     $input-font-size: (
         'large': 16px,
     ),
+    // Box 2px larger and rounder than Element Plus' 14px with a 2px radius.
+    // The indeterminate bar is positioned by hand: see ElCheckbox in theme/element.scss.
+    $checkbox: (
+        'input-width': 16px,
+        'input-height': 16px,
+        'border-radius': 4px,
+    ),
     $popover: (
         'border-radius': 8px,
     ),

@@ -119,8 +119,9 @@ watch(() => props.summary.total, (total, previous) => {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    // As tall as the other toolbar controls (the theme's component size).
+    width: var(--el-component-size);
+    height: var(--el-component-size);
     cursor: pointer;
     background: var(--el-bg-color);
     border: 1px solid var(--el-border-color);

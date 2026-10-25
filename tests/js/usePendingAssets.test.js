@@ -32,6 +32,30 @@ describe('usePendingAssets', () => {
         vi.useRealTimers();
     });
 
+    it('polls works with uploads to marketplaces in the queue too', async () => {
+        assets.value.push({ id: 'c', metadata_pending: false, listings: [{ status: 'queued' }] });
+        start();
+
+        await vi.advanceTimersByTimeAsync(5000);
+
+        expect(api.get).toHaveBeenCalledWith('/api/assets', { ids: ['a', 'c'] }, { silent: true });
+    });
+
+    it('fetches a long list of works in parts the API takes', async () => {
+        const ids = Array.from({ length: 150 }, (_, i) => `w${i}`);
+        let composable;
+        scope = effectScope();
+        scope.run(() => {
+            composable = usePendingAssets({ assets, merge, interval: 5000, safetyInterval: 20000 });
+        });
+
+        await composable.refresh(ids);
+
+        expect(api.get).toHaveBeenCalledTimes(2);
+        expect(api.get.mock.calls[0][1].ids).toHaveLength(100);
+        expect(api.get.mock.calls[1][1].ids).toEqual(ids.slice(100));
+    });
+
     it('polls the pending works every few seconds without a connection', async () => {
         start();
 

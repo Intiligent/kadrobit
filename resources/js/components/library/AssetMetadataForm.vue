@@ -31,7 +31,7 @@ function setCategories(code, value) {
 
 async function copyKeywords() {
     await navigator.clipboard?.writeText(props.asset.keywords.join(', '));
-    notify.success({ message: trans('library.fields.keywords_copied'), duration: 2000 });
+    notify.message.success({ message: trans('library.fields.keywords_copied') });
 }
 </script>
 

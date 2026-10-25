@@ -15,11 +15,13 @@ use App\Models\User;
 use App\Services\Marketplaces\Delivery\Delivery;
 use App\Services\Marketplaces\Delivery\DeliveryFailed;
 use App\Services\Marketplaces\Delivery\DeliverySession;
+use App\Services\Marketplaces\Publishing;
 use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Passport;
 use Tests\TestCase;
 
@@ -55,6 +57,18 @@ class PublishingTest extends TestCase
             'credentials' => ['password' => 'secret'],
             'status' => MarketplaceAccountStatus::Active,
             ...$attributes,
+        ]);
+    }
+
+    /**
+     * Sends every ready work of the user to the given accounts, as the popover does with everything ticked.
+     */
+    protected function sendBatch(int ...$accountIds): TestResponse
+    {
+        $works = $this->user->assets()->where('status', AssetStatus::Ready)->pluck('ulid');
+
+        return $this->postJson('/api/listings/batch', [
+            'pairs' => $works->crossJoin($accountIds)->map(fn (array $pair) => implode('|', $pair))->all(),
         ]);
     }
 
@@ -118,31 +132,31 @@ class PublishingTest extends TestCase
             'description' => '',
             'keywords' => ['glacier', 'lagoon'],
             'is_ai_generated' => true,
-            'width' => 1000,
-            'height' => 1000,
         ], 'image/png');
         $this->work(['type' => 'video', 'width' => 1920, 'height' => 1080], 'video/mp4');
+        // Under the Shutterstock minimum of 4 MP: rejected there, fine on Alamy.
+        $this->work(['width' => 1000, 'height' => 1000]);
         $this->work(['status' => AssetStatus::Draft]);
 
         $summary = $this->getJson('/api/listings/batch')->assertOk()->json('data');
 
-        $this->assertSame(3, $summary['works']);
+        $this->assertSame(4, $summary['works']);
 
         $shutter = $this->accountSummary($summary, $shutterstock);
         $this->assertNull($shutter['blocked']);
         $this->assertSame(3, $shutter['works']);
-        $this->assertSame(0, $shutter['unsupported']);
+        $this->assertSame(1, $shutter['unsupported']);
         $this->assertSame([$weak->ulid], array_column($shutter['warnings'], 'asset'));
         $this->assertSame(
-            ['format', 'resolution_min', 'ai_not_accepted', 'description_required', 'keywords_min'],
+            ['format', 'ai_not_accepted', 'description_required', 'keywords_min'],
             array_column($shutter['warnings'][0]['warnings'], 'key'),
         );
         $this->assertSame(['format' => 'PNG', 'formats' => 'JPEG, TIFF'], $shutter['warnings'][0]['warnings'][0]['params']);
-        $this->assertSame(['min' => 7, 'count' => 2], $shutter['warnings'][0]['warnings'][4]['params']);
+        $this->assertSame(['min' => 7, 'count' => 2], $shutter['warnings'][0]['warnings'][3]['params']);
 
         // Alamy takes no video and needs a title, not a description.
         $alamySummary = $this->accountSummary($summary, $alamy);
-        $this->assertSame(2, $alamySummary['works']);
+        $this->assertSame(3, $alamySummary['works']);
         $this->assertSame(1, $alamySummary['unsupported']);
         $this->assertNotContains('description_required', array_column($alamySummary['warnings'][0]['warnings'] ?? [], 'key'));
 
@@ -151,16 +165,169 @@ class PublishingTest extends TestCase
         $this->assertNotNull($good);
     }
 
+    public function test_batch_summary_lists_each_ready_work_with_the_checks_of_its_pairs(): void
+    {
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        $small = $this->work(['width' => 1000, 'height' => 1000, 'keywords' => ['glacier', 'lagoon']]);
+        $sent = $this->work();
+        $this->listing($sent, $alamy, ['status' => ListingStatus::Sent]);
+
+        $items = collect($this->getJson('/api/listings/batch')->assertOk()->json('data.items'))->keyBy('asset');
+
+        $item = $items[$small->ulid];
+        $this->assertSame($small->original_filename, $item['original_filename']);
+        $this->assertSame(1_000_000, $item['size_bytes']);
+        $this->assertSame(2, $item['keywords']);
+
+        $pairs = collect($item['accounts'])->keyBy('account');
+        $this->assertSame(['resolution_min'], array_column($pairs[$shutterstock->id]['errors'], 'key'));
+        $this->assertSame(['keywords_min'], array_column($pairs[$shutterstock->id]['warnings'], 'key'));
+        $this->assertSame([], $pairs[$alamy->id]['errors']);
+
+        // Already sent to Alamy: only Shutterstock is left for this work.
+        $this->assertSame([$shutterstock->id], array_column($items[$sent->ulid]['accounts'], 'account'));
+    }
+
+    public function test_only_the_chosen_pairs_are_queued(): void
+    {
+        Queue::fake();
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        $first = $this->work();
+        $second = $this->work();
+
+        $this->postJson('/api/listings/batch', ['pairs' => [
+            "{$first->ulid}|{$shutterstock->id}",
+            "{$second->ulid}|{$alamy->id}",
+        ]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', [$shutterstock->id => 1, $alamy->id => 1]);
+
+        $this->assertSame([$shutterstock->id], $first->listings()->where('status', ListingStatus::Queued)->pluck('marketplace_account_id')->all());
+        $this->assertSame([$alamy->id], $second->listings()->where('status', ListingStatus::Queued)->pluck('marketplace_account_id')->all());
+    }
+
+    public function test_a_work_left_out_for_an_account_stays_in_the_batch_once_sent_elsewhere(): void
+    {
+        Queue::fake();
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        $work = $this->work();
+
+        $this->postJson('/api/listings/batch', ['pairs' => ["{$work->ulid}|{$shutterstock->id}"]])->assertAccepted();
+        $this->assertSame(0, $work->listings()->where('marketplace_account_id', $alamy->id)->count());
+
+        $work->listings()->update(['status' => ListingStatus::Sent]);
+        app(Publishing::class)->settle($work);
+
+        $this->assertSame(AssetStatus::Ready, $work->fresh()->status);
+        $item = collect($this->getJson('/api/listings/batch')->json('data.items'))->firstWhere('asset', $work->ulid);
+        $this->assertSame([$alamy->id], array_column($item['accounts'], 'account'));
+    }
+
+    public function test_a_work_waits_for_an_account_that_is_off_and_shows_why(): void
+    {
+        Queue::fake();
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy', ['status' => MarketplaceAccountStatus::Disabled]);
+        $work = $this->work();
+
+        $this->sendBatch($shutterstock->id, $alamy->id)->assertJsonPath('data.queued', [$shutterstock->id => 1]);
+        $work->listings()->update(['status' => ListingStatus::Sent]);
+        app(Publishing::class)->settle($work);
+
+        $this->assertSame(AssetStatus::Ready, $work->fresh()->status);
+        $item = collect($this->getJson('/api/listings/batch')->json('data.items'))->firstWhere('asset', $work->ulid);
+        $this->assertSame([['account' => $alamy->id, 'errors' => [['key' => 'disabled', 'params' => []]], 'warnings' => []]], $item['accounts']);
+    }
+
+    public function test_an_account_that_never_takes_the_work_does_not_hold_it_back(): void
+    {
+        Queue::fake();
+        $shutterstock = $this->account();
+        $this->account('alamy');
+        // Too small for Shutterstock (4 MP), enough for Alamy
+        $work = $this->work(['width' => 1500, 'height' => 2000]);
+
+        $this->sendBatch(...$this->user->marketplaceAccounts()->pluck('id'))->assertAccepted();
+        $this->assertSame(0, $work->listings()->where('marketplace_account_id', $shutterstock->id)->count());
+
+        $work->listings()->update(['status' => ListingStatus::Sent]);
+        app(Publishing::class)->settle($work);
+
+        $this->assertSame(AssetStatus::Submitted, $work->fresh()->status);
+    }
+
+    public function test_one_send_takes_at_most_the_batch_limit_of_works(): void
+    {
+        Queue::fake();
+        config(['publishing.batch_works' => 2]);
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        [$first, $second, $third] = [$this->work(), $this->work(), $this->work()];
+
+        $this->getJson('/api/listings/batch')->assertJsonPath('data.limit', 2);
+
+        // Two works on two accounts are four pairs, still within the limit.
+        $this->postJson('/api/listings/batch', ['pairs' => [
+            "{$first->ulid}|{$shutterstock->id}", "{$first->ulid}|{$alamy->id}", "{$second->ulid}|{$shutterstock->id}", "{$third->ulid}|{$alamy->id}",
+        ]])->assertUnprocessable()->assertJsonValidationErrors(['pairs' => trans_choice('library.publishing.too_many', 2, ['max' => 2])]);
+
+        $this->postJson('/api/listings/batch', ['pairs' => ["{$first->ulid}|{$shutterstock->id}", "{$first->ulid}|{$alamy->id}", "{$second->ulid}|{$alamy->id}"]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', [$shutterstock->id => 1, $alamy->id => 2]);
+        $this->assertSame(0, $third->listings()->count());
+    }
+
+    public function test_pairs_must_name_a_work_and_an_account(): void
+    {
+        $account = $this->account();
+
+        foreach ([['not-a-pair'], [['asset' => $this->work()->ulid, 'account' => $account->id]], ['01ARZ3NDEKTSV4RRFFQ69G5FAV|x'], 'abc', 5] as $pairs) {
+            $this->postJson('/api/listings/batch', ['pairs' => $pairs])->assertUnprocessable()->assertJsonValidationErrors(['pairs']);
+        }
+    }
+
+    public function test_a_file_the_marketplace_rejects_is_not_queued_even_when_chosen(): void
+    {
+        Queue::fake();
+        $account = $this->account();
+        $small = $this->work(['width' => 1000, 'height' => 1000]);
+
+        $this->postJson('/api/listings/batch', ['pairs' => ["{$small->ulid}|{$account->id}"]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', []);
+        $this->sendBatch($account->id)
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', []);
+
+        $this->assertSame(0, AssetListing::count());
+        Queue::assertNothingPushed();
+    }
+
+    public function test_a_failed_listing_of_a_file_the_marketplace_rejects_is_not_retried(): void
+    {
+        Queue::fake();
+        $asset = $this->work(['width' => 1000, 'height' => 1000]);
+        $listing = $this->listing($asset, $this->account(), ['status' => ListingStatus::Failed, 'error' => 'other']);
+
+        $this->postJson("/api/listings/{$listing->id}/retry")->assertConflict();
+
+        $this->assertSame(ListingStatus::Failed, $listing->refresh()->status);
+        Queue::assertNothingPushed();
+    }
+
     public function test_publishing_sends_ready_works_in_one_session_and_marks_them_submitted(): void
     {
         $account = $this->account();
         $first = $this->work();
         $second = $this->work(['keywords' => ['glacier']]);
 
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])
+        $this->sendBatch($account->id)
             ->assertAccepted()
             ->assertJsonPath("data.queued.{$account->id}", 2)
-            ->assertJsonPath('data.summary.works', 0);
+            ->assertJsonMissingPath('data.summary');
 
         $this->assertSame(1, FakeDelivery::$opens);
         $this->assertSame([$first->ulid, $second->ulid], array_column(FakeDelivery::$sent, 0));
@@ -187,11 +354,11 @@ class PublishingTest extends TestCase
     {
         $account = $this->account();
         $asset = $this->work();
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
 
         // Back to ready by hand, e.g. to send it to a newly connected marketplace.
-        $asset->update(['status' => AssetStatus::Ready]);
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])
+        $asset->refresh()->update(['status' => AssetStatus::Ready]);
+        $this->sendBatch($account->id)
             ->assertAccepted()
             ->assertJsonPath('data.queued', []);
 
@@ -207,7 +374,7 @@ class PublishingTest extends TestCase
         FakeDelivery::$sendFails[$asset->ulid] = ['other'];
 
         // Shutterstock first: its upload fails, Alamy's gets through.
-        $this->postJson('/api/listings/batch', ['accounts' => [$shutterstock->id, $alamy->id]])->assertAccepted();
+        $this->sendBatch($shutterstock->id, $alamy->id)->assertAccepted();
 
         $this->assertSame(ListingStatus::Failed, $asset->listings()->where('marketplace_account_id', $shutterstock->id)->sole()->status);
         $this->assertSame('other', $asset->listings()->where('marketplace_account_id', $shutterstock->id)->sole()->error);
@@ -215,7 +382,7 @@ class PublishingTest extends TestCase
         $this->assertSame(AssetStatus::Ready, $asset->refresh()->status);
 
         // The next batch takes only the failed pair.
-        $this->postJson('/api/listings/batch', ['accounts' => [$shutterstock->id, $alamy->id]])
+        $this->sendBatch($shutterstock->id, $alamy->id)
             ->assertAccepted()
             ->assertJsonPath('data.queued', [$shutterstock->id => 1]);
 
@@ -231,7 +398,7 @@ class PublishingTest extends TestCase
         $fine = $this->work();
         FakeDelivery::$sendFails[$broken->ulid] = [AssetListing::ERROR_FILE];
 
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
 
         $this->assertSame(AssetListing::ERROR_FILE, $broken->listings()->sole()->error);
         $this->assertSame(ListingStatus::Sent, $fine->listings()->sole()->status);
@@ -244,7 +411,7 @@ class PublishingTest extends TestCase
         $asset = $this->work();
         FakeDelivery::$openFails = ['auth'];
 
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
 
         $this->assertSame(1, FakeDelivery::$opens);
         $this->assertSame(ListingStatus::Failed, $asset->listings()->sole()->status);
@@ -268,7 +435,7 @@ class PublishingTest extends TestCase
         FakeDelivery::$openFails = ['connect', 'connect', 'connect'];
 
         // The synchronous test queue runs the delayed retries right away.
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
 
         $this->assertSame(3, FakeDelivery::$opens);
         $this->assertSame('connect', $asset->listings()->sole()->error);
@@ -283,7 +450,7 @@ class PublishingTest extends TestCase
         $asset = $this->work();
         FakeDelivery::$sendFails[$asset->ulid] = ['connect'];
 
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
 
         $listing = $asset->listings()->sole();
         $this->assertSame(ListingStatus::Sent, $listing->status);
@@ -298,7 +465,7 @@ class PublishingTest extends TestCase
         $account = $this->account();
         $asset = $this->work();
 
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
 
         $this->assertSame(AssetListing::ERROR_UNSUPPORTED, $asset->listings()->sole()->error);
     }
@@ -308,7 +475,7 @@ class PublishingTest extends TestCase
         Queue::fake();
         $account = $this->account();
         $asset = $this->work();
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
         Queue::assertPushed(PublishListings::class, fn (PublishListings $job) => $job->account->is($account) && $job->queue === 'publishing');
 
         $account->update(['status' => MarketplaceAccountStatus::Disabled]);
@@ -368,7 +535,7 @@ class PublishingTest extends TestCase
         Queue::fake();
         $account = $this->account();
         $asset = $this->work();
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
         $listing = $asset->listings()->sole();
 
         $this->postJson("/api/listings/{$listing->id}/cancel")->assertOk()->assertJsonPath('data.status', 'cancelled');
@@ -404,7 +571,7 @@ class PublishingTest extends TestCase
 
         $this->postJson("/api/listings/{$listing->id}/cancel")->assertNotFound();
         $this->postJson("/api/listings/{$listing->id}/retry")->assertNotFound();
-        $this->postJson('/api/listings/batch', ['accounts' => [$theirs->id]])
+        $this->sendBatch($theirs->id)
             ->assertAccepted()
             ->assertJsonPath('data.queued', []);
 
@@ -413,16 +580,17 @@ class PublishingTest extends TestCase
         Queue::assertNothingPushed();
     }
 
-    public function test_the_batch_needs_accounts(): void
+    public function test_the_batch_needs_pairs(): void
     {
-        $this->postJson('/api/listings/batch', [])->assertUnprocessable()->assertJsonValidationErrors('accounts');
+        $this->postJson('/api/listings/batch', [])->assertUnprocessable()->assertJsonValidationErrors(['pairs']);
+        $this->postJson('/api/listings/batch', ['accounts' => [$this->account()->id]])->assertUnprocessable()->assertJsonValidationErrors(['pairs']);
     }
 
     public function test_a_work_edited_after_sending_is_shown_as_outdated(): void
     {
         $account = $this->account();
         $asset = $this->work();
-        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])->assertAccepted();
+        $this->sendBatch($account->id)->assertAccepted();
 
         $this->getJson("/api/assets?ids[]={$asset->ulid}")
             ->assertJsonPath('data.0.status', 'submitted')
@@ -481,7 +649,7 @@ class PublishingTest extends TestCase
 
         // Sent to Alamy only: not submitted, Shutterstock still has to get it.
         $this->assertSame(AssetStatus::Ready, $asset->refresh()->status);
-        $this->postJson('/api/listings/batch', ['accounts' => [$shutterstock->id, $alamy->id]])
+        $this->sendBatch($shutterstock->id, $alamy->id)
             ->assertAccepted()
             ->assertJsonPath('data.queued', [$shutterstock->id => 1]);
     }
