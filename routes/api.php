@@ -4,6 +4,7 @@ use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetGenerationController;
 use App\Http\Controllers\AssetUploadController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\ListingController;
 use App\Http\Controllers\Settings\MarketplaceAccountController;
 use App\Http\Controllers\Settings\UserSettingController;
 use App\Http\Resources\UserResource;
@@ -40,6 +41,14 @@ Route::as('api.')->middleware('auth:api')->group(function () {
             Route::get('assets/{asset}/generations', 'index')->whereUlid('asset')->name('index');
             Route::post('assets/{asset}/generations', 'store')->whereUlid('asset')->middleware('throttle:metadata-generation')->name('store');
             Route::post('assets/{asset}/generations/{generation}/apply', 'apply')->whereUlid('asset')->whereNumber('generation')->name('apply');
+        });
+
+        // Publishing to marketplaces: the batch of ready works and the deliveries of single works.
+        Route::controller(ListingController::class)->prefix('listings')->name('listings.')->group(function () {
+            Route::get('batch', 'batch')->name('batch');
+            Route::post('batch', 'publish')->name('publish');
+            Route::post('{listing}/cancel', 'cancel')->whereNumber('listing')->name('cancel');
+            Route::post('{listing}/retry', 'retry')->whereNumber('listing')->name('retry');
         });
 
         Route::controller(FolderController::class)->prefix('folders')->name('folders.')->group(function () {

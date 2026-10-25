@@ -49,7 +49,7 @@ watch(() => props.folders, (next) => {
 const place = ref('all');
 const type = ref('all');
 // Status tab, remembered per browser.
-const status = useStoredRef('library.status', 'all', { allowed: ['all', 'draft', 'ready', 'archived'] });
+const status = useStoredRef('library.status', 'all', { allowed: ['all', 'draft', 'ready', 'submitted', 'archived'] });
 const query = ref('');
 const sort = ref('newest');
 // Remembered per browser.
@@ -97,6 +97,7 @@ const statusCounts = computed(() => ({
     all: typedAssets.value.filter(isLive).length,
     draft: typedAssets.value.filter((a) => a.status === 'draft').length,
     ready: typedAssets.value.filter((a) => a.status === 'ready').length,
+    submitted: typedAssets.value.filter((a) => a.status === 'submitted').length,
     archived: typedAssets.value.filter((a) => a.status === 'archived').length,
 }));
 
@@ -398,7 +399,7 @@ const uploadFolder = computed(() => (place.value === 'all' || place.value === 'u
 
 function addFiles(files) {
     // New works are drafts: make sure they are visible.
-    if (status.value === 'ready' || status.value === 'archived') {
+    if (status.value !== 'all' && status.value !== 'draft') {
         status.value = 'all';
     }
 

@@ -45,6 +45,17 @@ return [
             'after_commit' => false,
         ],
 
+        // Publishing to marketplaces (config/publishing.php): a large video upload runs far longer than other jobs.
+        'publishing' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'publishing',
+            // Above the publishing job timeout, or a running upload is handed to a second worker.
+            'retry_after' => (int) env('DB_PUBLISHING_QUEUE_RETRY_AFTER', (int) env('PUBLISHING_TIMEOUT', 3600) + 60),
+            'after_commit' => false,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

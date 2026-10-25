@@ -36,7 +36,7 @@ const MODIFIER_KEY = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform |
 
 const TYPE_ICON = { photo: Image, video: Film, vector: PenTool, illustration: Sparkles };
 // Ready to publish is green, archived (next step: deleted) red, a draft neutral.
-const STATUS_TAG = { draft: 'info', ready: 'success', archived: 'danger' };
+const STATUS_TAG = { draft: 'info', ready: 'success', submitted: 'primary', archived: 'danger' };
 
 const subtitle = computed(() => {
     const a = props.asset;
@@ -152,24 +152,25 @@ const footNote = computed(() => {
                 <span v-else class="truncate text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ footNote.text }}</span>
             </div>
 
-            <template v-if="asset.status === 'draft'">
+            <template v-if="asset.status === 'draft' || asset.status === 'submitted'">
                 <!-- ⌘-click (Ctrl-click off macOS) archives without asking: it is undone with Restore. -->
                 <el-tooltip :content="$t('library.footer.archive_hint', { key: MODIFIER_KEY })" :disabled="readonly" :show-after="500">
                     <el-button :disabled="readonly" @click="emit('status', 'archived', { confirm: !($event.metaKey || $event.ctrlKey) })">
                         {{ $t('library.footer.archive') }}
                     </el-button>
                 </el-tooltip>
-                <el-button type="primary" :disabled="readonly || !canMarkReady" @click="emit('status', 'ready')">
+                <el-button v-if="asset.status === 'draft'" type="primary" :disabled="readonly || !canMarkReady" @click="emit('status', 'ready')">
                     {{ $t('library.footer.mark_ready') }}
+                </el-button>
+                <!-- Into the next batch again, e.g. for a newly connected marketplace: sent pairs are not repeated. -->
+                <el-button v-else type="primary" :disabled="readonly" @click="emit('status', 'ready')">
+                    {{ $t('library.footer.back_to_ready') }}
                 </el-button>
             </template>
 
+            <!-- Ready works go out together with the publish button of the library toolbar (KB-32), not one by one. -->
             <template v-else-if="asset.status === 'ready'">
                 <el-button :disabled="readonly" @click="emit('status', 'draft')">{{ $t('library.footer.back_to_draft') }}</el-button>
-                <!-- TODO: publish flow (asset_listings). The button keeps its place in the layout until then. -->
-                <el-tooltip :content="$t('library.footer.publish_soon')">
-                    <span><el-button type="primary" disabled>{{ $t('library.footer.publish') }}</el-button></span>
-                </el-tooltip>
             </template>
 
             <template v-else>

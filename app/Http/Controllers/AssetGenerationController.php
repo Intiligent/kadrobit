@@ -100,7 +100,7 @@ class AssetGenerationController extends Controller
     protected function answer(Request $request, Asset $work, AssetGeneration $generation, int $status = 200): JsonResponse
     {
         return response()->json([
-            'data' => AssetResource::make($work->load(['files', 'folder:id,ulid']))->resolve($request),
+            'data' => AssetResource::make($work->load(AssetResource::RELATIONS))->resolve($request),
             'generation' => AssetGenerationResource::make($generation)->resolve($request),
             'meta' => ['remaining' => $this->metadata->remaining($request->user())],
         ], $status);

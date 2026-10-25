@@ -60,6 +60,24 @@ describe('checkAsset: file rules', () => {
         expect(big.items[0]).toMatchObject({ key: 'library.checks.file_too_large', params: { size: 50, max: 45 } });
     });
 
+    it('warns about a format the marketplace does not take', () => {
+        const shutterstock = account('shutterstock', {}, {
+            marketplace: {
+                code: 'shutterstock',
+                name: 'Shutterstock',
+                supported_types: ['photo'],
+                metadata_delivery: 'iptc',
+                metadata_rules: {},
+                file_rules: { photo: { formats: ['JPEG', 'TIFF'] } },
+            },
+        });
+        const png = checkAsset(asset({ mime: 'image/png' }), shutterstock);
+
+        expect(levels(png)).toEqual(['warning:format', 'ok:keywords_ok']);
+        expect(png.items[0].params).toEqual({ format: 'PNG', formats: 'JPEG, TIFF' });
+        expect(levels(checkAsset(asset({ mime: 'image/tiff' }), shutterstock))).toEqual(['ok:keywords_ok']);
+    });
+
     it('skips file checks without rules for the type or before the size is known', () => {
         expect(levels(checkAsset(asset({ type: 'video', width: 640, height: 480 }), adobe()))).toEqual(['ok:keywords_ok']);
         expect(levels(checkAsset(asset({ width: null, height: null }), adobe()))).toEqual(['ok:keywords_ok']);
@@ -92,6 +110,20 @@ describe('checkAsset', () => {
 
     it('requires a title', () => {
         expect(levels(checkAsset(asset({ title: ' ' }), account('dreamstime')))).toContain('warning:title_required');
+    });
+
+    it('requires the fields the marketplace names instead of the title', () => {
+        const rules = { required: ['description'] };
+
+        expect(levels(checkAsset(asset({ title: '', description: 'Icebergs' }), account('shutterstock', rules)))).toEqual(['ok:keywords_ok']);
+        expect(levels(checkAsset(asset({ description: '' }), account('shutterstock', rules)))).toEqual(['warning:description_required', 'ok:keywords_ok']);
+    });
+
+    it('warns about AI-generated works where they are not accepted', () => {
+        const ai = asset({ is_ai_generated: true });
+
+        expect(levels(checkAsset(ai, account('shutterstock', { accepts_ai_generated: false })))).toContain('warning:ai_not_accepted');
+        expect(levels(checkAsset(ai, account('adobe_stock')))).not.toContain('warning:ai_not_accepted');
     });
 
     it('reports accounts that cannot publish', () => {
