@@ -1,5 +1,5 @@
 import { h } from 'vue';
-import { ElMessageBox, ElNotification } from 'element-plus';
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import { X } from 'lucide-vue-next';
 
 /**
@@ -37,6 +37,18 @@ function notification(type, { title, message, duration = 6000, key = null }) {
 }
 
 /**
+ * A short line at the top of the page, for quick confirmations of an action (copied, saved).
+ */
+function toast(type, { message, duration = 2000, key = null }) {
+    return once(key, (release) => ElMessage({
+        type,
+        message,
+        duration,
+        onClose: release,
+    }));
+}
+
+/**
  * Resolves to true when confirmed, false when cancelled or already open.
  */
 function confirm({ title, message, confirmText, cancelText, type = 'warning', key = null }) {
@@ -55,5 +67,9 @@ export default {
     info: (options) => notification('info', options),
     warning: (options) => notification('warning', options),
     error: (options) => notification('error', options),
+    message: {
+        success: (options) => toast('success', options),
+        info: (options) => toast('info', options),
+    },
     confirm,
 };

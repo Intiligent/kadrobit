@@ -26,6 +26,12 @@
     transition: background-color 600000s 0s;
 }
 
+// ElMessage
+// Status icon 4px larger. Element Plus gives `.el-message__icon` no size: it inherits the page's 16px.
+.el-message .el-message__icon {
+    font-size: 20px;
+}
+
 // ElMessageBox
 // Status icon of confirm dialogs (archive, leave the page). Element Plus: `.el-message-box__status`, a fixed 24px.
 .el-message-box .el-message-box__container .el-message-box__status {

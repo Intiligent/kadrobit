@@ -31,7 +31,7 @@ const props = defineProps({
 const emit = defineEmits(['update', 'status', 'delete', 'close', 'cancel-listing', 'retry-listing']);
 
 // Remembered per browser, like the tile size: the panel reopens on the same tab.
-const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'marketplaces', 'file'] });
+const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'file', 'marketplaces'] });
 
 // The key that skips the archive confirmation, as the keyboard shows it.
 const MODIFIER_KEY = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
@@ -127,6 +127,9 @@ const footNote = computed(() => {
                     @update="emit('update', $event)"
                 />
             </el-tab-pane>
+            <el-tab-pane name="file" :label="$t('library.panel.tabs.file')">
+                <AssetFileInfo :asset="asset" />
+            </el-tab-pane>
             <el-tab-pane name="marketplaces">
                 <template #label>
                     <el-badge :value="issues" :hidden="!issues" type="warning" :offset="[8, 2]">
@@ -141,9 +144,6 @@ const footNote = computed(() => {
                     @cancel="emit('cancel-listing', $event)"
                     @retry="emit('retry-listing', $event)"
                 />
-            </el-tab-pane>
-            <el-tab-pane name="file" :label="$t('library.panel.tabs.file')">
-                <AssetFileInfo :asset="asset" />
             </el-tab-pane>
         </el-tabs>
 
