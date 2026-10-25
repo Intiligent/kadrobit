@@ -1,3 +1,5 @@
+import { megapixels } from '@/utils/format';
+
 /**
  * Checks a work against a marketplace's rules: its file (marketplaces.file_rules, by media type)
  * and its base metadata (marketplaces.metadata_rules).
@@ -71,7 +73,6 @@ export function checkAsset(asset, account) {
 }
 
 // Rounded down, so a file just under the minimum never reads as "4.0 MP".
-const megapixels = (width, height) => Math.floor((width * height) / 100_000) / 10;
 
 const megabytes = (bytes) => Math.round(bytes / 104_857.6) / 10;
 

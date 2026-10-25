@@ -50,6 +50,8 @@ class AssetResource extends JsonResource
             'duration_ms' => $this->duration_ms,
             'captured_at' => $this->captured_at?->toIso8601String(),
             'location' => $this->location,
+            // How the photo was taken (CameraInfoReader), null for works without EXIF.
+            'camera' => ($this->media_info['camera'] ?? null) ?: null,
             'checksum' => $this->checksum,
             'thumbnail_url' => $thumbnail?->url(),
             'preview_url' => $preview?->url(),
