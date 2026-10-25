@@ -172,7 +172,7 @@ const pending = usePendingAssets({ assets, merge: (saved) => applyServerAsset(sa
 
 // Publishing: the ready works go out in one batch from the toolbar popover (docs/publishing.md).
 
-const ready = computed(() => readyCount(assets.value));
+const ready = computed(() => readyCount(assets.value, props.accounts));
 
 // The batch is queued: fetch the ready works with their new listings, then the poll follows them until sent.
 function onPublished() {
@@ -183,9 +183,9 @@ function onPublished() {
 const listingsBusy = ref([]);
 
 async function changeListing(listing, action) {
-    const asset = selected.value;
+    const assetId = selected.value?.id;
 
-    if (!asset || readonly.value || listingsBusy.value.includes(listing.id)) {
+    if (!assetId || readonly.value || listingsBusy.value.includes(listing.id)) {
         return;
     }
 
@@ -193,10 +193,15 @@ async function changeListing(listing, action) {
 
     try {
         const { data } = await api.post(`${LISTINGS_API_URL}/${listing.id}/${action}`);
-        asset.listings = asset.listings.map((l) => (l.id === data.id ? data : l));
+        // Looked up again: the list may have been replaced while the request was on its way.
+        const asset = assets.value.find((a) => a.id === assetId);
+
+        if (asset) {
+            asset.listings = asset.listings.map((l) => (l.id === data.id ? data : l));
+        }
     } catch {
         // Reported by the API client (409 says why); a fresh copy shows the listing as it is now.
-        pending.refresh([asset.id]);
+        pending.refresh([assetId]);
     } finally {
         listingsBusy.value = listingsBusy.value.filter((id) => id !== listing.id);
     }

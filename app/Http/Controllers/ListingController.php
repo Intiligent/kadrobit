@@ -8,6 +8,7 @@ use App\Http\Resources\AssetListingResource;
 use App\Models\AssetListing;
 use App\Services\Marketplaces\ListingChecks;
 use App\Services\Marketplaces\Publishing;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,23 +30,32 @@ class ListingController extends Controller
 
     /**
      * Sends the batch: to the chosen accounts, or only the chosen work–account pairs (the publish popover).
-     * Pairs already queued, on their way or sent are left as they are.
+     * Pairs already queued, on their way or sent are left as they are. One send takes at most publishing.batch_works works.
      */
     public function publish(Request $request): JsonResponse
     {
+        $limit = config('publishing.batch_works');
         $data = $request->validate([
             'accounts' => ['required_without:pairs', 'array', 'min:1'],
             'accounts.*' => ['integer'],
-            'pairs' => ['required_without:accounts', 'array', 'min:1', 'max:10000'],
-            'pairs.*.asset' => ['required', 'string', 'max:26'],
-            'pairs.*.account' => ['required', 'integer'],
+            // "asset ulid|account id" strings checked in one pass, cheaper than per-item rules (pairs.*.asset).
+            'pairs' => ['required_without:accounts', 'array', 'min:1', 'max:'.$limit * max(1, $request->user()->marketplaceAccounts()->count()), function (string $attribute, array $pairs, Closure $fail) use ($limit) {
+                foreach ($pairs as $pair) {
+                    if (! is_string($pair) || ! preg_match(Publishing::PAIR_PATTERN, $pair)) {
+                        $fail('validation.regex')->translate();
+
+                        return;
+                    }
+                }
+
+                if (count(array_unique(array_map(fn (string $pair) => strstr($pair, '|', true), $pairs))) > $limit) {
+                    $fail(trans_choice('library.publishing.too_many', $limit, ['max' => $limit]));
+                }
+            }],
         ]);
 
         $queued = isset($data['pairs'])
-            ? $this->publishing->queue($request->user(), [], array_map(
-                fn (array $pair) => ['asset' => $pair['asset'], 'account' => (int) $pair['account']],
-                $data['pairs'],
-            ))
+            ? $this->publishing->queue($request->user(), [], array_values(array_unique($data['pairs'])))
             : $this->publishing->queue($request->user(), array_map('intval', $data['accounts']));
 
         return response()->json(['data' => [

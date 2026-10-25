@@ -9,8 +9,24 @@ export const PENDING_STATUSES = ['queued', 'sending'];
 
 export const isPending = (listing) => PENDING_STATUSES.includes(listing.status);
 
-/** Works that go out with the next batch: the publish button counts them. */
-export const readyCount = (assets) => assets.filter((asset) => asset.status === 'ready').length;
+/**
+ * Works of the next batch: the publish button counts them, the same works the popover lists with pairs. A ready work
+ * counts while some account that is on and signed in does not have it queued, on its way or sent already. A work the
+ * marketplace will reject (type, file limits) still counts: the popover shows why it does not go out.
+ */
+export function readyCount(assets, accounts) {
+    return assets.filter((asset) => asset.status === 'ready' && accounts.some((account) => inBatch(asset, account))).length;
+}
+
+function inBatch(asset, account) {
+    const listing = listingFor(asset, account.id);
+
+    if (listing && !['failed', 'cancelled'].includes(listing.status)) {
+        return false;
+    }
+
+    return account.status === 'active';
+}
 
 export const hasPendingListings = (asset) => (asset.listings ?? []).some(isPending);
 
@@ -54,6 +70,14 @@ export function batchAccounts(summary, accounts) {
 
 /** Picked by default: every account the batch has pairs for. */
 export const defaultAccounts = (rows) => rows.filter((row) => row.selectable).map((row) => row.account);
+
+/**
+ * Works ticked by default and by "select all": the first ones the batch still has something for, up to the limit
+ * of one send (`summary.limit`, publishing.batch_works). Their order is the server's, oldest first.
+ */
+export function firstWorks(summary) {
+    return new Set(summary.items.filter((item) => item.accounts.length).slice(0, summary.limit).map((item) => item.asset));
+}
 
 /**
  * How one pair is shown and whether it goes out: a file the marketplace rejects never does ('error'); one the user
@@ -113,7 +137,7 @@ export function publishTotals(rows) {
             totals[pair.state]++;
 
             if (pair.state !== 'error') {
-                totals.pairs.push({ asset: row.item.asset, account: pair.account });
+                totals.pairs.push(pairKey(row.item.asset, pair.account));
             }
         }
     }

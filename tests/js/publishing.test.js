@@ -4,6 +4,7 @@ import {
     canCancel,
     canRetry,
     defaultAccounts,
+    firstWorks,
     hasPendingListings,
     listingFor,
     listingState,
@@ -51,8 +52,35 @@ const summary = {
 };
 
 describe('ready works and listings', () => {
-    it('counts ready works only', () => {
-        expect(readyCount([{ status: 'ready' }, { status: 'draft' }, { status: 'submitted' }, { status: 'ready' }])).toBe(2);
+    it('counts the ready works the batch still has a pair for', () => {
+        const stock = (id, status = 'active') => ({
+            id,
+            status,
+            marketplace: { code: `stock${id}`, supported_types: ['photo'], metadata_rules: {}, file_rules: { photo: { min_megapixels: 4 } } },
+        });
+        const work = (overrides = {}) => ({
+            status: 'ready', type: 'photo', title: 'Lagoon', keywords: ['ice'], width: 3000, height: 2000, listings: [], ...overrides,
+        });
+        const works = [
+            work(),
+            work({ status: 'draft' }),
+            work({ status: 'submitted' }),
+            // Too small for every marketplace: counted, the popover says why it does not go out
+            work({ width: 1000, height: 1000 }),
+            // Not a type these marketplaces take: counted too, rejected in the popover
+            work({ type: 'video' }),
+            // Sent to one, queued on the other: nothing left
+            work({ listings: [{ account_id: 1, status: 'sent' }, { account_id: 2, status: 'queued' }] }),
+            // Sent to one, the other is still open
+            work({ listings: [{ account_id: 1, status: 'sent' }] }),
+            // A failed or cancelled upload goes out again
+            work({ listings: [{ account_id: 1, status: 'failed' }, { account_id: 2, status: 'sent' }] }),
+        ];
+
+        expect(readyCount(works, [stock(1), stock(2)])).toBe(5);
+        expect(readyCount(works, [stock(1), stock(2, 'disabled')])).toBe(4);
+        expect(readyCount(works, [stock(1, 'invalid_credentials')])).toBe(0);
+        expect(readyCount(works, [])).toBe(0);
     });
 
     it('tells works with uploads in the queue', () => {
@@ -94,6 +122,11 @@ describe('publish popover', () => {
         expect(defaultAccounts(rows)).toEqual([1, 2, 4]);
     });
 
+    it('ticks the works the batch has something for, up to the limit of one send', () => {
+        expect([...firstWorks({ ...summary, limit: 100 })]).toEqual(['a', 'b', 'c']);
+        expect([...firstWorks({ ...summary, limit: 2 })]).toEqual(['a', 'b']);
+    });
+
     it('never sends a rejected file, and sends the rest unless unticked', () => {
         expect(pairState({ errors: [error], warnings: [] }, false)).toBe('error');
         expect(pairState({ errors: [error], warnings: [] }, true)).toBe('error');
@@ -116,12 +149,12 @@ describe('publish popover', () => {
 
         expect([totals.ok, totals.warning, totals.error]).toEqual([4, 1, 1]);
         expect(totals.pairs).toHaveLength(5);
-        expect(totals.pairs).not.toContainEqual({ asset: 'a', account: 1 });
+        expect(totals.pairs).not.toContain('a|1');
 
         const fewer = publishTotals(workRows(summary, [1, 2], new Set(['a', 'b']), new Set([pairKey('b', 1)])));
 
         expect([fewer.ok, fewer.warning, fewer.error]).toEqual([2, 0, 1]);
-        expect(fewer.pairs).toEqual([{ asset: 'a', account: 2 }, { asset: 'b', account: 2 }]);
+        expect(fewer.pairs).toEqual(['a|2', 'b|2']);
     });
 
     it('names what is left on each marketplace that got work', () => {

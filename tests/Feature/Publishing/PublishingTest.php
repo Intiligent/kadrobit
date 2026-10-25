@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Marketplaces\Delivery\Delivery;
 use App\Services\Marketplaces\Delivery\DeliveryFailed;
 use App\Services\Marketplaces\Delivery\DeliverySession;
+use App\Services\Marketplaces\Publishing;
 use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -184,14 +185,67 @@ class PublishingTest extends TestCase
         $second = $this->work();
 
         $this->postJson('/api/listings/batch', ['pairs' => [
-            ['asset' => $first->ulid, 'account' => $shutterstock->id],
-            ['asset' => $second->ulid, 'account' => $alamy->id],
+            "{$first->ulid}|{$shutterstock->id}",
+            "{$second->ulid}|{$alamy->id}",
         ]])
             ->assertAccepted()
             ->assertJsonPath('data.queued', [$shutterstock->id => 1, $alamy->id => 1]);
 
-        $this->assertSame([$shutterstock->id], $first->listings()->pluck('marketplace_account_id')->all());
-        $this->assertSame([$alamy->id], $second->listings()->pluck('marketplace_account_id')->all());
+        $this->assertSame([$shutterstock->id], $first->listings()->where('status', ListingStatus::Queued)->pluck('marketplace_account_id')->all());
+        $this->assertSame([$alamy->id], $second->listings()->where('status', ListingStatus::Queued)->pluck('marketplace_account_id')->all());
+    }
+
+    public function test_a_pair_left_out_of_a_sent_work_is_held_back_so_the_work_stays_in_the_batch(): void
+    {
+        Queue::fake();
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        $work = $this->work();
+        $untouched = $this->work();
+
+        $this->postJson('/api/listings/batch', ['pairs' => ["{$work->ulid}|{$shutterstock->id}"]])->assertAccepted();
+
+        $this->assertSame(ListingStatus::Cancelled, $work->listings()->where('marketplace_account_id', $alamy->id)->sole()->status);
+        // A work not sent anywhere needs nothing held back: it simply stays ready.
+        $this->assertSame(0, $untouched->listings()->count());
+
+        // Once Shutterstock has it, the work is still ready and the batch offers it to Alamy again.
+        $work->listings()->where('marketplace_account_id', $shutterstock->id)->update(['status' => ListingStatus::Sent]);
+        app(Publishing::class)->settle($work);
+
+        $this->assertSame(AssetStatus::Ready, $work->fresh()->status);
+        $item = collect($this->getJson('/api/listings/batch')->json('data.items'))->firstWhere('asset', $work->ulid);
+        $this->assertSame([$alamy->id], array_column($item['accounts'], 'account'));
+    }
+
+    public function test_one_send_takes_at_most_the_batch_limit_of_works(): void
+    {
+        Queue::fake();
+        config(['publishing.batch_works' => 2]);
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        [$first, $second, $third] = [$this->work(), $this->work(), $this->work()];
+
+        $this->getJson('/api/listings/batch')->assertJsonPath('data.limit', 2);
+
+        // Two works on two accounts are four pairs, still within the limit.
+        $this->postJson('/api/listings/batch', ['pairs' => [
+            "{$first->ulid}|{$shutterstock->id}", "{$first->ulid}|{$alamy->id}", "{$second->ulid}|{$shutterstock->id}", "{$third->ulid}|{$alamy->id}",
+        ]])->assertUnprocessable()->assertJsonValidationErrors(['pairs' => trans_choice('library.publishing.too_many', 2, ['max' => 2])]);
+
+        $this->postJson('/api/listings/batch', ['accounts' => [$shutterstock->id]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', [$shutterstock->id => 2]);
+        $this->assertSame(0, $third->listings()->count());
+    }
+
+    public function test_pairs_must_name_a_work_and_an_account(): void
+    {
+        $account = $this->account();
+
+        foreach ([['not-a-pair'], [['asset' => $this->work()->ulid, 'account' => $account->id]], ['01ARZ3NDEKTSV4RRFFQ69G5FAV|x']] as $pairs) {
+            $this->postJson('/api/listings/batch', ['pairs' => $pairs])->assertUnprocessable()->assertJsonValidationErrors(['pairs']);
+        }
     }
 
     public function test_a_file_the_marketplace_rejects_is_not_queued_even_when_chosen(): void
@@ -200,7 +254,7 @@ class PublishingTest extends TestCase
         $account = $this->account();
         $small = $this->work(['width' => 1000, 'height' => 1000]);
 
-        $this->postJson('/api/listings/batch', ['pairs' => [['asset' => $small->ulid, 'account' => $account->id]]])
+        $this->postJson('/api/listings/batch', ['pairs' => ["{$small->ulid}|{$account->id}"]])
             ->assertAccepted()
             ->assertJsonPath('data.queued', []);
         $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])

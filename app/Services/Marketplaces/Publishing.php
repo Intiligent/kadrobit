@@ -24,13 +24,17 @@ use Illuminate\Support\Facades\DB;
  */
 class Publishing
 {
+    /** One work–account pair sent from the publish popover: "asset ulid|account id" (pairKey() in utils/publishing.js). */
+    public const PAIR_PATTERN = '/^[0-9A-Za-z]{26}\|\d+$/';
+
     public function __construct(protected ListingChecks $checks) {}
 
     /**
      * What the next batch would send: per connected account (the account list of the publish popover) and per ready
-     * work, with the checks of every pair the batch can still send (its work list).
+     * work, with the checks of every pair the batch can still send (its work list). `limit` is how many works one
+     * send takes (publishing.batch_works).
      *
-     * @return array{works: int, accounts: list<array{account: int, blocked: ?string, works: int, unsupported: int, warnings: list<array{asset: string, warnings: list<array>}>}>, items: list<array<string, mixed>>}
+     * @return array{works: int, limit: int, accounts: list<array{account: int, blocked: ?string, works: int, unsupported: int, warnings: list<array{asset: string, warnings: list<array>}>}>, items: list<array<string, mixed>>}
      */
     public function summary(User $user): array
     {
@@ -39,6 +43,7 @@ class Publishing
 
         return [
             'works' => $works->count(),
+            'limit' => config('publishing.batch_works'),
             'accounts' => $plans
                 ->map(fn (array $plan) => [
                     'account' => $plan['account']->id,
@@ -59,63 +64,74 @@ class Publishing
 
     /**
      * Queues the batch for the given accounts of the user and starts a session for each one that got work.
-     * Accounts that are turned off or lost their sign-in are skipped.
+     * Accounts that are turned off or lost their sign-in are skipped. One send takes at most publishing.batch_works
+     * works: the first ones by id for `$accountIds`; the controller holds `$pairs` to it.
      *
      * With `$pairs`, only those work–account pairs are queued: the ones left ticked in the publish popover. A pair the
      * batch cannot send (already queued or sent, rejected by the checks, someone else's) is skipped.
      *
+     * A work that went out to some accounts and was left out for others gets a cancelled listing on each of those:
+     * otherwise settle() would move it to Submitted once the rest is sent, and the batch would never offer it again.
+     * Cancelled, it stays ready, comes back in the next batch and can be sent from the Marketplaces tab.
+     *
      * @param  list<int>  $accountIds
-     * @param  list<array{asset: string, account: int}>|null  $pairs  Asset ulid and account id
+     * @param  list<string>|null  $pairs  "asset ulid|account id" (PAIR_PATTERN)
      * @return array<int, int> Listings queued, by account id: only those this request queued itself
      */
     public function queue(User $user, array $accountIds, ?array $pairs = null): array
     {
         $works = $this->readyWorks($user);
-        $queued = [];
-        $wanted = $pairs === null ? null : collect($pairs)->mapWithKeys(fn (array $pair) => ["{$pair['asset']}|{$pair['account']}" => true]);
 
-        if ($pairs !== null) {
-            $accountIds = array_values(array_unique(array_column($pairs, 'account')));
+        if ($pairs === null) {
+            $works = $works->take(config('publishing.batch_works'))->values();
         }
 
-        foreach ($this->accounts($user)->whereIn('id', $accountIds) as $account) {
-            $plan = $this->plan($works, $account);
-            $items = $wanted === null
-                ? $plan['items']
-                : array_values(array_filter($plan['items'], fn (array $item) => $wanted->has("{$item['asset']->ulid}|{$account->id}")));
+        $plans = $this->accounts($user)
+            ->map(fn (MarketplaceAccount $account) => $this->plan($works, $account))
+            ->reject(fn (array $plan) => $plan['blocked']);
+        $wanted = $pairs === null ? null : array_flip($pairs);
+        $queued = [];
+        // Ids of the works this request queued something for, and the pairs it queued ("asset id|account id")
+        $sent = [];
+        $sentPairs = [];
 
-            if ($plan['blocked'] || ! $items) {
+        foreach ($plans as $plan) {
+            $account = $plan['account'];
+            $items = array_values(array_filter($plan['items'], fn (array $item) => $wanted === null
+                ? in_array($account->id, $accountIds, true)
+                : isset($wanted["{$item['asset']->ulid}|{$account->id}"])));
+
+            if (! $items) {
                 continue;
             }
 
-            $count = DB::transaction(function () use ($account, $items) {
+            $count = DB::transaction(function () use ($account, $items, &$sent, &$sentPairs) {
                 $count = 0;
 
                 foreach ($items as ['asset' => $asset, 'check' => $check, 'listing' => $listing]) {
                     $attributes = [
                         'status' => ListingStatus::Queued,
-                        'warnings' => $check->warnings,
+                        'warnings' => json_encode($check->warnings),
                         'error' => null,
                         'attempts' => 0,
+                        'updated_at' => now(),
                     ];
 
-                    if ($listing) {
+                    $added = $listing
                         // Failed or cancelled: queued again only if nothing changed it meanwhile.
-                        $count += AssetListing::query()->whereKey($listing->id)->retryable()->update([
-                            ...$attributes,
-                            'warnings' => json_encode($check->warnings),
-                            'updated_at' => now(),
-                        ]);
-                    } else {
+                        ? AssetListing::query()->whereKey($listing->id)->retryable()->update($attributes)
                         // Another request may have queued the pair a moment ago: the unique index keeps one.
-                        $count += AssetListing::query()->insertOrIgnore([
+                        : AssetListing::query()->insertOrIgnore([
                             ...$attributes,
                             'asset_id' => $asset->id,
                             'marketplace_account_id' => $account->id,
-                            'warnings' => json_encode($check->warnings),
                             'created_at' => now(),
-                            'updated_at' => now(),
                         ]);
+
+                    if ($added) {
+                        $count += $added;
+                        $sent[$asset->id] = true;
+                        $sentPairs["{$asset->id}|{$account->id}"] = true;
                     }
                 }
 
@@ -131,7 +147,44 @@ class Publishing
             }
         }
 
+        $this->holdBack($plans, $sent, $sentPairs);
+
         return $queued;
+    }
+
+    /**
+     * Cancelled listings for the pairs left out of a batch whose work went out elsewhere (see queue()). Pairs with a
+     * listing already (failed, cancelled) keep it; rejected files have nothing to send later and get none.
+     *
+     * @param  Collection<int, array>  $plans
+     * @param  array<int, true>  $sent  Ids of the works queued somewhere
+     * @param  array<string, true>  $sentPairs  "asset id|account id" queued by this batch
+     */
+    protected function holdBack(Collection $plans, array $sent, array $sentPairs): void
+    {
+        $rows = [];
+
+        foreach ($plans as $plan) {
+            foreach ($plan['items'] as ['asset' => $asset, 'check' => $check, 'listing' => $listing]) {
+                if ($listing || ! isset($sent[$asset->id]) || isset($sentPairs["{$asset->id}|{$plan['account']->id}"])) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'asset_id' => $asset->id,
+                    'marketplace_account_id' => $plan['account']->id,
+                    'status' => ListingStatus::Cancelled,
+                    'warnings' => json_encode($check->warnings),
+                    'attempts' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if ($rows) {
+            AssetListing::query()->insertOrIgnore($rows);
+        }
     }
 
     /**

@@ -7,7 +7,7 @@ import PublishWorkRow from '@/components/library/PublishWorkRow.vue';
 import api from '@/core/api';
 import notify from '@/core/notify';
 import { LISTINGS_BATCH_API_URL, SETTINGS_MARKETPLACES_URL } from '@/config/constant';
-import { batchAccounts, defaultAccounts, nextSteps, pairKey, publishTotals, workRows } from '@/utils/publishing';
+import { batchAccounts, defaultAccounts, firstWorks, nextSteps, pairKey, publishTotals, workRows } from '@/utils/publishing';
 
 const props = defineProps({
     // Connected marketplace accounts (MarketplaceAccountResource)
@@ -27,12 +27,17 @@ const accountsOpen = ref(false);
 
 const connections = computed(() => Object.fromEntries(props.accounts.map((account) => [account.id, account])));
 const accountRows = computed(() => (summary.value ? batchAccounts(summary.value, props.accounts) : []));
-const rows = computed(() => (summary.value ? workRows(summary.value, picked.value, works.value, skipped.value) : []));
+// An account disconnected while the popover is open drops out: its cards would have nothing to show.
+const pickedConnected = computed(() => picked.value.filter((id) => connections.value[id]));
+const rows = computed(() => (summary.value ? workRows(summary.value, pickedConnected.value, works.value, skipped.value) : []));
 const totals = computed(() => publishTotals(rows.value));
 
 const selectable = computed(() => rows.value.filter((row) => row.selectable));
 const chosenCount = computed(() => selectable.value.filter((row) => row.chosen).length);
-const allChosen = computed(() => chosenCount.value > 0 && chosenCount.value === selectable.value.length);
+// Works one send takes (publishing.batch_works); beyond it the rest waits for the next send.
+const limit = computed(() => summary.value?.limit ?? Infinity);
+const full = computed(() => chosenCount.value >= limit.value);
+const allChosen = computed(() => chosenCount.value > 0 && chosenCount.value === Math.min(selectable.value.length, limit.value));
 const allExpanded = computed(() => rows.value.length > 0 && rows.value.every((row) => expanded.value.has(row.item.asset)));
 
 const stats = computed(() => {
@@ -63,7 +68,7 @@ function toggleAccount(account) {
 }
 
 function toggleAll() {
-    works.value = allChosen.value ? new Set() : new Set(selectable.value.map((row) => row.item.asset));
+    works.value = allChosen.value ? new Set() : firstWorks(summary.value);
 }
 
 function toggleExpandAll() {
@@ -94,7 +99,7 @@ onMounted(async () => {
         const { data } = await api.get(LISTINGS_BATCH_API_URL);
         summary.value = data;
         picked.value = defaultAccounts(batchAccounts(data, props.accounts));
-        works.value = new Set(data.items.filter((item) => item.accounts.length).map((item) => item.asset));
+        works.value = firstWorks(data);
         // The first work opens, so the per-marketplace breakdown is seen at once.
         expanded.value = new Set(data.items.slice(0, 1).map((item) => item.asset));
         stage.value = 'ready';
@@ -164,7 +169,7 @@ async function send() {
                 <div class="flex items-center gap-1.5 text-[var(--el-text-color-secondary)]">
                     {{ $t('library.publishing.popover.to') }}
                     <button type="button" class="publish-panel__link" :aria-expanded="accountsOpen" @click="accountsOpen = !accountsOpen">
-                        {{ $tChoice('library.publishing.popover.to_count', picked.length, { count: picked.length }) }}
+                        {{ $tChoice('library.publishing.popover.to_count', pickedConnected.length, { count: pickedConnected.length }) }}
                         <ChevronDown :size="14" :stroke-width="2" class="transition-transform" :class="{ 'rotate-180': accountsOpen }" />
                     </button>
                 </div>
@@ -194,7 +199,7 @@ async function send() {
                     @update:model-value="toggleAll"
                 />
                 <span class="flex-1 text-xs font-semibold text-[var(--el-text-color-secondary)]">
-                    {{ allChosen
+                    {{ allChosen && selectable.length <= limit
                         ? $t('library.publishing.popover.works', { count: selectable.length })
                         : $t('library.publishing.popover.works_some', { selected: chosenCount, total: selectable.length }) }}
                 </span>
@@ -202,6 +207,10 @@ async function send() {
                     {{ $t(allExpanded ? 'library.publishing.popover.collapse_all' : 'library.publishing.popover.expand_all') }}
                 </button>
             </div>
+
+            <p v-if="selectable.length > limit" class="flex-none border-t border-[var(--el-border-color-lighter)] px-5 py-2 text-xs text-[var(--el-text-color-secondary)]">
+                {{ $tChoice('library.publishing.popover.limit', limit, { max: limit }) }}
+            </p>
 
             <div class="min-h-0 flex-1 overflow-y-auto">
                 <PublishWorkRow
@@ -211,6 +220,7 @@ async function send() {
                     :connections="connections"
                     :expanded="expanded.has(row.item.asset)"
                     :disabled="stage === 'sending'"
+                    :locked="full && !row.chosen"
                     @toggle="works = toggleIn(works, row.item.asset)"
                     @expand="expanded = toggleIn(expanded, row.item.asset)"
                     @pair="(account) => (skipped = toggleIn(skipped, pairKey(row.item.asset, account)))"

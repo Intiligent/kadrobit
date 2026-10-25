@@ -12,6 +12,8 @@ const props = defineProps({
     connections: { type: Object, required: true },
     expanded: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
+    // The send is full (publishing.batch_works): this work cannot be ticked
+    locked: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['toggle', 'expand', 'pair']);
@@ -57,7 +59,7 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
 <template>
     <div class="border-t border-[var(--el-border-color-extra-light)]">
         <div class="flex items-center gap-3 py-2.5 pl-4 pr-3.5">
-            <el-checkbox :model-value="row.chosen" :disabled="disabled || !row.selectable" @update:model-value="emit('toggle')" />
+            <el-checkbox :model-value="row.chosen" :disabled="disabled || locked || !row.selectable" @update:model-value="emit('toggle')" />
 
             <div class="publish-row__thumb" :class="{ 'opacity-45': !row.chosen }">
                 <el-image v-if="item.thumbnail_url" :src="item.thumbnail_url" fit="cover" class="size-full" />

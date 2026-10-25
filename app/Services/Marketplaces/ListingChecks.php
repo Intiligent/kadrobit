@@ -54,12 +54,12 @@ class ListingChecks
         [$warnings, $errors] = $this->fileChecks($asset, $marketplace->file_rules[$asset->type->value] ?? null);
 
         if ($asset->is_ai_generated && ($rules['accepts_ai_generated'] ?? true) === false) {
-            $warnings[] = $this->warning('ai_not_accepted');
+            $warnings[] = $this->issue('ai_not_accepted');
         }
 
         foreach ($rules['required'] ?? ['title'] as $field) {
             if (blank($asset->{$field})) {
-                $warnings[] = $this->warning("{$field}_required");
+                $warnings[] = $this->issue("{$field}_required");
             }
         }
 
@@ -73,15 +73,15 @@ class ListingChecks
         $max = $rules['keywords_max'] ?? null;
 
         if (! $count) {
-            $warnings[] = $this->warning('keywords_required');
+            $warnings[] = $this->issue('keywords_required');
         } elseif ($min && $count < $min) {
-            $warnings[] = $this->warning('keywords_min', ['min' => $min, 'count' => $count]);
+            $warnings[] = $this->issue('keywords_min', ['min' => $min, 'count' => $count]);
         } elseif ($max && $count > $max) {
-            $warnings[] = $this->warning('keywords_max', ['max' => $max, 'count' => $count]);
+            $warnings[] = $this->issue('keywords_max', ['max' => $max, 'count' => $count]);
         }
 
         if (($rules['categories_max'] ?? null) && count($asset->categories[$marketplace->code] ?? []) < ($rules['categories_min'] ?? 0)) {
-            $warnings[] = $this->warning('categories_min');
+            $warnings[] = $this->issue('categories_min');
         }
 
         return new ListingCheck(warnings: $warnings, errors: $errors);
@@ -117,7 +117,7 @@ class ListingChecks
         $format = self::FORMATS[$original?->mime] ?? null;
 
         if ($format && ($rules['formats'] ?? null) && ! in_array($format, $rules['formats'], true)) {
-            $warnings[] = $this->warning('format', ['format' => $format, 'formats' => implode(', ', $rules['formats'])]);
+            $warnings[] = $this->issue('format', ['format' => $format, 'formats' => implode(', ', $rules['formats'])]);
         }
 
         $width = $asset->width;
@@ -129,16 +129,16 @@ class ListingChecks
             $params = ['width' => $width, 'height' => $height, 'mp' => floor($pixels / 100_000) / 10];
 
             if (($rules['min_megapixels'] ?? null) && $pixels < $rules['min_megapixels'] * 1_000_000) {
-                $errors[] = $this->warning('resolution_min', [...$params, 'min' => $rules['min_megapixels']]);
+                $errors[] = $this->issue('resolution_min', [...$params, 'min' => $rules['min_megapixels']]);
             } elseif (($rules['max_megapixels'] ?? null) && $pixels > $rules['max_megapixels'] * 1_000_000) {
-                $errors[] = $this->warning('resolution_max', [...$params, 'max' => $rules['max_megapixels']]);
+                $errors[] = $this->issue('resolution_max', [...$params, 'max' => $rules['max_megapixels']]);
             }
         }
 
         $size = $original?->size_bytes;
 
         if ($size && ($rules['max_file_mb'] ?? null) && $size > $rules['max_file_mb'] * 1024 * 1024) {
-            $errors[] = $this->warning('file_too_large', ['size' => round($size / 104_857.6) / 10, 'max' => $rules['max_file_mb']]);
+            $errors[] = $this->issue('file_too_large', ['size' => round($size / 104_857.6) / 10, 'max' => $rules['max_file_mb']]);
         }
 
         return [$warnings, $errors];
@@ -147,7 +147,7 @@ class ListingChecks
     /**
      * @return array{key: string, params: array<string, mixed>}
      */
-    protected function warning(string $key, array $params = []): array
+    protected function issue(string $key, array $params = []): array
     {
         return ['key' => $key, 'params' => $params];
     }

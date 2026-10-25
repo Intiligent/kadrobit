@@ -272,9 +272,10 @@ return [
         'outdated_hint' => 'Edited after sending: the marketplace still has the old metadata.',
         'button' => [
             'publish' => '{1} Publish :count ready work|[2,*] Publish :count ready works',
-            'none_ready' => 'No works are ready to publish. Mark works as ready first.',
+            'none_ready' => 'Nothing to send: no works are ready, or they are sent already.',
             'no_accounts' => 'Connect a marketplace to publish',
         ],
+        'too_many' => '{1} One send takes one work.|[2,*] One send takes up to :max works.',
         // Publish popover of the library toolbar (PublishPopover.vue, docs/publishing.md)
         'popover' => [
             'title' => 'Publish ready works',
@@ -320,6 +321,7 @@ return [
             ],
             'send' => 'Send',
             'empty' => 'No works are ready.',
+            'limit' => '{1} One send takes one work; the rest go with the next one.|[2,*] One send takes up to :max works; the rest go with the next one.',
             'load_failed' => 'Could not load the works to publish. Try again in a minute.',
             'queued' => '{0} Nothing new to send|{1} :count upload is in the queue|[2,*] :count uploads are in the queue',
             'queued_hint' => 'Statuses update on the cards and in the Marketplaces tab of each work.',
