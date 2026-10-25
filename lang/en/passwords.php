@@ -14,7 +14,7 @@ return [
         'greeting' => 'Hi :name,',
         'intro' => 'We received a request to reset the password for your account. Click the button below to choose a new one.',
         'action' => 'Reset password',
-        'expire' => 'The link expires in :count minutes.',
+        'expire' => '{1} The link expires in :count minute.|[2,*] The link expires in :count minutes.',
         'outro' => 'If you did not request a password reset, ignore this email: your password stays the same.',
         'link_hint' => 'If the button does not work, copy this link into your browser:',
     ],

@@ -37,6 +37,20 @@ export function formatBytes(bytes, locale) {
     }).format(value);
 }
 
+/**
+ * A number with the locale's separators: 3.1 → "3,1", 6000 → "6 000" in Russian.
+ */
+export function formatNumber(value, locale) {
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
+}
+
+/**
+ * The same parameters with numbers formatted for the locale, for messages like "… (:mp MP)".
+ */
+export function formatNumberParams(params, locale) {
+    return Object.fromEntries(Object.entries(params ?? {}).map(([key, value]) => [key, typeof value === 'number' ? formatNumber(value, locale) : value]));
+}
+
 export function formatDateTime(iso, locale) {
     if (!iso) {
         return '';

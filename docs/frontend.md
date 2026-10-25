@@ -161,8 +161,37 @@ loading.any.value;     // идёт ли хоть один запрос с эти
 
 ## Переводы
 
-- Тексты для пользователя — в `lang/en/*.php`, на фронте `trans('errors.network')` или `$t('home.title')`.
-- При сборке и в `npm run dev` плагин `laravel-vue-i18n/vite` создаёт `lang/php_en.json` (в `.gitignore`).
+Задача: [KB-48](https://github.com/Intiligent/kadrobit/issues/48).
+
+- Языки интерфейса — `App\Enums\Locale`: `en` (по умолчанию) и `ru`. Тексты — в `lang/{locale}/*.php`, на фронте `trans('errors.network')` или `$t('home.title')`.
+- **Новая или изменённая строка добавляется сразу во все языки.** `tests/Unit/TranslationsTest.php` падает, если у языков разные файлы, ключи или плейсхолдеры (`:name`).
+- При сборке и в `npm run dev` плагин `laravel-vue-i18n/vite` создаёт `lang/php_{locale}.json` (в `.gitignore`), `app.js` загружает файл активного языка.
+- Язык запроса выбирает `App\Http\Middleware\SetLocale` (группы `web` и `api`), он же попадает в общий prop `locale`. Как пользователь меняет язык — в [settings.md](settings.md#язык-интерфейса).
+- Встроенные тексты Element Plus (пустые списки, кнопки диалогов) переводятся через `provideGlobalConfig` в `app.js`: новый язык добавляется в `ELEMENT_LOCALES`.
+- `lang/{locale}/validation.php` и `pagination.php` — сообщения фреймворка. Названия полей в ошибках (`:attribute`) — в `validation.attributes`, одинаковые ключи во всех языках.
+- `lang/{locale}.json` — строки, которые фреймворк ищет по английскому тексту: заголовки страниц ошибок (`Not Found`, `Page Expired`).
+
+### Новый язык
+
+1. `case` в `App\Enums\Locale` — язык появится в выборе на странице General.
+2. `lang/{locale}/*.php` и `lang/{locale}.json` с теми же ключами, что у `en`; название языка на нём самом — `settings.general.locale.options.{locale}` во всех языках.
+3. Локаль Element Plus в `ELEMENT_LOCALES` (`app.js`).
+4. Если у языка другое число форм множественного числа — его число в `TranslationsTest::PLURAL_FORMS`.
+
+`TranslationsTest` проверяет пункт 2.
+
+### Числа, даты, единицы
+
+- Даты, числа и списки форматируются через `Intl` с `getActiveLanguage()`: `utils/format.js` (`formatNumber`, `formatBytes`, `formatDateTime`), `utils/relativeTime.js`, `Intl.ListFormat`. В русском `3.1` — «3,1», `6000` — «6 000».
+- Единицы измерения — в переводах, а не в коде: `library.file.megapixels_value` («:mp MP» / «:mp Мп»), `library.camera.focal`, `library.camera.bias` и т. п.
+- Числа в параметрах сообщения форматируются перед подстановкой (`formatNumberParams`).
+
+### Множественное число
+
+- В английском — интервалы: `'{0} No works|{1} :count work|[2,*] :count works'`, маркер у каждого варианта.
+- В русском — три формы без маркеров, выбор по числу (1, 21 — первая; 2–4, 22 — вторая; 5–20, 11 — третья): `':count работа|:count работы|:count работ'`. Интервалы вроде `[2,4]` не годятся: 22 в них не попадает.
+- Точные числа можно добавить **после** трёх форм: `':count работа|:count работы|:count работ|{0} Нет работ'`. Форма выбирается по позиции среди всех вариантов, поэтому `{0}` в начале сдвинул бы формы.
+- В PHP — `trans_choice('key', $n, ['count' => $n])`, на фронте — `transChoice()` / `$tChoice()`. Где форма не нужна, фразу строят так, чтобы число не склонялось: «Минимум ключевых слов: :min», «через :seconds с».
 
 ## Тесты
 

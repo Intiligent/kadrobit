@@ -10,6 +10,7 @@ return [
             'billing' => 'Billing',
         ],
         'profile' => 'Profile',
+        'general' => 'General',
         'security' => 'Security',
         'notifications' => 'Notifications',
         'data' => 'Data & privacy',
@@ -22,6 +23,20 @@ return [
 
     'validation' => [
         'unknown_setting' => 'This setting does not exist.',
+    ],
+
+    'general' => [
+        'title' => 'General',
+        'intro' => 'Language and other preferences of your account.',
+        'locale' => [
+            'title' => 'Language',
+            'text' => 'The language of the interface and of the emails we send you. Titles and keywords of your works are generated in English, as marketplaces require.',
+            // Each language is named in itself, the same in every language file.
+            'options' => [
+                'en' => 'English',
+                'ru' => 'Русский',
+            ],
+        ],
     ],
 
     'metadata' => [

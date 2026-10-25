@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\SetLocale;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,8 +35,15 @@ class LoginController extends Controller
     {
         Auth::guard('web')->logout();
 
+        // The login page after logout stays in the user's language.
+        $locale = $request->session()->get(SetLocale::SESSION_KEY);
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($locale) {
+            $request->session()->put(SetLocale::SESSION_KEY, $locale);
+        }
 
         return redirect()->route('home');
     }

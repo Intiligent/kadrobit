@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use Illuminate\Validation\Rule;
+
 /**
  * Registry of user settings: the key, its default, validation and whether the settings page may change it.
  * A new setting is one case here; nothing else needs to know its default.
@@ -10,12 +12,16 @@ namespace App\Enums;
  */
 enum UserSettingKey: string
 {
+    /** Interface language; also the language of the user's emails. Metadata generation stays in English. */
+    case GeneralLocale = 'general.locale';
+
     /** Generate title, keywords and categories for a work once its upload is processed. */
     case MetadataAutofillOnUpload = 'metadata.autofill_on_upload';
 
     public function default(): mixed
     {
         return match ($this) {
+            self::GeneralLocale => Locale::default()->value,
             self::MetadataAutofillOnUpload => true,
         };
     }
@@ -26,16 +32,18 @@ enum UserSettingKey: string
     public function rules(): array
     {
         return match ($this) {
+            self::GeneralLocale => ['string', Rule::enum(Locale::class)],
             self::MetadataAutofillOnUpload => ['boolean'],
         };
     }
 
     /**
-     * A value in the setting's stored type: "1", 1 and "yes" become true, anything else false.
+     * A value in the setting's stored type: for a switch "1", 1 and "yes" become true, anything else false.
      */
     public function cast(mixed $value): mixed
     {
         return match ($this) {
+            self::GeneralLocale => (string) $value,
             self::MetadataAutofillOnUpload => filter_var($value, FILTER_VALIDATE_BOOLEAN),
         };
     }

@@ -95,6 +95,8 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
   never import its prebuilt CSS (`element-plus/dist/index.css`, `.../style/css`).
 - HTTP requests outside Inertia visits go through `resources/js/core/api.js`, never a bare axios/fetch call.
 - User-facing texts on the frontend come from `lang/{locale}/*.php` via `laravel-vue-i18n` (`trans()`, `$t()`).
+- Every new or changed string goes into all languages at once (`lang/en`, `lang/ru`): the languages never differ
+  in keys or `:placeholders` (`tests/Unit/TranslationsTest.php`). Russian plurals have three forms, see `docs/frontend.md`.
 - Error codes live in `App\Enums\ErrorCode` and `ERROR_CODE` in `resources/js/config/constant.js`; change both together.
 
 ## Local processes

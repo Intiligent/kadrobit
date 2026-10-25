@@ -26,6 +26,7 @@ export const ASSET_UPLOADS_API_URL = '/api/assets/uploads';
 
 // Settings and their JSON endpoints
 export const SETTINGS_URL = '/settings';
+export const SETTINGS_GENERAL_URL = '/settings/general';
 export const SETTINGS_MARKETPLACES_URL = '/settings/marketplaces';
 export const SETTINGS_METADATA_URL = '/settings/metadata';
 export const USER_SETTINGS_API_URL = '/api/settings';

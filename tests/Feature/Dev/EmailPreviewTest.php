@@ -44,6 +44,20 @@ class EmailPreviewTest extends TestCase
         $this->assertSame(0, User::count());
     }
 
+    public function test_preview_renders_the_email_in_russian(): void
+    {
+        $this->local();
+
+        $this->get('/dev/emails/reset-password?locale=ru')
+            ->assertOk()
+            ->assertSee('Здравствуйте, Jane!')
+            ->assertSee('Ссылка действует 60 минут.');
+
+        $this->get('/dev/emails/verify-email?locale=ru')
+            ->assertOk()
+            ->assertSee('Код действует 15 минут.');
+    }
+
     public function test_preview_accepts_only_existing_locales(): void
     {
         $this->local();

@@ -6,7 +6,8 @@
 
 | URL | Что | Контроллер |
 |---|---|---|
-| `/settings` | Перенаправляет на первый готовый раздел | `Settings\SettingsController@index` |
+| `/settings` | Перенаправляет на первый готовый раздел (General) | `Settings\SettingsController@index` |
+| `/settings/general` | General: язык интерфейса | `Settings\SettingsController@general` |
 | `/settings/marketplaces` | Подключённые маркетплейсы и каталог | `Settings\SettingsController@marketplaces` |
 | `/settings/metadata` | Metadata defaults: автозаполнение метаданных при загрузке | `Settings\SettingsController@metadata` |
 
@@ -14,7 +15,7 @@
 
 Разделы:
 
-- **Account:** Profile, Security, Notifications, Data & privacy;
+- **Account:** Profile, General, Security, Notifications, Data & privacy;
 - **Workspace:** Marketplaces, Metadata defaults, Publishing;
 - **Billing:** Plan & billing.
 
@@ -22,6 +23,7 @@
 
 | Файл | Что делает |
 |---|---|
+| `pages/settings/general/index.vue` | Выбор языка; после сохранения страница перезагружается с новыми переводами |
 | `pages/settings/marketplaces/index.vue` | Страница: список, каталог, проверка, вкл/выкл, удаление |
 | `pages/settings/metadata/index.vue` | Переключатель «Fill in metadata on upload», сохраняется сразу |
 | `components/settings/CredentialsNotice.vue` | Плашка о хранении паролей с раскрывающимися подробностями |
@@ -50,7 +52,23 @@
 
 | Ключ | По умолчанию | Что делает |
 |---|---|---|
+| `general.locale` | `en` | Язык интерфейса и писем: `en`, `ru` ([KB-48](https://github.com/Intiligent/kadrobit/issues/48)) |
 | `metadata.autofill_on_upload` | `true` | Генерировать метаданные работы после обработки загрузки ([KB-38](https://github.com/Intiligent/kadrobit/issues/38)) |
+
+## Язык интерфейса
+
+Задача: [KB-48](https://github.com/Intiligent/kadrobit/issues/48). Как добавлять переводы — в [frontend.md](frontend.md#переводы).
+
+- **Выбор.** Settings → General (список языков приходит prop `locales` из `App\Enums\Locale`), `PATCH /api/settings` с `{"general": {"locale": "ru"}}`, затем полная перезагрузка страницы: переводы загружаются один раз на страницу. Допустимые значения — `App\Enums\Locale`, другие — 422.
+- **Определение языка** (`App\Http\Middleware\SetLocale`, группы `web` и `api`):
+  - пользователь — его настройка `general.locale`. Она читается из связи `settings`, которую общий prop `settings` загружает всё равно, поэтому переход по страницам лишнего запроса не делает. Остальные запросы, в том числе API, делают один запрос к `user_settings`;
+  - гость — язык из сессии, иначе `en`.
+- **Порядок.** В `web` язык выбирается сразу после `StartSession` (список приоритетов в `MiddlewareHandler`), поэтому ошибки следующих middleware — устаревший CSRF-токен, лимит запросов — уже на языке пользователя. В `api` сессии нет: `SetLocale:api` берёт пользователя из guard `api` до `auth:api`.
+- **Несуществующая страница.** `Route::fallback` (`FallbackController`) пропускает её через группу `web`, чтобы 404 был на языке пользователя; без него 404 рендерится до middleware, без сессии. Адрес, который есть с другим методом (`GET /logout`), по-прежнему получает 405. Неизвестные адреса `api/*` в fallback не попадают. Заголовки страниц ошибок фреймворка (`__('Not Found')`) — в `lang/{locale}.json`.
+- **Регистрация.** Новый аккаунт (форма и Google) получает язык страницы, с которой регистрировались: настройка записывается до события `Registered`, поэтому письмо с кодом уже на этом языке. Английский строки не создаёт.
+- **Сессия.** Middleware записывает в сессию язык пользователя, а выход (`LoginController@destroy`) переносит его в новую сессию: вход и сброс пароля после выхода остаются на языке пользователя. Для вошедшего пользователя сессия не используется, поэтому смена языка через API и на другом устройстве действует со следующего запроса.
+- **Письма.** `User` реализует `HasLocalePreference`: уведомления из очереди уходят на языке пользователя, каким бы ни был язык запроса (например, сброс пароля с английской страницы входа). Предпросмотр: `/dev/emails/<письмо>?locale=ru`.
+- **Генерация метаданных** остаётся на английском: этого требуют маркетплейсы, язык интерфейса на неё не влияет.
 
 ## API маркетплейсов
 

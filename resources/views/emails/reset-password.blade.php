@@ -20,7 +20,7 @@
         </tr>
     </table>
 
-    <p style="margin:12px 0 24px;font-size:13px;color:#706f6c;">{{ __('passwords.email.expire', ['count' => $expireMinutes]) }}</p>
+    <p style="margin:12px 0 24px;font-size:13px;color:#706f6c;">{{ trans_choice('passwords.email.expire', $expireMinutes, ['count' => $expireMinutes]) }}</p>
 
     <p style="margin:0 0 24px;font-size:13px;line-height:20px;color:#706f6c;">{{ __('passwords.email.outro') }}</p>
 

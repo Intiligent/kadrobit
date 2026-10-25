@@ -11,7 +11,7 @@
     <p style="margin:0 0 16px;">{{ __('verification.email.intro') }}</p>
 
     <p style="margin:0 0 8px;font-size:32px;line-height:40px;font-weight:600;letter-spacing:8px;font-family:'SFMono-Regular',Menlo,Consolas,monospace;">{{ $code }}</p>
-    <p style="margin:0 0 24px;font-size:13px;color:#706f6c;">{{ __('verification.email.expire', ['count' => $expireMinutes]) }}</p>
+    <p style="margin:0 0 24px;font-size:13px;color:#706f6c;">{{ trans_choice('verification.email.expire', $expireMinutes, ['count' => $expireMinutes]) }}</p>
 
     <p style="margin:0 0 12px;font-size:13px;color:#706f6c;">{{ __('verification.email.action_hint') }}</p>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
