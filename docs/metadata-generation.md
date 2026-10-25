@@ -1,0 +1,71 @@
+# Генерация метаданных
+
+Задачи: эпик [KB-35](https://github.com/Intiligent/kadrobit/issues/35), выбор модели — [KB-37](https://github.com/Intiligent/kadrobit/issues/37).
+
+По превью работы модель пишет заголовок, описание, ключевые слова и выбирает категории маркетплейсов. Провайдер переключается в конфиге: остальной код знает только интерфейс.
+
+## Устройство
+
+| Класс | Что делает |
+|---|---|
+| `Services\Metadata\Contracts\MetadataGenerator` | Интерфейс провайдера: `generate(GenerationRequest): GenerationResult`, `name()` — «провайдер:модель» |
+| `Services\Metadata\Drivers\OpenAiMetadataGenerator` | OpenAI Responses API: инструкции, текст контекста и картинка (data URL), строгая JSON-схема, `store: false` |
+| `Services\Metadata\MetadataGeneratorFactory` | Создаёт генератор по имени драйвера из `config/metadata.php`; `make(overrides: ['model' => …])` — для сравнений |
+| `Services\Metadata\MetadataPrompt` | Общие для всех провайдеров инструкции, контекст работы и схема ответа |
+| `Services\Metadata\MetadataSanitizer` | Приводит ответ к лимитам и записывает каждое исправление в `fixes` |
+| `Services\Metadata\ImagePreparer` | JPEG из превью, не больше `metadata.image_size` (1024 px) по длинной стороне |
+| `GenerationRequest` / `GenerationResult` / `TokenUsage` | Вход (картинка, тип, имя файла, дата, место, категории), результат, токены и стоимость |
+
+В контейнере `MetadataGenerator` — провайдер из `METADATA_DRIVER`.
+
+**Новый провайдер:** класс, реализующий `MetadataGenerator` (получает `MetadataPrompt` и `MetadataSanitizer`, сам только ходит в API), ветка в `match` в `MetadataGeneratorFactory`, блок в `metadata.drivers` и цены моделей в `metadata.prices`.
+
+### Промпт и ответ
+
+- **Инструкции** (`instructions`) стоят первыми и меняются только со списками категорий — провайдеры кешируют такой префикс. Контекст работы (тип, имя файла, дата и место из EXIF) идёт отдельным сообщением вместе с картинкой.
+- **Схема** — строгое подмножество JSON Schema, которое принимают OpenAI, Anthropic и Gemini: все поля обязательны, лишних нет, категории — `enum` из списков маркетплейсов. Длины и количества схемой не задать, их проверяет `MetadataSanitizer`.
+- **Лимиты** (`metadata.limits`): title ≤ 70 символов без запятых, description ≤ 150 — одно предложение, до 49 ключевых слов. Это самые строгие значения среди маркетплейсов: Adobe Stock (title до 70 в CSV, до 49 ключей), Shutterstock (описание до 150 в форме).
+- **Исправления** `MetadataSanitizer`: `title_commas`, `title_too_long`, `description_too_long` (обрезка по слову), `keyword_duplicates` (в том числе единственное и множественное число: «daisy» и «daisies»), `keywords_too_many`, `category_invalid`, `categories_too_many`.
+- **Editorial:** модель только отмечает `looks_editorial` (видны бренды, узнаваемые люди, событие) — решает автор.
+
+## Настройки
+
+| Переменная | По умолчанию | Что |
+|---|---|---|
+| `METADATA_DRIVER` | `openai` | Провайдер |
+| `METADATA_IMAGE_SIZE` | `1024` | Длинная сторона картинки для модели |
+| `OPENAI_API_KEY` | — | Ключ отдельного проекта `kadrobit` на platform.openai.com (расходы и лимиты отдельно от других проектов) |
+| `OPENAI_METADATA_MODEL` | `gpt-6-luna` | Модель |
+| `OPENAI_METADATA_REASONING_EFFORT` | `low` | Рассуждение; пусто — не передаётся. Токены рассуждения оплачиваются как выход |
+| `OPENAI_METADATA_IMAGE_DETAIL` | `auto` | `low` / `high` / `auto` |
+| `OPENAI_METADATA_MAX_OUTPUT_TOKENS` | `4000` | Потолок вывода вместе с рассуждением |
+| `OPENAI_METADATA_TIMEOUT` | `90` | Секунды |
+
+## Сравнение моделей
+
+```bash
+php artisan metadata:evaluate                                   # последние 20 работ, модели из metadata.evaluation_models
+php artisan metadata:evaluate --model=gpt-6-luna --model=gpt-6.1-sol --limit=50
+php artisan metadata:evaluate --asset=<ulid> --asset=<ulid>
+php artisan metadata:evaluate --dir=~/Pictures/stock-sample      # картинки из папки, без загрузки в библиотеку
+php artisan metadata:evaluate --effort= --detail=low            # без рассуждения, картинка в низком качестве
+```
+
+Команда ничего не сохраняет в работы. Всем моделям уходят одни и те же картинки и списки категорий всех маркетплейсов. Итог в консоли: успешные ответы, средние токены, сколько ответов пришлось исправлять, $ за 1000 картинок по фактическим токенам, время. Отчёт — `storage/app/private/metadata-evaluations/<дата>/`: `results.json` и `report.html` (картинка и ответы моделей рядом, первые 10 ключевых слов выделены).
+
+### Результаты 25.10.2026
+
+6 фото из библиотеки (цветы, пейзажи, город, море), картинка 1024 px, рассуждение `low`, списки категорий Adobe Stock и Shutterstock. Второй прогон, после уточнения промпта.
+
+| Модель | $ / 1000 картинок | Вход / выход (рассуждение), токены | Время | Исправлено ответов | Качество |
+|---|---|---|---|---|---|
+| **gpt-6-luna** | **0.40** | 1 764 / 439 (155) | 5.5 с | 0 из 6 | Точные заголовки, описания дополняют заголовок, правила соблюдает. Слабее Sol в деталях (не заметил море на фото с домом) |
+| gpt-5.6-luna | 0.77 | 1 764 / 346 (123) | 5.0 с | 1 из 6 | Хорошее распознавание, но выбрасывает запятые из описаний вопреки промпту, ключевые слова длиннее и повторяют друг друга |
+| gpt-5.4-mini | 2.47 | 1 764 / 254 (44) | 2.2 с | 2 из 6 | Самая быстрая. Описания короткие и без запятых, противоречивые ключевые слова (sunrise, daybreak у заката), спорные категории (Backgrounds/Textures) |
+| gpt-6.1-sol | 7.24 | 1 764 / 371 (28) | 7.9 с | 0 из 6 | Лучшая точность: мелкие детали («crepuscular ray», лента на шляпе, набережная), лучшие описания. В 18 раз дороже Luna |
+
+Первый прогон (до уточнения промпта) показал то же соотношение цен; `gpt-6-luna` давал пары «daisy / daisies» — теперь это запрещено в промпте и убирается `MetadataSanitizer`.
+
+**Выбор: `gpt-6-luna`** — качество близко к `gpt-6.1-sol`, правила соблюдает лучше других, около $0.0004 за генерацию: 5 000 работ в месяц — около $2. `gpt-6.1-sol` — кандидат для отдельной «точной» перегенерации, если понадобится.
+
+Ограничения выборки: 6 фото одного автора, нет векторов, иллюстраций и кадров видео. Перед запуском автогенерации для всех ([KB-38](https://github.com/Intiligent/kadrobit/issues/38)) — повторить на 50–100 разных работах (`--dir` или `--limit`).
