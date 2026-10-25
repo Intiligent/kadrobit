@@ -52,7 +52,7 @@ const summary = {
 };
 
 describe('ready works and listings', () => {
-    it('counts the ready works the batch still has a pair for', () => {
+    it('counts the ready works some connected account still waits for', () => {
         const stock = (id, status = 'active') => ({
             id,
             status,
@@ -78,8 +78,9 @@ describe('ready works and listings', () => {
         ];
 
         expect(readyCount(works, [stock(1), stock(2)])).toBe(5);
-        expect(readyCount(works, [stock(1), stock(2, 'disabled')])).toBe(4);
-        expect(readyCount(works, [stock(1, 'invalid_credentials')])).toBe(0);
+        // An account turned off or signed out still waits for the work
+        expect(readyCount(works, [stock(1), stock(2, 'disabled')])).toBe(5);
+        expect(readyCount(works, [stock(1, 'invalid_credentials')])).toBe(4);
         expect(readyCount(works, [])).toBe(0);
     });
 
@@ -122,9 +123,11 @@ describe('publish popover', () => {
         expect(defaultAccounts(rows)).toEqual([1, 2, 4]);
     });
 
-    it('ticks the works the batch has something for, up to the limit of one send', () => {
-        expect([...firstWorks({ ...summary, limit: 100 })]).toEqual(['a', 'b', 'c']);
-        expect([...firstWorks({ ...summary, limit: 2 })]).toEqual(['a', 'b']);
+    it('ticks the works with a pair that goes out to a picked account, up to the limit of one send', () => {
+        expect([...firstWorks({ ...summary, limit: 100 }, [1, 2])]).toEqual(['a', 'b', 'c']);
+        expect([...firstWorks({ ...summary, limit: 2 }, [1, 2])]).toEqual(['a', 'b']);
+        // On account 1 alone, work a is rejected: it would only take a place in the send
+        expect([...firstWorks({ ...summary, limit: 1 }, [1])]).toEqual(['b']);
     });
 
     it('never sends a rejected file, and sends the rest unless unticked', () => {

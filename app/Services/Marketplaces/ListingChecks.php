@@ -38,6 +38,19 @@ class ListingChecks
     public const UNSUPPORTED_TYPE = 'unsupported_type';
 
     /**
+     * Whether the account's marketplace never takes the work: a type it does not accept or a file outside its limits.
+     * The account's own state does not matter: turned off or signed out, it may take the work later.
+     * Needs the account's marketplace and the work's files.
+     */
+    public function rejects(Asset $asset, MarketplaceAccount $account): bool
+    {
+        $marketplace = $account->marketplace;
+
+        return ! $marketplace->supports($asset->type)
+            || $this->fileChecks($asset, $marketplace->file_rules[$asset->type->value] ?? null)[1] !== [];
+    }
+
+    /**
      * Needs the account's marketplace and the work's files.
      */
     public function check(Asset $asset, MarketplaceAccount $account): ListingCheck

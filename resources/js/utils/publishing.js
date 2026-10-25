@@ -11,8 +11,9 @@ export const isPending = (listing) => PENDING_STATUSES.includes(listing.status);
 
 /**
  * Works of the next batch: the publish button counts them, the same works the popover lists with pairs. A ready work
- * counts while some account that is on and signed in does not have it queued, on its way or sent already. A work the
- * marketplace will reject (type, file limits) still counts: the popover shows why it does not go out.
+ * counts while some connected account does not have it queued, on its way or sent already, even one turned off or
+ * signed out for now. A work the marketplace will reject (type, file limits, account off) still counts: the popover
+ * shows why it does not go out.
  */
 export function readyCount(assets, accounts) {
     return assets.filter((asset) => asset.status === 'ready' && accounts.some((account) => inBatch(asset, account))).length;
@@ -21,11 +22,7 @@ export function readyCount(assets, accounts) {
 function inBatch(asset, account) {
     const listing = listingFor(asset, account.id);
 
-    if (listing && !['failed', 'cancelled'].includes(listing.status)) {
-        return false;
-    }
-
-    return account.status === 'active';
+    return !listing || ['failed', 'cancelled'].includes(listing.status);
 }
 
 export const hasPendingListings = (asset) => (asset.listings ?? []).some(isPending);
@@ -72,11 +69,18 @@ export function batchAccounts(summary, accounts) {
 export const defaultAccounts = (rows) => rows.filter((row) => row.selectable).map((row) => row.account);
 
 /**
- * Works ticked by default and by "select all": the first ones the batch still has something for, up to the limit
- * of one send (`summary.limit`, publishing.batch_works). Their order is the server's, oldest first.
+ * Works ticked by default and by "select all": the first ones with a pair that goes out to a picked account, up to
+ * the limit of one send (`summary.limit`, publishing.batch_works). A work whose pairs are all rejected would take a
+ * place in the send and deliver nothing. Their order is the server's, oldest first.
+ *
+ * @param {object} summary
+ * @param {number[]} accounts Picked account ids
  */
-export function firstWorks(summary) {
-    return new Set(summary.items.filter((item) => item.accounts.length).slice(0, summary.limit).map((item) => item.asset));
+export function firstWorks(summary, accounts) {
+    return new Set(summary.items
+        .filter((item) => item.accounts.some((pair) => accounts.includes(pair.account) && !pair.errors.length))
+        .slice(0, summary.limit)
+        .map((item) => item.asset));
 }
 
 /**
@@ -100,7 +104,7 @@ export function pairState(pair, skipped) {
  * `sending` of `total` is what the row's summary shows.
  *
  * @param {object} summary
- * @param {number[]} accounts Picked account ids
+ * @param {number[]} accounts Ids of the accounts whose pairs show: the picked ones and those turned off or signed out
  * @param {Set<string>} works Ulids of the ticked works
  * @param {Set<string>} skipped pairKey()s the user unticked
  */

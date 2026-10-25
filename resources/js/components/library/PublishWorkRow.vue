@@ -58,7 +58,7 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
 
 <template>
     <div class="border-t border-[var(--el-border-color-extra-light)]">
-        <div class="flex items-center gap-3 py-2.5 pl-4 pr-3.5">
+        <div class="flex items-center gap-3 px-5 py-2.5">
             <el-checkbox :model-value="row.chosen" :disabled="disabled || locked || !row.selectable" @update:model-value="emit('toggle')" />
 
             <div class="publish-row__thumb" :class="{ 'opacity-45': !row.chosen }">
@@ -68,8 +68,8 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
             </div>
 
             <div class="min-w-0 flex-1" :class="{ 'opacity-45': !row.chosen }">
-                <p class="truncate font-semibold">{{ item.title || item.original_filename }}</p>
-                <p class="flex min-w-0 gap-[7px] whitespace-nowrap text-xs leading-[18px] text-[var(--el-text-color-secondary)]">
+                <p class="truncate text-[14px] font-semibold">{{ item.title || item.original_filename }}</p>
+                <p class="mt-[3px] flex min-w-0 gap-[7px] whitespace-nowrap text-xs leading-[18px] text-[var(--el-text-color-secondary)]">
                     <template v-for="(part, index) in meta" :key="index">
                         <span v-if="index" class="flex-none text-[var(--el-text-color-placeholder)]">·</span>
                         <span :class="index ? 'flex-none' : 'min-w-0 truncate'">{{ part }}</span>
@@ -94,7 +94,7 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
             </button>
         </div>
 
-        <div v-if="expanded" class="flex flex-col gap-1.5 pb-3 pl-[84px] pr-3.5">
+        <div v-if="expanded" class="flex flex-col gap-1.5 pb-3 pl-[90px] pr-5">
             <p v-if="!row.pairs.length" class="text-xs text-[var(--el-text-color-secondary)]">{{ $t('library.publishing.popover.pick_marketplace') }}</p>
 
             <div v-for="pair in row.pairs" :key="pair.account" class="publish-row__pair">

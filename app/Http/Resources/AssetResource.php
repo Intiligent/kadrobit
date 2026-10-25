@@ -22,7 +22,7 @@ class AssetResource extends JsonResource
     public function toArray(Request $request): array
     {
         $original = $this->file(AssetFileRole::Original);
-        $thumbnail = $this->file(AssetFileRole::Thumbnail) ?? $this->file(AssetFileRole::Preview);
+        $thumbnail = $this->thumbnailFile();
         // The work as it is viewed in the panel: an image, or for a video its playback copy
         // (whose poster is the thumbnail). Its type follows the work's type, never a fallback.
         $preview = $this->type === MediaType::Video

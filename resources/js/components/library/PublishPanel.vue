@@ -29,7 +29,9 @@ const connections = computed(() => Object.fromEntries(props.accounts.map((accoun
 const accountRows = computed(() => (summary.value ? batchAccounts(summary.value, props.accounts) : []));
 // An account disconnected while the popover is open drops out: its cards would have nothing to show.
 const pickedConnected = computed(() => picked.value.filter((id) => connections.value[id]));
-const rows = computed(() => (summary.value ? workRows(summary.value, pickedConnected.value, works.value, skipped.value) : []));
+// Cards show on the picked accounts and on those turned off or signed out: those say why the work waits.
+const shownAccounts = computed(() => [...pickedConnected.value, ...accountRows.value.filter((row) => row.blocked).map((row) => row.account)]);
+const rows = computed(() => (summary.value ? workRows(summary.value, shownAccounts.value, works.value, skipped.value) : []));
 const totals = computed(() => publishTotals(rows.value));
 
 const selectable = computed(() => rows.value.filter((row) => row.selectable));
@@ -68,7 +70,7 @@ function toggleAccount(account) {
 }
 
 function toggleAll() {
-    works.value = allChosen.value ? new Set() : firstWorks(summary.value);
+    works.value = allChosen.value ? new Set() : firstWorks(summary.value, pickedConnected.value);
 }
 
 function toggleExpandAll() {
@@ -99,7 +101,7 @@ onMounted(async () => {
         const { data } = await api.get(LISTINGS_BATCH_API_URL);
         summary.value = data;
         picked.value = defaultAccounts(batchAccounts(data, props.accounts));
-        works.value = firstWorks(data);
+        works.value = firstWorks(data, picked.value);
         // The first work opens, so the per-marketplace breakdown is seen at once.
         expanded.value = new Set(data.items.slice(0, 1).map((item) => item.asset));
         stage.value = 'ready';
@@ -148,7 +150,7 @@ async function send() {
 
 <template>
     <div class="flex max-h-[calc(100vh-96px)] flex-col text-[13px] leading-5 text-[var(--el-text-color-primary)]">
-        <header class="flex flex-none items-start gap-3 pb-3.5 pl-5 pr-4 pt-4">
+        <header class="flex flex-none items-start gap-3 px-5 pb-3.5 pt-4">
             <div class="min-w-0 flex-1">
                 <p class="text-[17px] font-semibold leading-6">{{ $t('library.publishing.popover.title') }}</p>
                 <p class="mt-0.5 text-[var(--el-text-color-secondary)]">{{ $t('library.publishing.popover.intro') }}</p>
@@ -191,7 +193,7 @@ async function send() {
                 </div>
             </div>
 
-            <div class="flex h-9 flex-none items-center gap-3 border-t border-[var(--el-border-color-light)] bg-[var(--el-fill-color-extra-light)] pl-4 pr-5">
+            <div class="flex h-9 flex-none items-center gap-3 border-t border-[var(--el-border-color-light)] bg-[var(--el-fill-color-extra-light)] px-5">
                 <el-checkbox
                     :model-value="allChosen"
                     :indeterminate="chosenCount > 0 && !allChosen"
@@ -227,7 +229,7 @@ async function send() {
                 />
             </div>
 
-            <footer class="flex flex-none items-center gap-4 border-t border-[var(--el-border-color-light)] py-3 pl-5 pr-4">
+            <footer class="flex flex-none items-center gap-4 border-t border-[var(--el-border-color-light)] px-5 py-3">
                 <p class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs font-medium">
                     <template v-for="(part, index) in stats" :key="part.key">
                         <span v-if="index" class="text-[var(--el-text-color-placeholder)]">/</span>

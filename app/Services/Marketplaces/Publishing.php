@@ -63,49 +63,34 @@ class Publishing
     }
 
     /**
-     * Queues the batch for the given accounts of the user and starts a session for each one that got work.
-     * Accounts that are turned off or lost their sign-in are skipped. One send takes at most publishing.batch_works
-     * works: the first ones by id for `$accountIds`; the controller holds `$pairs` to it.
+     * Queues the chosen work–account pairs of the user (the ones left ticked in the publish popover) and starts a
+     * session for each account that got work. A pair the batch cannot send (already queued or sent, rejected by the
+     * checks, on an account that is off or lost its sign-in, someone else's) is skipped. The controller holds the
+     * pairs to publishing.batch_works works.
      *
-     * With `$pairs`, only those work–account pairs are queued: the ones left ticked in the publish popover. A pair the
-     * batch cannot send (already queued or sent, rejected by the checks, someone else's) is skipped.
+     * A pair left out stays without a listing: settle() keeps the work ready until it is sent to every account that
+     * takes it, so the next batch offers it again.
      *
-     * A work that went out to some accounts and was left out for others gets a cancelled listing on each of those:
-     * otherwise settle() would move it to Submitted once the rest is sent, and the batch would never offer it again.
-     * Cancelled, it stays ready, comes back in the next batch and can be sent from the Marketplaces tab.
-     *
-     * @param  list<int>  $accountIds
-     * @param  list<string>|null  $pairs  "asset ulid|account id" (PAIR_PATTERN)
+     * @param  list<string>  $pairs  "asset ulid|account id" (PAIR_PATTERN)
      * @return array<int, int> Listings queued, by account id: only those this request queued itself
      */
-    public function queue(User $user, array $accountIds, ?array $pairs = null): array
+    public function queue(User $user, array $pairs): array
     {
         $works = $this->readyWorks($user);
-
-        if ($pairs === null) {
-            $works = $works->take(config('publishing.batch_works'))->values();
-        }
-
-        $plans = $this->accounts($user)
-            ->map(fn (MarketplaceAccount $account) => $this->plan($works, $account))
-            ->reject(fn (array $plan) => $plan['blocked']);
-        $wanted = $pairs === null ? null : array_flip($pairs);
+        $wanted = array_flip($pairs);
         $queued = [];
-        // Ids of the works this request queued something for, and the pairs it queued ("asset id|account id")
-        $sent = [];
-        $sentPairs = [];
 
-        foreach ($plans as $plan) {
-            $account = $plan['account'];
-            $items = array_values(array_filter($plan['items'], fn (array $item) => $wanted === null
-                ? in_array($account->id, $accountIds, true)
-                : isset($wanted["{$item['asset']->ulid}|{$account->id}"])));
+        foreach ($this->accounts($user) as $account) {
+            $items = array_values(array_filter(
+                $this->plan($works, $account)['items'],
+                fn (array $item) => isset($wanted["{$item['asset']->ulid}|{$account->id}"]),
+            ));
 
             if (! $items) {
                 continue;
             }
 
-            $count = DB::transaction(function () use ($account, $items, &$sent, &$sentPairs) {
+            $count = DB::transaction(function () use ($account, $items) {
                 $count = 0;
 
                 foreach ($items as ['asset' => $asset, 'check' => $check, 'listing' => $listing]) {
@@ -117,7 +102,7 @@ class Publishing
                         'updated_at' => now(),
                     ];
 
-                    $added = $listing
+                    $count += $listing
                         // Failed or cancelled: queued again only if nothing changed it meanwhile.
                         ? AssetListing::query()->whereKey($listing->id)->retryable()->update($attributes)
                         // Another request may have queued the pair a moment ago: the unique index keeps one.
@@ -127,12 +112,6 @@ class Publishing
                             'marketplace_account_id' => $account->id,
                             'created_at' => now(),
                         ]);
-
-                    if ($added) {
-                        $count += $added;
-                        $sent[$asset->id] = true;
-                        $sentPairs["{$asset->id}|{$account->id}"] = true;
-                    }
                 }
 
                 if ($count) {
@@ -147,44 +126,7 @@ class Publishing
             }
         }
 
-        $this->holdBack($plans, $sent, $sentPairs);
-
         return $queued;
-    }
-
-    /**
-     * Cancelled listings for the pairs left out of a batch whose work went out elsewhere (see queue()). Pairs with a
-     * listing already (failed, cancelled) keep it; rejected files have nothing to send later and get none.
-     *
-     * @param  Collection<int, array>  $plans
-     * @param  array<int, true>  $sent  Ids of the works queued somewhere
-     * @param  array<string, true>  $sentPairs  "asset id|account id" queued by this batch
-     */
-    protected function holdBack(Collection $plans, array $sent, array $sentPairs): void
-    {
-        $rows = [];
-
-        foreach ($plans as $plan) {
-            foreach ($plan['items'] as ['asset' => $asset, 'check' => $check, 'listing' => $listing]) {
-                if ($listing || ! isset($sent[$asset->id]) || isset($sentPairs["{$asset->id}|{$plan['account']->id}"])) {
-                    continue;
-                }
-
-                $rows[] = [
-                    'asset_id' => $asset->id,
-                    'marketplace_account_id' => $plan['account']->id,
-                    'status' => ListingStatus::Cancelled,
-                    'warnings' => json_encode($check->warnings),
-                    'attempts' => 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-        }
-
-        if ($rows) {
-            AssetListing::query()->insertOrIgnore($rows);
-        }
     }
 
     /**
@@ -332,17 +274,31 @@ class Publishing
     }
 
     /**
-     * A ready work whose listings are all sent becomes submitted. One queued, on its way, failed or cancelled keeps
-     * it ready: the next batch still has to deliver that pair.
+     * A ready work becomes submitted once it is sent to every connected account that takes it. One queued, on its
+     * way, failed or cancelled keeps it ready, and so does an account it was never sent to: left out of a batch,
+     * turned off or signed out for now. Only an account that will never take it (type, file limits) does not count.
      */
     public function settle(Asset $asset): void
     {
-        Asset::query()
-            ->whereKey($asset->id)
-            ->where('status', AssetStatus::Ready)
-            ->whereHas('listings', fn ($query) => $query->where('status', ListingStatus::Sent))
-            ->whereDoesntHave('listings', fn ($query) => $query->where('status', '!=', ListingStatus::Sent))
-            ->update(['status' => AssetStatus::Submitted, 'updated_at' => now()]);
+        $asset = Asset::query()->with(['files', 'listings', 'user.marketplaceAccounts.marketplace'])->find($asset->id);
+
+        if (! $asset || $asset->status !== AssetStatus::Ready) {
+            return;
+        }
+
+        $sentTo = $asset->listings->where('status', ListingStatus::Sent)->pluck('marketplace_account_id');
+        $missing = $asset->user->marketplaceAccounts
+            ->reject(fn (MarketplaceAccount $account) => $sentTo->contains($account->id) || $this->checks->rejects($asset, $account));
+
+        if ($missing->isEmpty()) {
+            // Conditional: a listing queued meanwhile keeps the work ready.
+            Asset::query()
+                ->whereKey($asset->id)
+                ->where('status', AssetStatus::Ready)
+                ->whereHas('listings', fn ($query) => $query->where('status', ListingStatus::Sent))
+                ->whereDoesntHave('listings', fn ($query) => $query->where('status', '!=', ListingStatus::Sent))
+                ->update(['status' => AssetStatus::Submitted, 'updated_at' => now()]);
+        }
 
         $this->notify($asset);
     }
@@ -354,15 +310,15 @@ class Publishing
     }
 
     /**
-     * A ready work for the publish popover: what its row shows, and the checks on every account the batch can still
-     * send it to. Blocked accounts and accounts that already have the work (queued, on its way, sent) are left out.
+     * A ready work for the publish popover: what its row shows, and the checks on every account it is not delivered
+     * to yet. A blocked account shows with its blocker as the error; accounts that already have the work (queued, on
+     * its way, sent) are left out.
      *
      * @param  Collection<int, array>  $plans
      * @return array<string, mixed>
      */
     protected function item(Asset $asset, Collection $plans): array
     {
-        $thumbnail = $asset->file(AssetFileRole::Thumbnail) ?? $asset->file(AssetFileRole::Preview);
 
         return [
             'asset' => $asset->ulid,
@@ -374,7 +330,7 @@ class Publishing
             'duration_ms' => $asset->duration_ms,
             'size_bytes' => $asset->file(AssetFileRole::Original)?->size_bytes,
             'keywords' => count($asset->keywords ?? []),
-            'thumbnail_url' => $thumbnail?->url(),
+            'thumbnail_url' => $asset->thumbnailFile()?->url(),
             'accounts' => $plans
                 ->filter(fn (array $plan) => isset($plan['checks'][$asset->id]))
                 ->map(fn (array $plan) => [
@@ -405,8 +361,8 @@ class Publishing
 
     /**
      * Works of the batch for one account with their checks, and why the account takes none. `unsupported` counts the
-     * works it will not take (type, file limits); `checks` has every pair the batch could still send, rejected ones
-     * included, by asset id.
+     * works it will not take (type, file limits); `checks` has every pair not delivered there yet, rejected ones
+     * included, by asset id. A blocked account takes nothing: its checks carry the blocker, so the popover says why.
      *
      * @param  Collection<int, Asset>  $works
      * @return array{account: MarketplaceAccount, blocked: ?string, unsupported: int, items: list<array{asset: Asset, check: ListingCheck, listing: ?AssetListing}>, checks: array<int, ListingCheck>}
@@ -414,10 +370,6 @@ class Publishing
     protected function plan(Collection $works, MarketplaceAccount $account): array
     {
         $plan = ['account' => $account, 'blocked' => $this->checks->accountBlocker($account), 'unsupported' => 0, 'items' => [], 'checks' => []];
-
-        if ($plan['blocked']) {
-            return $plan;
-        }
 
         foreach ($works as $asset) {
             $listing = $asset->listings->firstWhere('marketplace_account_id', $account->id);
@@ -432,7 +384,7 @@ class Publishing
 
             if ($check->sendable()) {
                 $plan['items'][] = ['asset' => $asset, 'check' => $check, 'listing' => $listing];
-            } else {
+            } elseif (! $plan['blocked']) {
                 $plan['unsupported']++;
             }
         }
