@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { trans, transChoice } from 'laravel-vue-i18n';
 import { Film, Image, LoaderCircle, PenTool, Sparkles, TriangleAlert, X } from 'lucide-vue-next';
 import AssetFileInfo from '@/components/library/AssetFileInfo.vue';
+import AssetGenerationActions from '@/components/library/AssetGenerationActions.vue';
 import AssetMetadataForm from '@/components/library/AssetMetadataForm.vue';
 import MarketplaceChecks from '@/components/library/MarketplaceChecks.vue';
 import { countIssues } from '@/utils/marketplaceRules';
@@ -26,9 +27,15 @@ const props = defineProps({
     deleting: { type: Boolean, default: false },
     // Listing ids with a cancel or retry request on its way
     listingsBusy: { type: Array, default: () => [] },
+    // { available, limits } from the page (docs/metadata-generation.md)
+    generation: { type: Object, default: () => ({ available: false, limits: {} }) },
+    // 'regenerate' | 'restore' while the page runs one
+    generating: { type: String, default: null },
+    // Bumped after a regeneration or a restore
+    generationVersion: { type: Number, default: 0 },
 });
 
-const emit = defineEmits(['update', 'status', 'delete', 'close', 'cancel-listing', 'retry-listing']);
+const emit = defineEmits(['update', 'status', 'delete', 'close', 'cancel-listing', 'retry-listing', 'regenerate', 'restore']);
 
 // Remembered per browser, like the tile size: the panel reopens on the same tab.
 const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'file', 'marketplaces'] });
@@ -124,7 +131,17 @@ const footNote = computed(() => {
                     :folders="folders"
                     :errors="errors"
                     :disabled="readonly"
+                    :limits="generation.limits"
                     @update="emit('update', $event)"
+                />
+                <AssetGenerationActions
+                    v-if="generation.available"
+                    :asset="asset"
+                    :busy="generating"
+                    :disabled="readonly"
+                    :version="generationVersion"
+                    @regenerate="emit('regenerate')"
+                    @restore="emit('restore', $event)"
                 />
             </el-tab-pane>
             <el-tab-pane name="file" :label="$t('library.panel.tabs.file')">

@@ -60,7 +60,10 @@ class AssetControllerTest extends TestCase
                 ->where('assets.0.folder_id', null)
                 ->has('folders', 0)
                 ->has('accounts', 0)
-                ->where('categories', []));
+                ->where('categories', [])
+                ->where('generation.limits', ['title' => 70, 'description' => 150])
+                ->where('generation.batch', 100)
+                ->has('generation.available'));
     }
 
     public function test_library_lists_own_folders_with_parents_by_ulid(): void

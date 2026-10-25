@@ -189,6 +189,19 @@ class PublishingTest extends TestCase
         $this->assertSame([$shutterstock->id], array_column($items[$sent->ulid]['accounts'], 'account'));
     }
 
+    public function test_a_text_longer_than_the_marketplace_takes_is_a_warning(): void
+    {
+        $alamy = $this->account('alamy');
+        // Alamy's Caption takes 128 characters
+        $work = $this->work(['title' => str_repeat('Glacier lagoon ', 10)]);
+
+        $item = collect($this->getJson('/api/listings/batch')->json('data.items'))->firstWhere('asset', $work->ulid);
+        $warning = collect($item['accounts'][0]['warnings'])->firstWhere('key', 'text_title_too_long');
+
+        $this->assertSame($alamy->id, $item['accounts'][0]['account']);
+        $this->assertSame(['name' => 'Caption', 'count' => 149, 'max' => 128], $warning['params']);
+    }
+
     public function test_only_the_chosen_pairs_are_queued(): void
     {
         Queue::fake();

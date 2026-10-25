@@ -2,8 +2,10 @@
 import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import KeywordInput from '@/components/library/KeywordInput.vue';
+import MetadataFieldLabel from '@/components/library/MetadataFieldLabel.vue';
 import notify from '@/core/notify';
 import { categoryFields } from '@/utils/marketplaceRules';
+import { isGenerated, overLimit } from '@/utils/generation';
 import { KEYWORDS_MAX } from '@/config/constant';
 
 const props = defineProps({
@@ -16,6 +18,8 @@ const props = defineProps({
     errors: { type: Object, default: () => ({}) },
     // Read-only, e.g. until the email is confirmed
     disabled: { type: Boolean, default: false },
+    // Soft lengths of the title and description from the generator: { title: 70, description: 150 }
+    limits: { type: Object, default: () => ({}) },
 });
 
 const emit = defineEmits(['update']);
@@ -54,7 +58,10 @@ async function copyKeywords() {
             />
         </el-form-item>
 
-        <el-form-item :label="$t('library.fields.title')" :error="errors.title">
+        <el-form-item :error="errors.title">
+            <template #label>
+                <MetadataFieldLabel :label="$t('library.fields.title')" :generated="isGenerated(asset, 'title')" />
+            </template>
             <!-- A textarea so a long title wraps and stays readable; it is still one line: Enter (except the one that ends
                  an IME composition) and pasted breaks are dropped. -->
             <el-input
@@ -62,31 +69,38 @@ async function copyKeywords() {
                 type="textarea"
                 :autosize="{ minRows: 1, maxRows: 4 }"
                 maxlength="200"
-                show-word-limit
                 :placeholder="$t('library.fields.title_placeholder')"
                 @keydown.enter="!$event.isComposing && $event.preventDefault()"
                 @update:model-value="set('title', $event.replace(/\s*[\r\n]+\s*/g, ' '))"
             />
+            <!-- Soft: longer is still saved, some marketplaces take it; the Marketplaces tab has each one's limit. -->
+            <span v-if="limits.title" class="metadata-form__counter" :class="{ 'is-over': overLimit(asset.title, limits.title) }">
+                {{ asset.title.length }} / {{ limits.title }}
+            </span>
         </el-form-item>
 
-        <el-form-item :label="$t('library.fields.description')" :error="errors.description">
+        <el-form-item :error="errors.description">
+            <template #label>
+                <MetadataFieldLabel :label="$t('library.fields.description')" :generated="isGenerated(asset, 'description')" />
+            </template>
             <el-input
                 :model-value="asset.description"
                 type="textarea"
                 :autosize="{ minRows: 3, maxRows: 6 }"
                 maxlength="200"
-                show-word-limit
                 :placeholder="$t('library.fields.description_placeholder')"
                 @update:model-value="set('description', $event)"
             />
+            <span v-if="limits.description" class="metadata-form__counter" :class="{ 'is-over': overLimit(asset.description, limits.description) }">
+                {{ asset.description.length }} / {{ limits.description }}
+            </span>
         </el-form-item>
 
         <el-form-item :error="errors.keywords">
             <template #label>
-                <span class="flex w-full items-baseline justify-between">
-                    <span>{{ $t('library.fields.keywords') }}</span>
-                    <span class="text-[13px] font-normal text-[var(--el-text-color-placeholder)]">{{ asset.keywords.length }} / {{ KEYWORDS_MAX }}</span>
-                </span>
+                <MetadataFieldLabel :label="$t('library.fields.keywords')" :generated="isGenerated(asset, 'keywords')">
+                    <span class="text-[13px] text-[var(--el-text-color-placeholder)]">{{ asset.keywords.length }} / {{ KEYWORDS_MAX }}</span>
+                </MetadataFieldLabel>
             </template>
             <p class="mb-1.5 text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ $t('library.fields.keywords_hint') }}</p>
             <KeywordInput
@@ -105,7 +119,10 @@ async function copyKeywords() {
             </div>
         </el-form-item>
 
-        <el-form-item v-if="fields.length" :label="$t('library.fields.categories')" :error="errors.categories">
+        <el-form-item v-if="fields.length" :error="errors.categories">
+            <template #label>
+                <MetadataFieldLabel :label="$t('library.fields.categories')" :generated="isGenerated(asset, 'categories')" />
+            </template>
             <div class="grid w-full grid-cols-[96px_minmax(0,1fr)] items-center gap-2">
                 <template v-for="field in fields" :key="field.code">
                     <span class="truncate text-[var(--el-text-color-secondary)]">{{ field.name }}</span>
@@ -125,7 +142,7 @@ async function copyKeywords() {
                         multiple
                         :multiple-limit="field.max"
                         filterable
-                        collapse-tags
+                        :collapse-tags="field.max > 2"
                         collapse-tags-tooltip
                         :placeholder="$t(field.min ? 'library.fields.category_required' : 'library.fields.category_optional')"
                         @update:model-value="setCategories(field.code, $event)"
@@ -167,6 +184,18 @@ async function copyKeywords() {
         width: 100%;
         font-weight: 500;
         color: var(--el-text-color-primary);
+    }
+}
+
+// Under the field, on the right, where Element Plus puts its own word limit.
+.metadata-form__counter {
+    margin-left: auto;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--el-text-color-placeholder);
+
+    &.is-over {
+        color: var(--el-color-warning-dark-2);
     }
 }
 </style>
