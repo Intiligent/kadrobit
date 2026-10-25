@@ -1,7 +1,8 @@
 <script setup>
 import { computed } from 'vue';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
-import { formatBytes, formatDateTime, formatDuration } from '@/utils/format';
+import { cameraRows } from '@/utils/cameraInfo';
+import { formatBytes, formatDateTime, formatDuration, megapixels } from '@/utils/format';
 
 const props = defineProps({
     asset: { type: Object, required: true },
@@ -20,6 +21,8 @@ const rows = computed(() => {
         ['original', a.original_filename],
         ['format', a.mime],
         ['dimensions', a.width && a.height ? `${a.width} × ${a.height} px` : null],
+        // Counted from the work's own size, not from EXIF: rounded down, like the marketplace checks.
+        ['megapixels', a.type === 'video' || !megapixels(a.width, a.height) ? null : `${megapixels(a.width, a.height)} MP`],
         ['duration', a.type === 'video' ? formatDuration(a.duration_ms) : null],
         ['size', formatBytes(a.size_bytes, locale)],
         ['captured', formatDateTime(a.captured_at, locale)],
@@ -28,6 +31,8 @@ const rows = computed(() => {
         ['checksum', a.checksum],
     ].filter(([, value]) => value);
 });
+
+const camera = computed(() => cameraRows(props.asset.camera));
 </script>
 
 <template>
@@ -55,10 +60,26 @@ const rows = computed(() => {
                 <span :class="{ 'font-mono text-xs break-all': key === 'checksum' }">{{ value }}</span>
             </el-descriptions-item>
         </el-descriptions>
+
+        <template v-if="camera.length">
+            <h3 class="text-sm font-bold">{{ $t('library.camera.title') }}</h3>
+            <el-descriptions :column="1" size="small" class="file-info">
+                <el-descriptions-item v-for="[key, value] in camera" :key="key" :label="$t(`library.camera.${key}`)">
+                    {{ value }}
+                </el-descriptions-item>
+            </el-descriptions>
+        </template>
     </div>
 </template>
 
 <style scoped lang="scss">
+// Element Plus sets the small size's 12px as a fixed SCSS value (descriptions.scss, $descriptions-cell-font-size),
+// not a CSS variable, under four classes: matched here with as many, plus the scope attribute, to win. 13px is the
+// theme's small font size.
+.file-info.el-descriptions--small :deep(.el-descriptions__table .el-descriptions__cell) {
+    font-size: var(--el-font-size-small);
+}
+
 .file-info :deep(.el-descriptions__label) {
     display: inline-block;
     min-width: 110px;

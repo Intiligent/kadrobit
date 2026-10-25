@@ -11,6 +11,7 @@ use App\Enums\UserSettingKey;
 use App\Models\Asset;
 use App\Models\AssetFile;
 use App\Models\AssetUpload;
+use App\Services\Assets\CameraInfoReader;
 use App\Services\Assets\FileMetadataReader;
 use App\Services\Assets\PreviewGenerator;
 use App\Services\Assets\UnreadableMedia;
@@ -178,7 +179,7 @@ class ProcessAssetUpload implements ShouldQueue
     }
 
     /**
-     * EXIF size and date, and the thumbnail and preview.
+     * EXIF size, date and camera summary (CameraInfoReader), and the thumbnail and preview.
      *
      * @return array{0: array<string, mixed>, 1: array{0: int, 1: int}|null, 2: list<array<string, mixed>>}
      */
@@ -186,6 +187,10 @@ class ProcessAssetUpload implements ShouldQueue
     {
         $pixels = $this->pixelSize($local);
         $attributes = $this->photoAttributes($local, $pixels);
+
+        if ($camera = app(CameraInfoReader::class)->read($local)) {
+            $attributes['media_info'] = ['camera' => $camera];
+        }
         $this->upload->update(['progress' => self::PROGRESS_METADATA]);
 
         $copies = $previews->forPhoto($local);

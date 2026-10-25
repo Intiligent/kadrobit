@@ -28,8 +28,7 @@ const initials = (name) => name.split(/\s+/).map((word) => word[0]).join('').sli
         <p class="text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ $t('library.checks.intro') }}</p>
 
         <el-empty v-if="!accounts.length" :image-size="110" :description="$t('library.checks.none')">
-            <!-- Opens the marketplace picker on the settings page right away. -->
-            <Link :href="`${SETTINGS_MARKETPLACES_URL}?add=1`" class="inline-flex items-center gap-1 font-medium text-[var(--el-color-primary)] hover:underline">
+            <Link :href="SETTINGS_MARKETPLACES_URL" class="inline-flex items-center gap-1 font-medium text-[var(--el-color-primary)] hover:underline">
                 <Plus :size="15" :stroke-width="2" />{{ $t('library.checks.connect') }}
             </Link>
         </el-empty>

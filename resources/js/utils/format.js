@@ -44,3 +44,11 @@ export function formatDateTime(iso, locale) {
 
     return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 }
+
+/**
+ * Megapixels of a width × height, rounded down to one decimal: 2048 × 1536 → 3.1. Rounded down so a work just
+ * under a marketplace minimum never reads as meeting it.
+ */
+export function megapixels(width, height) {
+    return width && height ? Math.floor((width * height) / 100_000) / 10 : null;
+}
