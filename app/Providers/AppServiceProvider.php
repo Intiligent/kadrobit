@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Metadata\Contracts\MetadataGenerator;
+use App\Services\Metadata\MetadataGeneratorFactory;
 use App\Support\CredentialsEncrypter;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -18,6 +20,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Marketplace credentials have their own key (config/credentials.php), resolved on first use.
         $this->app->singleton('credentials.encrypter', fn () => CredentialsEncrypter::make(config('credentials')));
+
+        // The provider configured in config/metadata.php (METADATA_DRIVER).
+        $this->app->bind(MetadataGenerator::class, fn ($app) => $app->make(MetadataGeneratorFactory::class)->make());
     }
 
     /**
