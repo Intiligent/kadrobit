@@ -11,7 +11,7 @@ defineProps({
         <span>{{ label }}</span>
         <span class="flex items-center gap-2 font-normal">
             <slot />
-            <el-tooltip v-if="generated" :content="$t('library.generation.ai_hint')" placement="top">
+            <el-tooltip v-if="generated" :content="$t('library.generation.ai_hint')" placement="top-end">
                 <span class="field-label__ai">AI</span>
             </el-tooltip>
         </span>
