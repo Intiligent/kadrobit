@@ -7,6 +7,7 @@ use App\Enums\ListingStatus;
 use App\Enums\MediaType;
 use App\Enums\MetadataSource;
 use App\Exceptions\ExceptionWithMessage;
+use App\Http\Requests\Assets\GenerateMetadataBatchRequest;
 use App\Http\Requests\Assets\MoveAssetsRequest;
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
 use App\Http\Requests\Assets\UpdateAssetRequest;
@@ -33,7 +34,7 @@ class AssetController extends Controller
     /**
      * The library page: explorer, asset grid and info panel.
      */
-    public function index(Request $request, UploadBatches $batches): Response
+    public function index(Request $request, UploadBatches $batches, AssetMetadataService $metadata): Response
     {
         $user = $request->user();
 
@@ -55,6 +56,14 @@ class AssetController extends Controller
             'folders' => FolderResource::collection($folders)->resolve(),
             'accounts' => MarketplaceAccountResource::collection($accounts)->resolve(),
             'categories' => $this->categories($accounts->pluck('marketplace_id')->unique()->all()),
+            // Metadata generation (docs/metadata-generation.md): without a provider the panel offers no regeneration;
+            // the limits are the generator's, the soft counters of the title and description.
+            'generation' => [
+                'available' => $metadata->available(),
+                'limits' => ['title' => config('metadata.limits.title'), 'description' => config('metadata.limits.description')],
+                // Works one fill request takes from the selection panel
+                'batch' => GenerateMetadataBatchRequest::ASSETS_MAX,
+            ],
             'upload' => [
                 'accept' => StoreAssetUploadRequest::ACCEPT,
                 'max_size_mb' => StoreAssetUploadRequest::maxSizeMb(),

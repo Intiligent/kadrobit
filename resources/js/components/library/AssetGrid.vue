@@ -7,7 +7,8 @@ import { dragHasType } from '@/utils/drag';
 
 const props = defineProps({
     assets: { type: Array, required: true },
-    selectedId: { type: String, default: null },
+    // Picked works: one opens the info panel, several the selection panel
+    selectedIds: { type: Array, default: () => [] },
     // Connected marketplace accounts, for the delivery badges on the cards
     accounts: { type: Array, default: () => [] },
     size: { type: String, default: 'large' },
@@ -72,7 +73,8 @@ function onDrop(event) {
                     :key="asset.id"
                     :asset="asset"
                     :accounts="accounts"
-                    :selected="asset.id === selectedId"
+                    :selected="selectedIds.includes(asset.id)"
+                    :drag-group="selectedIds"
                     :captions="captions"
                     :draggable="draggable"
                     @select="emit('select', $event)"

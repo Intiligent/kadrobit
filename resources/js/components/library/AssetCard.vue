@@ -13,6 +13,8 @@ const props = defineProps({
     captions: { type: Boolean, default: true },
     // Can be dragged onto a folder in the explorer.
     draggable: { type: Boolean, default: false },
+    // Picked works: dragging one of them drags them all
+    dragGroup: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['select']);
@@ -23,10 +25,15 @@ const keywordCount = computed(() => props.asset.keywords.length);
 
 const dragging = ref(false);
 
+// Cmd/Ctrl adds or removes the work, Shift adds the range up to it (utils/selection.js).
+function select(event) {
+    emit('select', { id: props.asset.id, toggle: event.metaKey || event.ctrlKey, range: event.shiftKey });
+}
+
 function onDragStart(event) {
     dragging.value = true;
     event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData(DRAG_ASSETS, JSON.stringify([props.asset.id]));
+    event.dataTransfer.setData(DRAG_ASSETS, JSON.stringify(props.dragGroup.includes(props.asset.id) ? props.dragGroup : [props.asset.id]));
 }
 </script>
 
@@ -35,13 +42,13 @@ function onDragStart(event) {
     <div
         role="button"
         tabindex="0"
-        class="asset-card"
+        class="asset-card select-none"
         :class="{ 'is-selected': selected, 'is-dragging': dragging }"
         :data-asset-id="asset.id"
         :draggable="draggable"
-        @click="emit('select', asset.id)"
-        @keydown.enter.prevent="emit('select', asset.id)"
-        @keydown.space.prevent="emit('select', asset.id)"
+        @click="select"
+        @keydown.enter.prevent="select"
+        @keydown.space.prevent="select"
         @dragstart="onDragStart"
         @dragend="dragging = false"
     >

@@ -8,6 +8,7 @@ import AssetInfoPanel from '@/components/library/AssetInfoPanel.vue';
 import AssetToolbar from '@/components/library/AssetToolbar.vue';
 import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
 import PublishPopover from '@/components/library/PublishPopover.vue';
+import SelectionPanel from '@/components/library/SelectionPanel.vue';
 import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetAutosave } from '@/composables/useAssetAutosave';
 import { usePendingAssets } from '@/composables/usePendingAssets';
@@ -18,6 +19,8 @@ import api from '@/core/api';
 import notify from '@/core/notify';
 import { ASSETS_API_URL, LISTINGS_API_URL } from '@/config/constant';
 import { readyCount } from '@/utils/publishing';
+import { editedFields, markEdited } from '@/utils/generation';
+import { selectWorks } from '@/utils/selection';
 import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 
@@ -32,6 +35,8 @@ const props = defineProps({
     categories: { type: Object, default: () => ({}) },
     // { accept, max_size_mb, max_batch_files, batches }
     upload: { type: Object, required: true },
+    // { available, limits: { title, description }, batch }: metadata generation (docs/metadata-generation.md)
+    generation: { type: Object, default: () => ({ available: false, limits: {} }) },
 });
 
 // Local working copy: later stages edit and add works in place.
@@ -133,6 +138,68 @@ const empty = computed(() => {
 });
 
 const selected = computed(() => assets.value.find((a) => a.id === selectedId.value) ?? null);
+
+// Several works picked with Cmd/Ctrl- or Shift-click (utils/selection.js): the selection panel instead of the info
+// panel. One picked work is `selectedId`, as before; the anchor is where the next Shift-click spans from.
+const picked = ref([]);
+let anchor = null;
+
+const selectedIds = computed(() => (picked.value.length ? picked.value : selectedId.value ? [selectedId.value] : []));
+const pickedAssets = computed(() => picked.value.map((id) => assets.value.find((a) => a.id === id)).filter(Boolean));
+
+function pick(ids) {
+    picked.value = ids.length > 1 ? ids : [];
+    selectedId.value = ids.length === 1 ? ids[0] : null;
+}
+
+function selectAsset({ id, toggle = false, range = false }) {
+    const next = selectWorks(selectedIds.value, visible.value.map((a) => a.id), id, { toggle, range, anchor: anchor ?? selectedId.value });
+
+    anchor = next.anchor;
+    pick(next.ids);
+}
+
+// A filter or a search that hides picked works drops them: an action must not reach works the user cannot see.
+watch(visible, (list) => {
+    if (picked.value.length) {
+        const shown = new Set(list.map((a) => a.id));
+
+        pick(picked.value.filter((id) => shown.has(id)));
+    }
+});
+
+function onSelectionKey(event) {
+    if (event.key === 'Escape' && picked.value.length && !event.target.closest?.('input, textarea, [contenteditable]')) {
+        pick([]);
+    }
+}
+
+window.addEventListener('keydown', onSelectionKey);
+
+// Fill the empty fields of the picked works in the background, as after an upload.
+const filling = ref(false);
+
+async function fillPicked() {
+    const ids = picked.value;
+
+    if (!ids.length || readonly.value || filling.value) {
+        return;
+    }
+
+    filling.value = true;
+
+    try {
+        const { data } = await api.post(`${ASSETS_API_URL}/generations`, { assets: ids });
+
+        notify.message.success({ message: transChoice('library.selection.fill_queued', data.queued, { count: data.queued }) });
+        // The works come back marked as generating; the poll follows them until done.
+        pending.refresh(ids);
+    } catch {
+        // Reported by the API client (429 with the monthly limit, 503 without a provider).
+    } finally {
+        filling.value = false;
+    }
+}
 
 // Back on the page, the remembered card is brought into view.
 onMounted(async () => {
@@ -307,7 +374,58 @@ function update(patch, options = {}) {
     }
 
     Object.assign(asset, patch);
+    asset.metadata_sources = markEdited(asset.metadata_sources, patch);
     autosave.queue(asset.id, patch, options);
+}
+
+// Regenerating or restoring the generated metadata of the open work (docs/metadata-generation.md).
+
+// 'regenerate' | 'restore' while one runs
+const generating = ref(null);
+const generationVersion = ref(0);
+
+async function changeMetadata(action, generationId = null) {
+    const asset = selected.value;
+
+    if (!asset || readonly.value || generating.value) {
+        return;
+    }
+
+    // Edits still waiting for the autosave reach the server first: it has to know which fields are the user's.
+    await autosave.flush(asset.id);
+
+    const edited = editedFields(asset);
+
+    if (edited.length) {
+        const confirmed = await notify.confirm({
+            title: trans(`library.generation.${action}_confirm_title`),
+            message: trans('library.generation.replace_confirm', { fields: edited.map((field) => trans(`library.fields.${field}`)).join(', ') }),
+            confirmText: trans(`library.generation.${action}_confirm`),
+            cancelText: trans('common.actions.cancel'),
+        });
+
+        if (!confirmed) {
+            return;
+        }
+    }
+
+    generating.value = action;
+
+    try {
+        const url = action === 'regenerate'
+            ? `${ASSETS_API_URL}/${asset.id}/generations`
+            : `${ASSETS_API_URL}/${asset.id}/generations/${generationId}/apply`;
+        const body = await api.post(url);
+
+        // The server's fields win: the user asked to replace them.
+        applyServerAsset(body.data, new Set());
+        notify.message.success({ message: trans(`library.generation.${action}_done`) });
+    } catch {
+        // Reported by the API client (502, 429 with the limit).
+    } finally {
+        generating.value = null;
+        generationVersion.value++;
+    }
 }
 
 // Archived works only (the API refuses others): the work and its files are gone for good.
@@ -426,6 +544,7 @@ window.addEventListener('beforeunload', onBeforeUnload);
 
 onBeforeUnmount(() => {
     window.removeEventListener('beforeunload', onBeforeUnload);
+    window.removeEventListener('keydown', onSelectionKey);
     stopVisitGuard();
     uploader.dispose();
     autosave.dispose();
@@ -496,19 +615,29 @@ function addFiles(files) {
         <AssetGrid
             :assets="visible"
             :accounts="accounts"
-            :selected-id="selectedId"
+            :selected-ids="selectedIds"
             :size="size"
             :accept="upload.accept"
             :empty-title="empty.title"
             :empty-text="empty.text"
             :draggable="!readonly"
-            @select="selectedId = $event"
+            @select="selectAsset"
             @files="addFiles"
         />
     </main>
 
+    <SelectionPanel
+        v-if="pickedAssets.length > 1"
+        :assets="pickedAssets"
+        :generation="generation"
+        :filling="filling"
+        :readonly="readonly"
+        @fill="fillPicked"
+        @clear="pick([])"
+    />
+
     <AssetInfoPanel
-        v-if="selected"
+        v-else-if="selected"
         :asset="selected"
         :accounts="accounts"
         :categories="categories"
@@ -523,6 +652,11 @@ function addFiles(files) {
         :listings-busy="listingsBusy"
         @cancel-listing="changeListing($event, 'cancel')"
         @retry-listing="changeListing($event, 'retry')"
+        :generation="generation"
+        :generating="generating"
+        :generation-version="generationVersion"
+        @regenerate="changeMetadata('regenerate')"
+        @restore="changeMetadata('restore', $event)"
         @close="selectedId = null"
     />
 

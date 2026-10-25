@@ -181,3 +181,30 @@ describe('categoryFields', () => {
         expect(categoryFields(asset({ type: 'vector' }), accounts, categories)).toHaveLength(0);
     });
 });
+
+describe('checkAsset: text fields', () => {
+    const rules = { text_fields: [{ field: 'title', name: 'Caption', max: 20 }, { field: 'description', name: 'Description', max: null }] };
+
+    it('says where each text goes and whether it fits', () => {
+        const result = checkAsset(asset({ title: 'Glacier lagoon', description: 'Icebergs at sunrise' }), account('alamy', rules));
+
+        expect(levels(result).slice(0, 2)).toEqual(['ok:text_title_fits', 'ok:text_description_goes']);
+        expect(result.items[0].params).toEqual({ name: 'Caption', count: 14, max: 20 });
+    });
+
+    it('warns about a text longer than the marketplace takes, and skips empty ones', () => {
+        const result = checkAsset(asset({ title: 'Icebergs floating in a glacier lagoon', description: '' }), account('alamy', rules));
+
+        expect(levels(result)[0]).toBe('warning:text_title_too_long');
+        expect(result.items[0].params).toEqual({ name: 'Caption', count: 37, max: 20 });
+        expect(levels(result)).not.toContain('ok:text_description_goes');
+        expect(result.needsFix).toBe(true);
+    });
+
+    it('shows the texts for a marketplace with metadata entered by hand too', () => {
+        const manual = account('pond5', rules, {});
+        manual.marketplace.metadata_delivery = 'manual';
+
+        expect(levels(checkAsset(asset(), manual))).toEqual(['ok:text_title_fits', 'info:manual_metadata']);
+    });
+});

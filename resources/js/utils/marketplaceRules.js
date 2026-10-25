@@ -59,6 +59,8 @@ export function checkAsset(asset, account) {
         }
     }
 
+    items.push(...textItems(asset, rules.text_fields ?? []));
+
     // Metadata entered in the marketplace's own portal: nothing more to check on our side.
     if (marketplace.metadata_delivery === 'manual') {
         items.push(item('info', 'manual_metadata'));
@@ -90,6 +92,27 @@ export function checkAsset(asset, account) {
     }
 
     return verdict(items);
+}
+
+/**
+ * Where the work's title and description go on the marketplace (metadata_rules.text_fields: Title, Description,
+ * Caption…) and whether they fit its length. Longer is a warning: the marketplace cuts or rejects it, the user
+ * shortens it. Shown for manual marketplaces too: the texts are copied into their portal by hand.
+ */
+function textItems(asset, fields) {
+    return fields.flatMap(({ field, name, max }) => {
+        const count = (asset[field] ?? '').trim().length;
+
+        if (!count) {
+            return [];
+        }
+
+        if (max && count > max) {
+            return [item('warning', `text_${field}_too_long`, { name, count, max })];
+        }
+
+        return [item('ok', max ? `text_${field}_fits` : `text_${field}_goes`, { name, count, max })];
+    });
 }
 
 // Rounded down, so a file just under the minimum never reads as "4.0 MP".

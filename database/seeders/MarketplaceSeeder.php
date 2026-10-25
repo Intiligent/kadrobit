@@ -57,6 +57,11 @@ class MarketplaceSeeder extends Seeder
                 ],
                 'metadata_delivery' => MetadataDelivery::Csv,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title only, up to 70 characters (helpx.adobe.com, "CSV requirements", June 2026; the older sample CSV still says 200).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => 70],
+                    ],
                     'keywords_max' => 49,
                     // CSV "Category" column: one category number, optional.
                     'categories_min' => 0,
@@ -85,7 +90,12 @@ class MarketplaceSeeder extends Seeder
                 ],
                 'metadata_delivery' => MetadataDelivery::Iptc,
                 'metadata_rules' => [
-                    // One text field, Description, up to 200 characters: the work's title is not sent.
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // One text field, Description, up to 2048 characters (submit.shutterstock.com help, "Contextual metadata"); the title is not sent.
+                    'text_fields' => [
+                        ['field' => 'description', 'name' => 'Description', 'max' => 2048],
+                    ],
+                    // One text field, Description: the work's title is not sent.
                     'required' => ['description'],
                     // Contributors may not submit generative AI content.
                     'accepts_ai_generated' => false,
@@ -119,6 +129,12 @@ class MarketplaceSeeder extends Seeder
                 'upload_defaults' => [],
                 'metadata_delivery' => MetadataDelivery::Manual,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title and Description in ESP; no official limits found (the guides need an ESP sign-in).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => null],
+                        ['field' => 'description', 'name' => 'Description', 'max' => null],
+                    ],
                     'submit' => 'web',
                 ],
                 'file_rules' => [],
@@ -137,6 +153,12 @@ class MarketplaceSeeder extends Seeder
                 // Captions and tags are set in Image Manager; IPTC is read for vectors.
                 'metadata_delivery' => MetadataDelivery::Manual,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Caption up to 128 characters, searchable; Description up to 2000, not searchable (Alamy's PDF guide "Captions and keywords", may be dated).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Caption', 'max' => 128],
+                        ['field' => 'description', 'name' => 'Description', 'max' => 2000],
+                    ],
                     'iptc_read_for' => ['vector'],
                     'submit' => 'web',
                 ],
@@ -154,6 +176,12 @@ class MarketplaceSeeder extends Seeder
                 ],
                 'metadata_delivery' => MetadataDelivery::Csv,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title and Description, English only; no official limits found (dreamstime.com/upload/help-instructions).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => null],
+                        ['field' => 'description', 'name' => 'Description', 'max' => null],
+                    ],
                     'csv_upload' => 'ftp',
                     // Model/property releases go in a separate CSV.
                     'releases_csv' => true,
@@ -172,6 +200,11 @@ class MarketplaceSeeder extends Seeder
                 // No data on how metadata is delivered yet.
                 'metadata_delivery' => null,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // One text field, Description, up to 250 characters with spaces (blog.depositphotos.com, keywording guide).
+                    'text_fields' => [
+                        ['field' => 'description', 'name' => 'Description', 'max' => 250],
+                    ],
                     'submit' => 'web',
                 ],
                 'file_rules' => [],
@@ -191,6 +224,11 @@ class MarketplaceSeeder extends Seeder
                 ],
                 'metadata_delivery' => MetadataDelivery::Iptc,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Description, required; no official limit found (123rf.com/submit/photographersfaq.php).
+                    'text_fields' => [
+                        ['field' => 'description', 'name' => 'Description', 'max' => null],
+                    ],
                     'csv_max_size_mb' => 2,
                     'submit' => 'web',
                 ],
@@ -211,6 +249,12 @@ class MarketplaceSeeder extends Seeder
                 // Metadata is added in the portal after files are processed.
                 'metadata_delivery' => MetadataDelivery::Manual,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title up to 80 characters, Description up to 500 (contributor.pond5.com, "Preparing your files").
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => 80],
+                        ['field' => 'description', 'name' => 'Description', 'max' => 500],
+                    ],
                     'submit' => 'web',
                 ],
                 'file_rules' => [],
@@ -226,6 +270,11 @@ class MarketplaceSeeder extends Seeder
                 // Title and keywords must be embedded in the JPG, or sent as CSV.
                 'metadata_delivery' => MetadataDelivery::Iptc,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title only, one sentence, 35 to 100 characters recommended (magnific.com/ai/contributors, metadata guidelines).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => 100],
+                    ],
                     'csv_supported' => true,
                     'submit' => 'web',
                 ],
@@ -241,6 +290,12 @@ class MarketplaceSeeder extends Seeder
                 'upload_defaults' => [],
                 'metadata_delivery' => MetadataDelivery::Csv,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title under 100 characters; Description optional, no limit found (eezycontributors.zendesk.com).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => 99],
+                        ['field' => 'description', 'name' => 'Description', 'max' => null],
+                    ],
                     'csv_fields' => ['Filename', 'Title', 'Description', 'Keywords'],
                     // CSV can be uploaded over FTP together with the files.
                     'csv_upload' => 'ftp',
@@ -259,6 +314,12 @@ class MarketplaceSeeder extends Seeder
                 'upload_defaults' => [],
                 'metadata_delivery' => MetadataDelivery::Manual,
                 'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title (unique, English) and an optional Description; no official limits found (canva.cn/en/help/metadata-cn).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => null],
+                        ['field' => 'description', 'name' => 'Description', 'max' => null],
+                    ],
                     'submit' => 'web',
                 ],
                 'file_rules' => [],

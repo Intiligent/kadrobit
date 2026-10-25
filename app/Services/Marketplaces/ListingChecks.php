@@ -76,6 +76,14 @@ class ListingChecks
             }
         }
 
+        foreach ($rules['text_fields'] ?? [] as ['field' => $field, 'name' => $name, 'max' => $max]) {
+            $count = mb_strlen(trim($asset->{$field} ?? ''));
+
+            if ($max && $count > $max) {
+                $warnings[] = $this->issue("text_{$field}_too_long", ['name' => $name, 'count' => $count, 'max' => $max]);
+            }
+        }
+
         // Metadata entered in the marketplace's own portal: nothing more to check on our side.
         if ($marketplace->metadata_delivery === MetadataDelivery::Manual) {
             return new ListingCheck(warnings: $warnings, errors: $errors);
