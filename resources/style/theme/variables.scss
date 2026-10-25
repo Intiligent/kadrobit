@@ -81,6 +81,10 @@
         'input-height': 16px,
         'border-radius': 4px,
     ),
+    // Space between the chosen tags of a multiple select (Element Plus: 6px).
+    $select-item-gap: (
+        'default': 4px,
+    ),
     $popover: (
         'border-radius': 8px,
     ),
