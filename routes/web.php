@@ -54,6 +54,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('settings')->name('settings.')->controller(SettingsController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('marketplaces', 'marketplaces')->name('marketplaces');
+        Route::get('metadata', 'metadata')->name('metadata');
     });
 
     Route::prefix('verify-email')->name('verification.')->controller(VerifyEmailController::class)->group(function () {
