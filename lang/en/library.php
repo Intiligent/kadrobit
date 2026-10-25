@@ -171,6 +171,7 @@ return [
     'checks' => [
         'intro' => 'Base metadata goes to every marketplace. Each one checks it against its own rules.',
         'none' => 'Connect a marketplace to see its requirements.',
+        'connect' => 'Connect a marketplace',
         'invalid_credentials' => 'Sign-in failed on the last check. Reconnect the account to publish.',
         'disabled' => 'Turned off in marketplace settings',
         'unsupported_type' => 'Does not accept this type of work',
@@ -216,6 +217,8 @@ return [
         'failed' => 'Could not generate metadata right now. Try again in a minute.',
         'limit_reached' => 'You have used all :limit metadata generations for this month.',
         'unavailable' => 'Metadata generation is not available right now.',
+        'pending' => 'Generating metadata…',
+        'pending_hint' => 'Empty fields fill in by themselves when it is done. You can keep editing: your changes stay.',
     ],
 
     'validation' => [

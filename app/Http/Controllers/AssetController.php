@@ -26,6 +26,9 @@ use Inertia\Response;
 
 class AssetController extends Controller
 {
+    /** Works per GET /api/assets request. */
+    public const LIST_MAX = 100;
+
     /**
      * The library page: explorer, asset grid and info panel.
      */
@@ -114,6 +117,22 @@ class AssetController extends Controller
         });
 
         return response()->noContent();
+    }
+
+    /**
+     * Fresh versions of some of the user's works, e.g. after a real-time notice that they changed.
+     * Works of other users and deleted ones are simply not in the answer.
+     */
+    public function list(Request $request): JsonResponse
+    {
+        $ids = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:'.self::LIST_MAX],
+            'ids.*' => ['string'],
+        ])['ids'];
+
+        $works = $request->user()->assets()->whereIn('ulid', $ids)->with(['files', 'folder:id,ulid'])->get();
+
+        return response()->json(['data' => AssetResource::collection($works)->resolve($request)]);
     }
 
     /**

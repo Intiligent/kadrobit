@@ -35,6 +35,7 @@ class ApiAuthenticationTest extends TestCase
             ->assertOk()
             ->assertExactJson(['data' => [
                 'id' => $user->id,
+                'ulid' => $user->ulid,
                 'first_name' => $user->first_name,
                 'last_name' => $user->last_name,
                 'username' => 'jane_doe',

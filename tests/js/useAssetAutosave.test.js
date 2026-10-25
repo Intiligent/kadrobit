@@ -115,6 +115,27 @@ describe('useAssetAutosave', () => {
         expect(autosave.state.a1).toBe('saved');
     });
 
+    it('counts the fields of a running request as local until it answers', async () => {
+        let answer;
+        api.patch.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+        const onSaved = vi.fn();
+        const autosave = useAssetAutosave({ onSaved });
+
+        autosave.queue('a1', { title: 'Glacier' }, { immediate: true });
+        vi.advanceTimersByTime(0);
+        await flush();
+
+        // Being sent: a version fetched meanwhile must not undo it.
+        expect([...autosave.localFields('a1')]).toEqual(['title']);
+
+        answer({ data: { id: 'a1', title: 'Glacier' } });
+        await flush();
+
+        // The request's own answer is applied in full.
+        expect([...onSaved.mock.calls[0][1]]).toEqual([]);
+        expect([...autosave.localFields('a1')]).toEqual([]);
+    });
+
     it('sends everything at once on flushAll', async () => {
         api.patch.mockResolvedValue({ data: {} });
         const autosave = useAssetAutosave();

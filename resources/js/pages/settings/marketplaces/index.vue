@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
 import { Plus } from 'lucide-vue-next';
@@ -57,6 +57,13 @@ function openDrawer(target = null) {
     drawerTarget.value = target;
     drawerOpen.value = true;
 }
+
+// ?add=1 (e.g. from the library's Marketplace tab) opens the marketplace picker at once.
+onMounted(() => {
+    if (new URLSearchParams(window.location.search).has('add')) {
+        openDrawer();
+    }
+});
 
 function onSaved(saved, isEdit) {
     replace(saved);

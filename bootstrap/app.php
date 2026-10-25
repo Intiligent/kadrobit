@@ -11,6 +11,8 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Private channels are authorized with the web session (POST /broadcasting/auth).
+    ->withBroadcasting(__DIR__.'/../routes/channels.php', ['middleware' => ['web', 'auth']])
     ->withMiddleware(new MiddlewareHandler)
     ->withExceptions(new ExceptionHandler)
     ->create();

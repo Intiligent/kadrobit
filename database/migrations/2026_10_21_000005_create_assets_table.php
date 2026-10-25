@@ -33,6 +33,9 @@ return new class extends Migration
             // Where each metadata field came from: {"title": "ai", "keywords": "file"} (App\Enums\MetadataSource).
             // Generation fills only empty fields and never one the user edited.
             $table->jsonb('metadata_sources')->default('{}');
+            // Set while a generation is queued or running (GenerateAssetMetadata), null otherwise: the library
+            // shows "generating" and refetches the work when it is told the generation is over (KB-44).
+            $table->timestampTz('metadata_generating_at')->nullable();
 
             // Data from the original file.
             $table->timestampTz('captured_at')->nullable(); // EXIF DateTimeOriginal / video creation time

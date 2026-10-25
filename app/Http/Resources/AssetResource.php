@@ -40,6 +40,8 @@ class AssetResource extends JsonResource
             'is_ai_generated' => $this->is_ai_generated,
             // Where each field came from: file | ai | user (App\Enums\MetadataSource); an object even when empty.
             'metadata_sources' => (object) ($this->metadata_sources ?? []),
+            // A generation is queued or running: the library waits for EntityChanged (or polls) and refetches the work.
+            'metadata_pending' => $this->isGeneratingMetadata(),
             'original_filename' => $this->original_filename,
             'mime' => $original?->mime,
             'size_bytes' => $original?->size_bytes,
@@ -52,6 +54,8 @@ class AssetResource extends JsonResource
             'thumbnail_url' => $thumbnail?->url(),
             'preview_url' => $preview?->url(),
             'created_at' => $this->created_at?->toIso8601String(),
+            // Lets the library skip a version older than the one it shows (responses may arrive out of order).
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }

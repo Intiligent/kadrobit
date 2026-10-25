@@ -5,21 +5,25 @@ namespace Tests\Feature\Metadata;
 use App\Enums\AssetFileRole;
 use App\Enums\GenerationTrigger;
 use App\Enums\MarketplaceAccountStatus;
+use App\Events\EntityChanged;
 use App\Jobs\GenerateAssetMetadata;
 use App\Models\Asset;
 use App\Models\AssetGeneration;
 use App\Models\Marketplace;
 use App\Models\MarketplaceCategory;
 use App\Models\User;
+use App\Services\Metadata\AssetMetadataService;
 use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Imagick;
 use ImagickPixel;
 use Laravel\Passport\Passport;
+use RuntimeException;
 use Tests\TestCase;
 
 class AssetGenerationTest extends TestCase
@@ -128,11 +132,13 @@ class AssetGenerationTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_a_second_job_for_the_same_work_is_dropped_not_released(): void
+    public function test_a_second_job_for_the_same_work_waits_and_is_limited_by_time_not_tries(): void
     {
-        $middleware = (new GenerateAssetMetadata($this->asset()))->middleware()[0];
+        $job = new GenerateAssetMetadata($this->asset());
 
-        $this->assertNull($middleware->releaseAfter);
+        $this->assertSame(30, $job->middleware()[0]->releaseAfter);
+        $this->assertSame(3, $job->maxExceptions);
+        $this->assertTrue($job->retryUntil()->isAfter(now()->addHours(2)));
     }
 
     public function test_without_a_provider_key_generation_on_request_is_unavailable(): void
@@ -341,6 +347,120 @@ class AssetGenerationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'archived')
             ->assertJsonPath('data.metadata_sources', ['title' => 'ai']);
+    }
+
+    public function test_a_queued_work_is_marked_until_the_job_finishes_and_the_user_is_told(): void
+    {
+        Event::fake([EntityChanged::class]);
+        Queue::fake();
+        $this->fakeModel();
+        $asset = $this->asset();
+
+        app(AssetMetadataService::class)->queue($asset, GenerationTrigger::Manual);
+
+        $this->assertNotNull($asset->refresh()->metadata_generating_at);
+        $job = Queue::pushed(GenerateAssetMetadata::class)->sole();
+        app()->call([$job, 'handle']);
+
+        $this->assertNull($asset->refresh()->metadata_generating_at);
+        $this->assertSame(['sunset', 'ocean'], $asset->keywords);
+        Event::assertDispatched(EntityChanged::class, fn ($event) => $event->type === 'asset' && $event->id === $asset->ulid && $event->reason === 'metadata');
+    }
+
+    public function test_a_job_leaves_the_mark_of_a_later_request_for_its_own_job(): void
+    {
+        Queue::fake();
+        Http::fake();
+        $asset = $this->asset(['title' => 'A', 'description' => 'B', 'keywords' => ['c']]);
+        $service = app(AssetMetadataService::class);
+
+        $service->queue($asset, GenerationTrigger::Upload);
+        $first = Queue::pushed(GenerateAssetMetadata::class)->sole();
+        $this->travel(5)->seconds();
+        $service->queue($asset, GenerationTrigger::Manual);
+
+        app()->call([$first, 'handle']);
+
+        // The second request is still queued: the work stays "generating".
+        $this->assertNotNull($asset->refresh()->metadata_generating_at);
+    }
+
+    public function test_a_work_in_the_trash_is_not_generated(): void
+    {
+        Event::fake([EntityChanged::class]);
+        Http::fake();
+        $asset = $this->asset();
+        $asset->forceFill(['metadata_generating_at' => now()])->save();
+        $asset->delete();
+
+        GenerateAssetMetadata::dispatchSync(Asset::withTrashed()->find($asset->id));
+
+        Http::assertNothingSent();
+        $this->assertSame(0, AssetGeneration::count());
+        $this->assertNull(Asset::withTrashed()->find($asset->id)->metadata_generating_at);
+    }
+
+    public function test_several_works_are_marked_at_once(): void
+    {
+        Queue::fake();
+        $works = [$this->asset(), $this->asset()];
+
+        $this->postJson('/api/assets/generations', ['assets' => [$works[0]->ulid, $works[1]->ulid]])->assertAccepted();
+
+        $this->assertSame(2, Asset::query()->whereNotNull('metadata_generating_at')->count());
+    }
+
+    public function test_the_mark_shows_as_pending_and_a_stale_one_does_not(): void
+    {
+        Queue::fake();
+        $asset = $this->asset();
+
+        app(AssetMetadataService::class)->queue($asset, GenerationTrigger::Manual);
+
+        $this->getJson("/api/assets?ids[]={$asset->ulid}")->assertJsonPath('data.0.metadata_pending', true);
+
+        $asset->forceFill(['metadata_generating_at' => now()->subMinutes(Asset::GENERATING_STALE_MINUTES + 1)])->save();
+        $this->getJson("/api/assets?ids[]={$asset->ulid}")->assertJsonPath('data.0.metadata_pending', false);
+    }
+
+    public function test_the_mark_is_cleared_when_there_is_nothing_to_write_or_the_limit_is_reached(): void
+    {
+        Event::fake([EntityChanged::class]);
+        Http::fake();
+        config(['metadata.monthly_limit' => 0]);
+        $asset = $this->asset();
+        $asset->forceFill(['metadata_generating_at' => now()])->save();
+
+        GenerateAssetMetadata::dispatchSync($asset, GenerationTrigger::Upload, now());
+
+        $this->assertNull($asset->refresh()->metadata_generating_at);
+        Event::assertDispatched(EntityChanged::class);
+    }
+
+    public function test_a_job_that_gives_up_clears_the_mark(): void
+    {
+        Event::fake([EntityChanged::class]);
+        $asset = $this->asset();
+        $asset->forceFill(['metadata_generating_at' => now()])->save();
+
+        (new GenerateAssetMetadata($asset, GenerationTrigger::Upload, now()))->failed(new RuntimeException('Invalid model'));
+
+        $this->assertNull($asset->refresh()->metadata_generating_at);
+        Event::assertDispatched(EntityChanged::class);
+    }
+
+    public function test_fresh_versions_of_own_works_only(): void
+    {
+        $mine = $this->asset(['title' => 'Mine']);
+        $foreign = $this->asset(user: User::factory()->create());
+
+        $this->getJson("/api/assets?ids[]={$mine->ulid}&ids[]={$foreign->ulid}&ids[]=missing")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Mine');
+
+        $this->getJson('/api/assets')->assertUnprocessable();
+        $this->getJson('/api/assets?'.http_build_query(['ids' => array_fill(0, 101, 'x')]))->assertUnprocessable();
     }
 
     public function test_generation_needs_a_confirmed_email(): void

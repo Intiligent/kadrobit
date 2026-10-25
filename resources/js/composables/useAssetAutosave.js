@@ -15,7 +15,8 @@ import { ASSET_AUTOSAVE_DELAY, ASSETS_API_URL } from '@/config/constant';
  *
  * `state[id]`: 'pending' | 'saving' | 'saved' | 'error'; `errors[id]`: { field: message } from a 422.
  * `onSaved(asset, local)`: the server's version of the work, and the fields whose local value is newer
- * (still queued or rejected) and must not be overwritten.
+ * (still queued or rejected) and must not be overwritten. `localFields(id)` gives that set, plus the fields of
+ * a request still running, at any time: for other fresh versions of a work (e.g. after a background generation).
  */
 export function useAssetAutosave({ onSaved } = {}) {
     const state = reactive({});
@@ -24,6 +25,8 @@ export function useAssetAutosave({ onSaved } = {}) {
     const queued = new Map();
     // id → request promise
     const inFlight = new Map();
+    // id → patch of the request running now: a fresh version fetched meanwhile must not undo these fields either
+    const sending = new Map();
     // id → Set of fields rejected by the last 422
     const rejected = new Map();
     // Works deleted meanwhile: their late responses and edits are ignored.
@@ -80,6 +83,7 @@ export function useAssetAutosave({ onSaved } = {}) {
         }
 
         queued.delete(id);
+        sending.set(id, entry.patch);
         state[id] = 'saving';
 
         const request = send(id, entry).finally(() => inFlight.delete(id));
@@ -91,6 +95,7 @@ export function useAssetAutosave({ onSaved } = {}) {
     async function send(id, entry) {
         try {
             const response = await api.patch(`${ASSETS_API_URL}/${id}`, entry.patch, { silent: [422] });
+            sending.delete(id);
 
             if (gone.has(id)) {
                 return;
@@ -99,6 +104,8 @@ export function useAssetAutosave({ onSaved } = {}) {
             state[id] = queued.has(id) ? 'pending' : rejected.get(id)?.size ? 'error' : 'saved';
             onSaved?.(response.data, localFields(id));
         } catch (error) {
+            sending.delete(id);
+
             // Deleted while this request ran: nothing to report or to send again.
             if (gone.has(id)) {
                 return;
@@ -144,7 +151,11 @@ export function useAssetAutosave({ onSaved } = {}) {
     }
 
     function localFields(id) {
-        return new Set([...Object.keys(queued.get(id)?.patch ?? {}), ...(rejected.get(id) ?? [])]);
+        return new Set([
+            ...Object.keys(queued.get(id)?.patch ?? {}),
+            ...Object.keys(sending.get(id) ?? {}),
+            ...(rejected.get(id) ?? []),
+        ]);
     }
 
     /**
@@ -171,5 +182,5 @@ export function useAssetAutosave({ onSaved } = {}) {
         queued.forEach((entry) => clearTimeout(entry.timer));
     }
 
-    return { state, errors, unsaved, queue, flush, flushAll, forget, dispose };
+    return { state, errors, unsaved, queue, flush, flushAll, forget, dispose, localFields };
 }

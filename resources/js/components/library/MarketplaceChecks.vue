@@ -1,7 +1,9 @@
 <script setup>
 import { computed } from 'vue';
-import { CircleCheck, CircleMinus, CircleX, Info, TriangleAlert } from 'lucide-vue-next';
+import { Link } from '@inertiajs/vue3';
+import { CircleCheck, CircleMinus, CircleX, Info, Plus, TriangleAlert } from 'lucide-vue-next';
 import { checkAsset } from '@/utils/marketplaceRules';
+import { SETTINGS_MARKETPLACES_URL } from '@/config/constant';
 
 const props = defineProps({
     asset: { type: Object, required: true },
@@ -25,7 +27,12 @@ const initials = (name) => name.split(/\s+/).map((word) => word[0]).join('').sli
     <div class="flex flex-col gap-3">
         <p class="text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ $t('library.checks.intro') }}</p>
 
-        <el-empty v-if="!accounts.length" :image-size="110" :description="$t('library.checks.none')" />
+        <el-empty v-if="!accounts.length" :image-size="110" :description="$t('library.checks.none')">
+            <!-- Opens the marketplace picker on the settings page right away. -->
+            <Link :href="`${SETTINGS_MARKETPLACES_URL}?add=1`" class="inline-flex items-center gap-1 font-medium text-[var(--el-color-primary)] hover:underline">
+                <Plus :size="15" :stroke-width="2" />{{ $t('library.checks.connect') }}
+            </Link>
+        </el-empty>
 
         <div v-else class="overflow-hidden rounded-lg border border-[var(--el-border-color-light)]">
             <div
