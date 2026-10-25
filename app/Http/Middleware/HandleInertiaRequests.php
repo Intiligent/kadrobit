@@ -31,6 +31,8 @@ class HandleInertiaRequests extends Middleware
                     ? UserResource::make($request->user())->resolve()
                     : null,
             ],
+            // The user's settings with defaults filled in (App\Enums\UserSettingKey), nested by key.
+            'settings' => fn () => $request->user()?->settingValues(),
         ];
     }
 }

@@ -12,7 +12,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Settings pages. Only "Marketplaces" exists so far; the other sections are shown disabled in the nav.
+ * Settings pages. Sections without a page yet are shown disabled in the nav.
  */
 class SettingsController extends Controller
 {
@@ -29,5 +29,13 @@ class SettingsController extends Controller
             'accounts' => MarketplaceConnectionResource::collection($accounts)->resolve(),
             'catalog' => MarketplaceCatalogResource::collection(Marketplace::query()->orderBy('name')->get())->resolve(),
         ]);
+    }
+
+    /**
+     * Metadata defaults. The values come from the shared `settings` prop.
+     */
+    public function metadata(): Response
+    {
+        return Inertia::render('settings/metadata/index');
     }
 }

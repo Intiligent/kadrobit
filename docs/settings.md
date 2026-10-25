@@ -1,6 +1,6 @@
 # Настройки и подключение маркетплейсов
 
-Задача: [KB-27](https://github.com/Intiligent/kadrobit/issues/27).
+Задачи: [KB-27](https://github.com/Intiligent/kadrobit/issues/27) (маркетплейсы), [KB-36](https://github.com/Intiligent/kadrobit/issues/36) (пользовательские настройки).
 
 ## Страницы
 
@@ -8,6 +8,7 @@
 |---|---|---|
 | `/settings` | Перенаправляет на первый готовый раздел | `Settings\SettingsController@index` |
 | `/settings/marketplaces` | Подключённые маркетплейсы и каталог | `Settings\SettingsController@marketplaces` |
+| `/settings/metadata` | Metadata defaults: автозаполнение метаданных при загрузке | `Settings\SettingsController@metadata` |
 
 Страница настроек использует вложенные layout'ы: `defineOptions({ layout: [AppLayout, SettingsLayout] })`. `SettingsLayout` — навигация по разделам (`components/settings/SettingsNav.vue`) и область контента. Разделы без страницы показаны неактивными с подсказкой «Coming soon».
 
@@ -22,13 +23,36 @@
 | Файл | Что делает |
 |---|---|
 | `pages/settings/marketplaces/index.vue` | Страница: список, каталог, проверка, вкл/выкл, удаление |
+| `pages/settings/metadata/index.vue` | Переключатель «Fill in metadata on upload», сохраняется сразу |
 | `components/settings/CredentialsNotice.vue` | Плашка о хранении паролей с раскрывающимися подробностями |
 | `components/settings/MarketplaceConnectionList.vue` | Подключённые аккаунты: статус, «Check now», переключатель, «Edit», удаление |
 | `components/settings/MarketplaceCatalog.vue` | Маркетплейсы, которые можно подключить |
 | `components/settings/MarketplaceConnectDrawer.vue` | Панель подключения и редактирования: выбор маркетплейса → форма |
 | `components/settings/MarketplaceLogo.vue` | Логотип или инициалы маркетплейса |
 
-## API
+## Пользовательские настройки
+
+Настройки пользователя (не маркетплейсов) — по строке на ключ в `user_settings` (`user_id`, `key`, `value` — jsonb). Строка есть только у настройки, изменённой относительно значения по умолчанию: `null` или значение по умолчанию строку удаляет, поэтому новое значение по умолчанию доходит до всех, кто настройку не трогал.
+
+- **Реестр** — `App\Enums\UserSettingKey`: ключ, значение по умолчанию (`default()`), правила (`rules()`), приведение к типу настройки (`cast()`), можно ли менять на странице настроек (`editable()`). Значения по умолчанию задаются только здесь.
+- **Чтение и запись** — трейт `App\Models\Concerns\HasSettings` у `User`: `$user->setting(UserSettingKey::MetadataAutofillOnUpload)`, `$user->setSetting($key, $value)` (приводит значение к типу настройки через `cast()`: `"no"` для переключателя — `false`), `$user->settingValues()` — все изменяемые настройки со значениями по умолчанию. Чтение идёт из связи `settings`, она загружается один раз: все чтения за запрос — один SQL-запрос.
+- **Ключи с точкой** (`metadata.autofill_on_upload`) — в API и на фронте вложенные объекты: `{"metadata": {"autofill_on_upload": true}}`.
+- **Фронт** — общий Inertia prop `settings` (у гостя `null`). После изменения страница подменяет его ответом сервера: `router.replaceProp('settings', response.data)`.
+
+| Метод | URL | Что делает |
+|---|---|---|
+| `GET` | `/api/settings` | Все изменяемые настройки со значениями по умолчанию |
+| `PATCH` | `/api/settings` | Частичное изменение (`UpdateUserSettingsRequest`): только присланные ключи; `null` — сброс к значению по умолчанию; неизвестный или неизменяемый ключ в теле — 422, как и ключ с точкой вместо вложенности (`{"metadata.autofill_on_upload": …}`); строка запроса не проверяется, пустой объект ничего не меняет. Ответ — все настройки |
+
+Маршруты в группе `auth:api`, подтверждённый email не нужен.
+
+Новая настройка — один `case` в `UserSettingKey` с ветками в `default()`, `rules()` и `cast()`; в prop, API и валидацию она попадает сама.
+
+| Ключ | По умолчанию | Что делает |
+|---|---|---|
+| `metadata.autofill_on_upload` | `true` | Генерировать метаданные работы после обработки загрузки ([KB-38](https://github.com/Intiligent/kadrobit/issues/38)) |
+
+## API маркетплейсов
 
 Все маршруты — в группе `auth:api` + `verified`. Каждый вход на сервер маркетплейса — при добавлении, проверке и изменении сервера, логина или пароля — идёт в общий лимит: 10 в минуту на пользователя (`MarketplaceAccountController::test()`, ответ 429 с `Retry-After`). Лимит считается в контроллере, а не в middleware маршрута: изменение входит на сервер, только когда меняет данные для входа. Переименование и вкл/выкл в лимит не входят.
 

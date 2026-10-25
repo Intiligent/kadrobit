@@ -20,6 +20,23 @@ return [
         'soon' => 'Coming soon',
     ],
 
+    'validation' => [
+        'unknown_setting' => 'This setting does not exist.',
+    ],
+
+    'metadata' => [
+        'title' => 'Metadata defaults',
+        'intro' => 'How Kadrobit fills in the title, description, keywords and categories of your works.',
+        'autofill' => [
+            'title' => 'Fill in metadata on upload',
+            'text' => 'When a work finishes processing, empty fields are filled in from the image. Fields you have edited are never replaced, and you can regenerate or restore the generated text at any time.',
+        ],
+        'toasts' => [
+            'autofill_on' => 'Metadata will be filled in on upload',
+            'autofill_off' => 'Metadata won\'t be filled in on upload',
+        ],
+    ],
+
     'marketplaces' => [
         'title' => 'Marketplaces',
         'intro' => 'Connect the stock sites you sell on. Kadrobit signs in to each one over FTP or SFTP to deliver your files and metadata.',

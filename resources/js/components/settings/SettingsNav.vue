@@ -1,13 +1,13 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
-import { SETTINGS_MARKETPLACES_URL } from '@/config/constant';
+import { SETTINGS_MARKETPLACES_URL, SETTINGS_METADATA_URL } from '@/config/constant';
 
 const page = usePage();
 
 // Sections without a page yet stay visible but disabled, so the nav keeps its final shape.
 const groups = [
     { key: 'account', items: [{ key: 'profile' }, { key: 'security' }, { key: 'notifications' }, { key: 'data' }] },
-    { key: 'workspace', items: [{ key: 'marketplaces', href: SETTINGS_MARKETPLACES_URL }, { key: 'metadata' }, { key: 'publishing' }] },
+    { key: 'workspace', items: [{ key: 'marketplaces', href: SETTINGS_MARKETPLACES_URL }, { key: 'metadata', href: SETTINGS_METADATA_URL }, { key: 'publishing' }] },
     { key: 'billing', items: [{ key: 'billing' }] },
 ];
 

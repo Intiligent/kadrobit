@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSettings;
 use App\Notifications\ResetPasswordNotification;
 use App\Services\Auth\EmailVerificationService;
 use Database\Factories\UserFactory;
@@ -18,7 +19,7 @@ use Laravel\Passport\HasApiTokens;
 class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasUlids, Notifiable;
+    use HasApiTokens, HasFactory, HasSettings, HasUlids, Notifiable;
 
     /**
      * The attributes that are mass assignable.
