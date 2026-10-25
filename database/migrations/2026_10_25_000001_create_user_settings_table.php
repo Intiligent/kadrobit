@@ -13,7 +13,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('key', 64);
-            $table->text('value'); // JSON, decoded by the model cast
+            $table->jsonb('value');
             $table->timestampsTz();
 
             $table->unique(['user_id', 'key']);

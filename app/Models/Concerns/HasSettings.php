@@ -26,10 +26,13 @@ trait HasSettings
     }
 
     /**
-     * Saves a value; null or the default removes the row, so a later change of the default reaches the user.
+     * Saves a value in the setting's type ("no" for a switch is false); null or the default removes the row,
+     * so a later change of the default reaches the user.
      */
     public function setSetting(UserSettingKey $setting, mixed $value): void
     {
+        $value = $value === null ? null : $setting->cast($value);
+
         if ($value === null || $value === $setting->default()) {
             $this->settings()->where('key', $setting->value)->delete();
         } else {

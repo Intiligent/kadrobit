@@ -31,7 +31,7 @@ enum UserSettingKey: string
     }
 
     /**
-     * A validated request value in its stored type: "1" and 1 from a form become true.
+     * A value in the setting's stored type: "1", 1 and "yes" become true, anything else false.
      */
     public function cast(mixed $value): mixed
     {

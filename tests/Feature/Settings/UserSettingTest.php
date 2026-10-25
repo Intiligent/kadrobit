@@ -43,10 +43,23 @@ class UserSettingTest extends TestCase
     public function test_writing_again_updates_the_same_row(): void
     {
         $this->user->setSetting(UserSettingKey::MetadataAutofillOnUpload, false);
-        $this->user->setSetting(UserSettingKey::MetadataAutofillOnUpload, 'stored as is');
+        $this->user->setSetting(UserSettingKey::MetadataAutofillOnUpload, '0');
 
         $this->assertSame(1, UserSetting::count());
-        $this->assertSame('stored as is', $this->user->setting(UserSettingKey::MetadataAutofillOnUpload));
+        $this->assertFalse($this->user->setting(UserSettingKey::MetadataAutofillOnUpload));
+    }
+
+    public function test_values_are_brought_to_the_setting_type(): void
+    {
+        // A truthy "no" from internal code must not leave autofill on.
+        $this->user->setSetting(UserSettingKey::MetadataAutofillOnUpload, 'no');
+
+        $this->assertFalse($this->user->fresh()->setting(UserSettingKey::MetadataAutofillOnUpload));
+
+        // 1 is the default true: the row goes away.
+        $this->user->setSetting(UserSettingKey::MetadataAutofillOnUpload, 1);
+
+        $this->assertSame(0, UserSetting::count());
     }
 
     public function test_null_or_the_default_removes_the_row(): void
@@ -146,6 +159,28 @@ class UserSettingTest extends TestCase
         $this->patchJson('/api/settings', ['metadata' => ['autofill_on_upload' => false, 'unknown' => 1], 'theme' => 'dark'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['metadata.unknown', 'theme']);
+
+        $this->assertSame(0, UserSetting::count());
+    }
+
+    public function test_api_ignores_the_query_string_and_empty_objects(): void
+    {
+        Passport::actingAs($this->user);
+
+        $this->patchJson('/api/settings?_=1700000000', ['metadata' => ['autofill_on_upload' => false]])
+            ->assertOk()
+            ->assertJsonPath('data.metadata.autofill_on_upload', false);
+
+        $this->patchJson('/api/settings', ['metadata' => []])->assertOk();
+    }
+
+    public function test_api_rejects_a_dotted_key_instead_of_ignoring_it(): void
+    {
+        Passport::actingAs($this->user);
+
+        $this->patchJson('/api/settings', ['metadata.autofill_on_upload' => false])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('metadata.autofill_on_upload');
 
         $this->assertSame(0, UserSetting::count());
     }
