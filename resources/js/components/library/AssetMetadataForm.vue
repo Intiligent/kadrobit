@@ -55,12 +55,16 @@ async function copyKeywords() {
         </el-form-item>
 
         <el-form-item :label="$t('library.fields.title')" :error="errors.title">
+            <!-- A textarea so a long title wraps and stays readable; it is still one line: Enter and pasted breaks are dropped. -->
             <el-input
                 :model-value="asset.title"
+                type="textarea"
+                :autosize="{ minRows: 1, maxRows: 4 }"
                 maxlength="200"
                 show-word-limit
                 :placeholder="$t('library.fields.title_placeholder')"
-                @update:model-value="set('title', $event)"
+                @keydown.enter.prevent
+                @update:model-value="set('title', $event.replace(/\s*[\r\n]+\s*/g, ' '))"
             />
         </el-form-item>
 
