@@ -169,9 +169,9 @@ return [
         'checksum' => 'SHA-256',
     ],
 
-    // File info, "Camera" section: how the photo was taken (EXIF, utils/cameraInfo.js).
+    // File info, "Shooting details" section: how the photo was taken (EXIF, utils/cameraInfo.js).
     'camera' => [
-        'title' => 'Camera',
+        'title' => 'Shooting details',
         'camera' => 'Camera',
         'lens' => 'Lens',
         'exposure' => 'Exposure',

@@ -62,7 +62,7 @@ const camera = computed(() => cameraRows(props.asset.camera));
         </el-descriptions>
 
         <template v-if="camera.length">
-            <h3 class="text-[13px] font-semibold">{{ $t('library.camera.title') }}</h3>
+            <h3 class="text-sm font-bold">{{ $t('library.camera.title') }}</h3>
             <el-descriptions :column="1" size="small" class="file-info">
                 <el-descriptions-item v-for="[key, value] in camera" :key="key" :label="$t(`library.camera.${key}`)">
                     {{ value }}
