@@ -266,6 +266,16 @@ class AssetGenerationTest extends TestCase
             ->assertJsonPath('data.metadata_sources.keywords', 'ai');
     }
 
+    public function test_status_and_flags_alone_leave_the_sources_alone(): void
+    {
+        $asset = $this->asset(['metadata_sources' => ['title' => 'ai']]);
+
+        $this->patchJson("/api/assets/{$asset->ulid}", ['status' => 'archived', 'is_editorial' => true])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'archived')
+            ->assertJsonPath('data.metadata_sources', ['title' => 'ai']);
+    }
+
     public function test_generation_needs_a_confirmed_email(): void
     {
         $this->user->forceFill(['email_verified_at' => null])->save();
