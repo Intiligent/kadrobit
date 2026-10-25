@@ -9,12 +9,12 @@
 | Класс | Что делает |
 |---|---|
 | `Services\Metadata\Contracts\MetadataGenerator` | Интерфейс провайдера: `generate(GenerationRequest): GenerationResult`, `name()` — «провайдер:модель» |
-| `Services\Metadata\Drivers\OpenAiMetadataGenerator` | OpenAI Responses API: инструкции, текст контекста и картинка (data URL), строгая JSON-схема, `store: false` |
+| `Services\Metadata\Drivers\OpenAiMetadataGenerator` | OpenAI Responses API: инструкции, текст контекста и картинка (data URL), строгая JSON-схема, `store: false`. На 429 и 5xx — ещё две попытки с растущей паузой, остальные ошибки сразу |
 | `Services\Metadata\MetadataGeneratorFactory` | Создаёт генератор по имени драйвера из `config/metadata.php`; `make(overrides: ['model' => …])` — для сравнений |
 | `Services\Metadata\MetadataPrompt` | Общие для всех провайдеров инструкции, контекст работы и схема ответа |
 | `Services\Metadata\MetadataSanitizer` | Приводит ответ к лимитам и записывает каждое исправление в `fixes` |
-| `Services\Metadata\ImagePreparer` | JPEG из превью, не больше `metadata.image_size` (1024 px) по длинной стороне |
-| `GenerationRequest` / `GenerationResult` / `TokenUsage` | Вход (картинка, тип, имя файла, дата, место, категории), результат, токены и стоимость |
+| `Services\Metadata\ImagePreparer` | JPEG из превью, не больше `metadata.image_size` (1024 px) по длинной стороне; прозрачность заливается белым, CMYK переводится в sRGB |
+| `GenerationRequest` / `GenerationResult` / `TokenUsage` | Вход (картинка, тип, имя файла, дата, место, категории), результат, токены и стоимость. `GenerationRequest::categoryLists()` — списки категорий маркетплейсов для типа работы, общие для генерации и сравнения |
 
 В контейнере `MetadataGenerator` — провайдер из `METADATA_DRIVER`.
 
@@ -25,7 +25,7 @@
 - **Инструкции** (`instructions`) стоят первыми и меняются только со списками категорий — провайдеры кешируют такой префикс. Контекст работы (тип, имя файла, дата и место из EXIF) идёт отдельным сообщением вместе с картинкой.
 - **Схема** — строгое подмножество JSON Schema, которое принимают OpenAI, Anthropic и Gemini: все поля обязательны, лишних нет, категории — `enum` из списков маркетплейсов. Длины и количества схемой не задать, их проверяет `MetadataSanitizer`.
 - **Лимиты** (`metadata.limits`): title ≤ 70 символов без запятых, description ≤ 150 — одно предложение, до 49 ключевых слов. Это самые строгие значения среди маркетплейсов: Adobe Stock (title до 70 в CSV, до 49 ключей), Shutterstock (описание до 150 в форме).
-- **Исправления** `MetadataSanitizer`: `title_commas`, `title_too_long`, `description_too_long` (обрезка по слову), `keyword_duplicates` (в том числе единственное и множественное число: «daisy» и «daisies»), `keywords_too_many`, `category_invalid`, `categories_too_many`.
+- **Исправления** `MetadataSanitizer`: `title_commas`, `title_too_long`, `description_too_long` (обрезка по слову), `keyword_duplicates` (в том числе единственное и множественное число: «daisy» и «daisies»; ограничение — изредка склеиваются разные слова вроде «glass» и «glasses»), `keywords_too_many`, `category_invalid`, `categories_too_many`.
 - **Editorial:** модель только отмечает `looks_editorial` (видны бренды, узнаваемые люди, событие) — решает автор.
 
 ## Настройки
@@ -40,6 +40,7 @@
 | `OPENAI_METADATA_IMAGE_DETAIL` | `auto` | `low` / `high` / `auto` |
 | `OPENAI_METADATA_MAX_OUTPUT_TOKENS` | `4000` | Потолок вывода вместе с рассуждением |
 | `OPENAI_METADATA_TIMEOUT` | `90` | Секунды |
+| `OPENAI_METADATA_RETRY_DELAY_MS` | `2000` | Пауза перед повтором после 429 или 5xx, умножается на номер попытки |
 
 ## Сравнение моделей
 
@@ -51,7 +52,7 @@ php artisan metadata:evaluate --dir=~/Pictures/stock-sample      # картин�
 php artisan metadata:evaluate --effort= --detail=low            # без рассуждения, картинка в низком качестве
 ```
 
-Команда ничего не сохраняет в работы. Всем моделям уходят одни и те же картинки и списки категорий всех маркетплейсов. Итог в консоли: успешные ответы, средние токены, сколько ответов пришлось исправлять, $ за 1000 картинок по фактическим токенам, время. Отчёт — `storage/app/private/metadata-evaluations/<дата>/`: `results.json` и `report.html` (картинка и ответы моделей рядом, первые 10 ключевых слов выделены).
+Команда ничего не сохраняет в работы. Всем моделям уходят одни и те же картинки и списки категорий всех маркетплейсов. Итог в консоли: успешные ответы, средние токены, сколько ответов пришлось исправлять, $ за 1000 картинок по фактическим токенам, время. Отчёт — `storage/app/private/metadata-evaluations/<дата>/`: `results.json` (`samples` — список картинок с ответами моделей, `skipped` — картинки, которые не удалось прочитать) и `report.html` (картинка и ответы моделей рядом, первые 10 ключевых слов выделены). Нечитаемая картинка (битый файл, превью нет на диске) пропускается с предупреждением, остальные сравниваются.
 
 ### Результаты 25.10.2026
 

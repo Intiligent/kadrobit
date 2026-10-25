@@ -26,8 +26,8 @@ class MetadataSanitizer
             $title = $this->squish(str_replace(',', ' ', $title));
         }
 
-        $title = rtrim($title, '.');
-        $title = $this->cut($title, $limits['title'], 'title_too_long', $fixes);
+        // After the cut too: a title cut after "St." must not end with a period either.
+        $title = rtrim($this->cut(rtrim($title, '.'), $limits['title'], 'title_too_long', $fixes), '. ');
 
         $description = $this->cut($this->squish((string) ($answer['description'] ?? '')), $limits['description'], 'description_too_long', $fixes);
 

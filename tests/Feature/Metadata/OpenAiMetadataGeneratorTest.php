@@ -24,6 +24,7 @@ class OpenAiMetadataGeneratorTest extends TestCase
             'metadata.drivers.openai.key' => 'sk-test',
             'metadata.drivers.openai.model' => 'gpt-6-luna',
             'metadata.drivers.openai.reasoning_effort' => 'low',
+            'metadata.drivers.openai.retry_delay_ms' => 0,
         ]);
     }
 
@@ -129,6 +130,40 @@ class OpenAiMetadataGeneratorTest extends TestCase
                 $this->assertStringNotContainsString('sk-test', $e->getMessage());
             }
         }
+    }
+
+    public function test_rate_limits_and_server_errors_are_retried(): void
+    {
+        Http::fake(['api.openai.com/*' => Http::sequence([
+            Http::response(['error' => ['message' => 'Rate limit']], 429),
+            Http::response(['error' => ['message' => 'Overloaded']], 503),
+            Http::response(self::response()),
+        ])]);
+
+        $this->assertSame('Golden sunset over the ocean', app(MetadataGenerator::class)->generate($this->request())->title);
+        Http::assertSentCount(3);
+    }
+
+    public function test_other_errors_and_a_lasting_rate_limit_are_not_hidden(): void
+    {
+        Http::fake(['api.openai.com/*' => Http::sequence([
+            Http::response(['error' => ['message' => 'Invalid image']], 400),
+            Http::response(['error' => ['message' => 'Rate limit']], 429),
+            Http::response(['error' => ['message' => 'Rate limit']], 429),
+            Http::response(['error' => ['message' => 'Rate limit']], 429),
+        ])]);
+
+        foreach (['Invalid image', 'Rate limit'] as $message) {
+            try {
+                app(MetadataGenerator::class)->generate($this->request());
+                $this->fail("No exception for: {$message}");
+            } catch (GenerationException $e) {
+                $this->assertStringContainsString($message, $e->getMessage());
+            }
+        }
+
+        // 400 once, 429 three times: one try and then two retries.
+        Http::assertSentCount(4);
     }
 
     public function test_a_missing_key_fails_before_any_request(): void

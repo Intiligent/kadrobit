@@ -45,6 +45,15 @@ class MetadataSanitizerTest extends TestCase
         $this->assertSame(['title_commas', 'title_too_long'], $answer['fixes']);
     }
 
+    public function test_a_cut_title_does_not_end_with_a_period(): void
+    {
+        $answer = (new MetadataSanitizer)->sanitize([
+            'title' => 'Morning crowd walking past old shops on a quiet street near Main St. at sunrise',
+        ], $this->request());
+
+        $this->assertSame('Morning crowd walking past old shops on a quiet street near Main St', $answer['title']);
+    }
+
     public function test_description_is_cut_at_a_word(): void
     {
         $answer = (new MetadataSanitizer)->sanitize(['description' => str_repeat('golden light ', 20)], $this->request());

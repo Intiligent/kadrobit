@@ -37,6 +37,8 @@ return [
             'image_detail' => env('OPENAI_METADATA_IMAGE_DETAIL', 'auto'),
             'max_output_tokens' => (int) env('OPENAI_METADATA_MAX_OUTPUT_TOKENS', 4000),
             'timeout' => (int) env('OPENAI_METADATA_TIMEOUT', 90),
+            // Pause before a retry after 429 or 5xx, times the attempt number.
+            'retry_delay_ms' => (int) env('OPENAI_METADATA_RETRY_DELAY_MS', 2000),
         ],
     ],
 

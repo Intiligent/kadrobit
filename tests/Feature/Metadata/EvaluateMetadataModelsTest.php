@@ -22,9 +22,12 @@ class EvaluateMetadataModelsTest extends TestCase
         $image = new Imagick;
         $image->newImage(2000, 1000, new ImagickPixel('orange'));
         $image->writeImage("jpeg:{$dir}/sunset.jpg");
+        // A broken file is skipped, not the end of the run.
+        file_put_contents("{$dir}/broken.jpg", 'not an image');
 
         try {
             $this->artisan('metadata:evaluate', ['--dir' => $dir, '--model' => ['gpt-6-luna', 'gpt-5.4-mini'], '--effort' => ''])
+                ->expectsOutputToContain('Skipped broken.jpg')
                 ->expectsOutputToContain('1 images × 2 models')
                 ->assertSuccessful();
         } finally {
@@ -45,7 +48,9 @@ class EvaluateMetadataModelsTest extends TestCase
         $this->assertCount(2, $files);
 
         $results = json_decode(Storage::disk('local')->get(collect($files)->first(fn ($f) => str_ends_with($f, 'results.json'))), true);
-        $this->assertSame('Golden sunset over the ocean', $results['results']['sunset.jpg']['gpt-5.4-mini']['title']);
+        $this->assertSame('sunset.jpg', $results['samples'][0]['name']);
+        $this->assertSame('Golden sunset over the ocean', $results['samples'][0]['results']['gpt-5.4-mini']['title']);
+        $this->assertArrayHasKey('broken.jpg', $results['skipped']);
         $this->assertStringContainsString('gpt-6-luna', Storage::disk('local')->get(collect($files)->first(fn ($f) => str_ends_with($f, 'report.html'))));
     }
 }

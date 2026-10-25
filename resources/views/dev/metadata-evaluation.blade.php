@@ -26,6 +26,10 @@
     <h1>Metadata models</h1>
     <p class="meta">{{ now()->toDateTimeString() }} · {{ count($samples) }} images · settings: {{ json_encode($overrides ?: 'config defaults') }}</p>
 
+    @foreach ($skipped as $name => $reason)
+        <p class="error">Skipped {{ $name }}: {{ $reason }}</p>
+    @endforeach
+
     @foreach ($samples as $index => $sample)
         <div class="sample">
             <div class="card">

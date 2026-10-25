@@ -7,7 +7,8 @@ use App\Models\Asset;
 use Imagick;
 
 /**
- * The image a provider gets: a JPEG no larger than config('metadata.image_size') on its longest side.
+ * The image a provider gets: an sRGB JPEG without transparency, no larger than config('metadata.image_size')
+ * on its longest side.
  * Image tokens grow with the area, and the preview (1600 px) is more than metadata needs.
  */
 class ImagePreparer
@@ -31,6 +32,17 @@ class ImagePreparer
 
             if (max($image->getImageWidth(), $image->getImageHeight()) > $size) {
                 $image->thumbnailImage($size, $size, true);
+            }
+
+            // JPEG has no alpha: transparent areas would turn black and the model would describe a dark scene.
+            if ($image->getImageAlphaChannel()) {
+                $image->setImageBackgroundColor('white');
+                $image->setImageAlphaChannel(Imagick::ALPHACHANNEL_REMOVE);
+            }
+
+            // Before stripImage(): without its profile a CMYK image reaches the model with wrong colors.
+            if ($image->getImageColorspace() !== Imagick::COLORSPACE_SRGB) {
+                $image->transformImageColorspace(Imagick::COLORSPACE_SRGB);
             }
 
             $image->stripImage();
