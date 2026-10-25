@@ -5,12 +5,16 @@ namespace App\Jobs;
 use App\Enums\AssetFileRole;
 use App\Enums\AssetUploadStatus;
 use App\Enums\MediaType;
+use App\Enums\MetadataSource;
+use App\Enums\UserSettingKey;
 use App\Models\Asset;
 use App\Models\AssetFile;
 use App\Models\AssetUpload;
+use App\Services\Assets\FileMetadataReader;
 use App\Services\Assets\PreviewGenerator;
 use App\Services\Assets\UnreadableMedia;
 use App\Services\Assets\VideoTools;
+use App\Services\Metadata\AssetMetadataService;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -30,12 +34,14 @@ use Throwable;
  * first; the file goes to R2 only after that, right before the work is committed, so the
  * assets/ prefix only ever holds files a work points to:
  *
- * 1. read the metadata from the staged file (EXIF of a photo, ffprobe of a video);
+ * 1. read the metadata from the staged file (EXIF of a photo, ffprobe of a video, and title, description and
+ *    keywords the contributor embedded: FileMetadataReader);
  * 2. make the previews (PreviewGenerator): of a photo from itself, of a video from a frame plus a light
  *    H.264 copy (VideoTools), of a vector from its raster companion, which is stored too;
  * 3. store the original on the private disk and the previews on the public one, at their final paths;
  * 4. create the work and its file rows, and mark the upload done, in one transaction;
- * 5. delete the staged file and the temp previews.
+ * 5. delete the staged file and the temp previews;
+ * 6. with the "Fill in metadata on upload" setting on, queue the generation of what is still empty (GenerateAssetMetadata).
  *
  * If the commit fails, every stored file is deleted again. A file that cannot be read as what it claims
  * to be (UnreadableMedia) fails at once, without retries. One job per file, in the upload's batch.
@@ -80,7 +86,7 @@ class ProcessAssetUpload implements ShouldQueue
         return [(new WithoutOverlapping($this->upload->ulid))->releaseAfter(30)->expireAfter($this->timeout + 30)];
     }
 
-    public function handle(PreviewGenerator $previews, VideoTools $videos): void
+    public function handle(PreviewGenerator $previews, VideoTools $videos, FileMetadataReader $metadata): void
     {
         // Fresh from the database: an earlier run of this job may have finished it meanwhile.
         $upload = $this->upload->refresh();
@@ -119,6 +125,8 @@ class ProcessAssetUpload implements ShouldQueue
                 MediaType::Vector => $this->prepareVector($local, $previews),
                 default => $this->preparePhoto($local, $previews),
             };
+
+            $attributes = [...$attributes, ...$this->embeddedMetadata($metadata->read($local, $upload->mime))];
 
             $stored[] = $this->store($local, [
                 'role' => AssetFileRole::Original,
@@ -254,6 +262,30 @@ class ProcessAssetUpload implements ShouldQueue
     }
 
     /**
+     * What the file carries, marked as coming from the file so generation leaves it alone.
+     *
+     * @param  array{title: ?string, description: ?string, keywords: list<string>, is_ai_generated: bool}  $found
+     * @return array<string, mixed>
+     */
+    protected function embeddedMetadata(array $found): array
+    {
+        $attributes = ['metadata_sources' => []];
+
+        foreach (['title', 'description', 'keywords'] as $field) {
+            if (filled($found[$field])) {
+                $attributes[$field] = $found[$field];
+                $attributes['metadata_sources'][$field] = MetadataSource::File->value;
+            }
+        }
+
+        if ($found['is_ai_generated']) {
+            $attributes['is_ai_generated'] = true;
+        }
+
+        return $attributes;
+    }
+
+    /**
      * After the last try: no work, and the staged file is not needed any more.
      */
     public function failed(?Throwable $e): void
@@ -323,6 +355,10 @@ class ProcessAssetUpload implements ShouldQueue
         $asset->save();
 
         $asset->files()->createMany($files);
+
+        if ($asset->user->setting(UserSettingKey::MetadataAutofillOnUpload) && app(AssetMetadataService::class)->available()) {
+            GenerateAssetMetadata::dispatch($asset)->afterCommit();
+        }
 
         $upload->update(['status' => AssetUploadStatus::Done, 'progress' => 100, 'asset_id' => $asset->id, 'error' => null]);
     }

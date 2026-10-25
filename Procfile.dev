@@ -1,5 +1,6 @@
 queue: trap exit INT TERM; while true; do php artisan queue:listen --queue=default --tries=3 --timeout=60; sleep 1; done
 uploads: trap exit INT TERM; while true; do php artisan queue:listen --queue=uploads --tries=3 --timeout=300; sleep 1; done
+metadata: trap exit INT TERM; while true; do php artisan queue:listen --queue=metadata --tries=3 --timeout=150; sleep 1; done
 schedule: trap exit INT TERM; while true; do php artisan schedule:work; sleep 1; done
 logs: php artisan pail --timeout=0
 vite: npm run dev

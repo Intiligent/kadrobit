@@ -19,6 +19,9 @@ return [
     // Longest side of the image sent to the model. Image tokens grow with the area.
     'image_size' => (int) env('METADATA_IMAGE_SIZE', 1024),
 
+    // Paid generations per user and calendar month, automatic and manual together.
+    'monthly_limit' => (int) env('METADATA_MONTHLY_LIMIT', 1000),
+
     // Limits of the generated texts, the strictest among the marketplaces (see docs/metadata-generation.md).
     'limits' => [
         'title' => 70,
@@ -36,7 +39,7 @@ return [
             // low | high | auto: "low" sends a fixed small version of the image.
             'image_detail' => env('OPENAI_METADATA_IMAGE_DETAIL', 'auto'),
             'max_output_tokens' => (int) env('OPENAI_METADATA_MAX_OUTPUT_TOKENS', 4000),
-            'timeout' => (int) env('OPENAI_METADATA_TIMEOUT', 90),
+            'timeout' => (int) env('OPENAI_METADATA_TIMEOUT', 40),
             // Pause before a retry after 429 or 5xx, times the attempt number.
             'retry_delay_ms' => (int) env('OPENAI_METADATA_RETRY_DELAY_MS', 2000),
         ],

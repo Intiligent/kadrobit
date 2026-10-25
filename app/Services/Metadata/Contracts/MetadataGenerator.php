@@ -18,6 +18,11 @@ interface MetadataGenerator
     public function generate(GenerationRequest $request): GenerationResult;
 
     /**
+     * Whether the provider is set up (key and model present). Without it nothing is queued.
+     */
+    public function available(): bool;
+
+    /**
      * Provider and model, e.g. "openai:gpt-6-luna": stored with every generation.
      */
     public function name(): string;

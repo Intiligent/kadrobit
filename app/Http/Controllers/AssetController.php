@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AssetStatus;
 use App\Enums\MediaType;
+use App\Enums\MetadataSource;
 use App\Exceptions\ExceptionWithMessage;
 use App\Http\Requests\Assets\MoveAssetsRequest;
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
@@ -15,6 +16,7 @@ use App\Http\Resources\MarketplaceAccountResource;
 use App\Jobs\DeleteAssetStorage;
 use App\Models\MarketplaceCategory;
 use App\Services\Assets\UploadBatches;
+use App\Services\Metadata\AssetMetadataService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -69,7 +71,13 @@ class AssetController extends Controller
     public function update(UpdateAssetRequest $request): AssetResource
     {
         $asset = $request->asset();
-        $asset->update($request->assetAttributes());
+        $attributes = $request->assetAttributes();
+
+        // A field the user edits is theirs from now on: generation no longer fills it on its own.
+        $edited = array_intersect(AssetMetadataService::FIELDS, array_keys($attributes));
+        $attributes['metadata_sources'] = [...$asset->metadata_sources, ...array_fill_keys($edited, MetadataSource::User->value)];
+
+        $asset->update($attributes);
 
         return AssetResource::make($asset->load(['files', 'folder:id,ulid']));
     }

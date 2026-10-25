@@ -38,6 +38,8 @@ class AssetResource extends JsonResource
             'categories' => (object) ($this->categories ?? []),
             'is_editorial' => $this->is_editorial,
             'is_ai_generated' => $this->is_ai_generated,
+            // Where each field came from: file | ai | user (App\Enums\MetadataSource); an object even when empty.
+            'metadata_sources' => (object) ($this->metadata_sources ?? []),
             'original_filename' => $this->original_filename,
             'mime' => $original?->mime,
             'size_bytes' => $original?->size_bytes,

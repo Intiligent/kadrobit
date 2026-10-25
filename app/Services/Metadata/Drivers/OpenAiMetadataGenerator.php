@@ -29,6 +29,11 @@ class OpenAiMetadataGenerator implements MetadataGenerator
         protected MetadataSanitizer $sanitizer,
     ) {}
 
+    public function available(): bool
+    {
+        return filled($this->config['key']) && filled($this->config['model']);
+    }
+
     public function name(): string
     {
         return 'openai:'.$this->config['model'];

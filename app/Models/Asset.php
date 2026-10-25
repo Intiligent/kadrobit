@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property array<string, array<int, string>> $categories Marketplace category external_ids by marketplace code
  * @property bool $is_editorial
  * @property bool $is_ai_generated
+ * @property array<string, string> $metadata_sources App\Enums\MetadataSource by field: title, description, keywords, categories
  * @property Carbon|null $captured_at
  * @property array|null $location
  * @property string $original_filename
@@ -52,6 +53,7 @@ class Asset extends Model
         'categories',
         'is_editorial',
         'is_ai_generated',
+        'metadata_sources',
         'captured_at',
         'location',
         'original_filename',
@@ -73,6 +75,7 @@ class Asset extends Model
         'categories' => '{}',
         'is_editorial' => false,
         'is_ai_generated' => false,
+        'metadata_sources' => '{}',
         'media_info' => '{}',
     ];
 
@@ -85,6 +88,7 @@ class Asset extends Model
             'categories' => 'array',
             'is_editorial' => 'boolean',
             'is_ai_generated' => 'boolean',
+            'metadata_sources' => 'array',
             'captured_at' => 'datetime',
             'location' => 'array',
             'media_info' => 'array',
@@ -110,6 +114,11 @@ class Asset extends Model
     public function folder(): BelongsTo
     {
         return $this->belongsTo(Folder::class);
+    }
+
+    public function generations(): HasMany
+    {
+        return $this->hasMany(AssetGeneration::class);
     }
 
     public function files(): HasMany
