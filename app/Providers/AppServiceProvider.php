@@ -55,6 +55,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('verify-email-send', fn (Request $request) => Limit::perMinute(5)
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
 
+        // Metadata generation on request: each one is a paid call that takes a few seconds.
+        RateLimiter::for('metadata-generation', fn (Request $request) => Limit::perMinute(20)
+            ->by((string) $request->user()?->getAuthIdentifier()));
+
         // API token re-issue: per user.
         RateLimiter::for('api-token', fn (Request $request) => Limit::perMinute(30)
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));

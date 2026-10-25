@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetGenerationController;
 use App\Http\Controllers\AssetUploadController;
 use App\Http\Controllers\FolderController;
 use App\Http\Controllers\Settings\MarketplaceAccountController;
@@ -29,6 +30,14 @@ Route::as('api.')->middleware('auth:api')->group(function () {
         Route::post('assets/move', [AssetController::class, 'move'])->name('assets.move');
         Route::patch('assets/{asset}', [AssetController::class, 'update'])->whereUlid('asset')->name('assets.update');
         Route::delete('assets/{asset}', [AssetController::class, 'destroy'])->whereUlid('asset')->name('assets.destroy');
+
+        // Metadata generation: a paid call to the model, counted against the monthly limit.
+        Route::controller(AssetGenerationController::class)->name('assets.generations.')->group(function () {
+            Route::post('assets/generations', 'batch')->name('batch');
+            Route::get('assets/{asset}/generations', 'index')->whereUlid('asset')->name('index');
+            Route::post('assets/{asset}/generations', 'store')->whereUlid('asset')->middleware('throttle:metadata-generation')->name('store');
+            Route::post('assets/{asset}/generations/{generation}/apply', 'apply')->whereUlid('asset')->whereNumber('generation')->name('apply');
+        });
 
         Route::controller(FolderController::class)->prefix('folders')->name('folders.')->group(function () {
             Route::post('/', 'store')->name('store');

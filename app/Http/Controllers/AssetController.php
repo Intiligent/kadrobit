@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AssetStatus;
 use App\Enums\MediaType;
+use App\Enums\MetadataSource;
 use App\Exceptions\ExceptionWithMessage;
 use App\Http\Requests\Assets\MoveAssetsRequest;
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
@@ -15,6 +16,7 @@ use App\Http\Resources\MarketplaceAccountResource;
 use App\Jobs\DeleteAssetStorage;
 use App\Models\MarketplaceCategory;
 use App\Services\Assets\UploadBatches;
+use App\Services\Metadata\AssetMetadataService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -69,7 +71,22 @@ class AssetController extends Controller
     public function update(UpdateAssetRequest $request): AssetResource
     {
         $asset = $request->asset();
-        $asset->update($request->assetAttributes());
+        $attributes = $request->assetAttributes();
+
+        $asset->update($attributes);
+
+        // A field the user edits is theirs from now on: generation no longer fills it on its own. Merged in the
+        // database, not from this copy of the work: a generation applied meanwhile keeps its marks for other fields.
+        // Status, folder and flags alone leave the sources as they are.
+        $edited = array_values(array_intersect(AssetMetadataService::FIELDS, array_keys($attributes)));
+
+        if ($edited) {
+            DB::update('update assets set metadata_sources = metadata_sources || ?::jsonb where id = ?', [
+                json_encode(array_fill_keys($edited, MetadataSource::User->value)),
+                $asset->id,
+            ]);
+            $asset->refresh();
+        }
 
         return AssetResource::make($asset->load(['files', 'folder:id,ulid']));
     }

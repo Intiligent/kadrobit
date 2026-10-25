@@ -212,6 +212,12 @@ return [
         'not_archived' => 'Only archived works can be deleted. Archive it first.',
     ],
 
+    'generation' => [
+        'failed' => 'Could not generate metadata right now. Try again in a minute.',
+        'limit_reached' => 'You have used all :limit metadata generations for this month.',
+        'unavailable' => 'Metadata generation is not available right now.',
+    ],
+
     'validation' => [
         'ready_requires_metadata' => 'Add a title and at least one keyword before marking the work ready.',
         'ready_requires_title' => 'A ready work needs a title. Move it back to draft to remove it.',

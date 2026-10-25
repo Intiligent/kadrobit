@@ -13,6 +13,7 @@ overmind start          # Procfile.dev указан в .overmind.env
 |---|---|---|
 | `queue` | `php artisan queue:listen --queue=default` | Письма и другие фоновые задачи. `queue:listen` перечитывает код на каждую задачу, так что правки видны без перезапуска |
 | `uploads` ×3 | `php artisan queue:listen --queue=uploads --timeout=300` | Обработка загрузок (`ProcessAssetUpload`), три обработчика параллельно: `OVERMIND_FORMATION=uploads=3` в `.overmind.env`. Отдельно от `default`, чтобы большая партия не задерживала письма |
+| `metadata` ×2 | `php artisan queue:listen --queue=metadata --timeout=150` | Генерация метаданных (`GenerateAssetMetadata`, `docs/metadata-generation.md`): платный запрос к модели, около 5 с на работу. Два обработчика параллельно (`metadata=2` в `OVERMIND_FORMATION`); одну работу два сразу не берут (`WithoutOverlapping`). Отдельно от `default`, чтобы генерации после большой загрузки не задерживали письма |
 | `schedule` | `php artisan schedule:work` | Задачи по расписанию (`routes/console.php`), например `passport:purge` |
 | `logs` | `php artisan pail` | Логи приложения в реальном времени |
 | `vite` | `npm run dev` | Фронтенд приложения с горячей перезагрузкой |

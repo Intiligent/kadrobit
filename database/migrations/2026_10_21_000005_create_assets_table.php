@@ -30,6 +30,9 @@ return new class extends Migration
             $table->jsonb('categories')->default('{}');
             $table->boolean('is_editorial')->default(false);
             $table->boolean('is_ai_generated')->default(false);
+            // Where each metadata field came from: {"title": "ai", "keywords": "file"} (App\Enums\MetadataSource).
+            // Generation fills only empty fields and never one the user edited.
+            $table->jsonb('metadata_sources')->default('{}');
 
             // Data from the original file.
             $table->timestampTz('captured_at')->nullable(); // EXIF DateTimeOriginal / video creation time

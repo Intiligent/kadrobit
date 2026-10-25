@@ -4,7 +4,9 @@ namespace Tests\Feature\Library;
 
 use App\Enums\AssetFileRole;
 use App\Enums\AssetUploadStatus;
+use App\Enums\UserSettingKey;
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
+use App\Jobs\GenerateAssetMetadata;
 use App\Jobs\ProcessAssetUpload;
 use App\Models\Asset;
 use App\Models\AssetUpload;
@@ -15,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Passport\Passport;
@@ -424,6 +427,52 @@ class AssetUploadTest extends TestCase
     /**
      * A JPEG whose EXIF says how to turn it, the way phone cameras store portraits.
      */
+    public function test_metadata_embedded_in_the_file_is_kept_and_marked_as_the_files(): void
+    {
+        $data = '';
+
+        foreach (['2#005' => 'Sunset over the sea', '2#025' => 'Sunset'] as $tag => $value) {
+            $data .= "\x1C\x02".chr((int) substr($tag, 2)).pack('n', strlen($value)).$value;
+        }
+
+        $jpeg = tempnam(sys_get_temp_dir(), 'iptc');
+        file_put_contents($jpeg, UploadedFile::fake()->image('x.jpg', 60, 40)->getContent());
+        file_put_contents($jpeg, iptcembed($data, $jpeg));
+
+        $this->upload($this->openBatch(), ['file' => new UploadedFile($jpeg, 'IMG_1.jpg', 'image/jpeg', test: true)])->assertCreated();
+
+        $asset = Asset::sole();
+        $this->assertSame('Sunset over the sea', $asset->title);
+        $this->assertSame(['sunset'], $asset->keywords);
+        $this->assertEquals(['title' => 'file', 'keywords' => 'file'], $asset->metadata_sources);
+        @unlink($jpeg);
+    }
+
+    public function test_generation_is_queued_after_processing_when_the_setting_is_on(): void
+    {
+        Queue::fake([GenerateAssetMetadata::class]);
+        config(['metadata.drivers.openai.key' => 'sk-test']);
+
+        $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->image('IMG_1.jpg', 60, 40)])->assertCreated();
+
+        Queue::assertPushed(GenerateAssetMetadata::class, fn ($job) => $job->asset->is(Asset::sole()));
+    }
+
+    public function test_generation_is_not_queued_with_the_setting_off_or_without_a_key(): void
+    {
+        Queue::fake([GenerateAssetMetadata::class]);
+
+        // No key: the provider is not set up.
+        $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->image('IMG_1.jpg', 60, 40)])->assertCreated();
+
+        config(['metadata.drivers.openai.key' => 'sk-test']);
+        $this->user->setSetting(UserSettingKey::MetadataAutofillOnUpload, false);
+        $this->upload($this->openBatch(), ['file' => UploadedFile::fake()->image('IMG_2.jpg', 70, 40)])->assertCreated();
+
+        $this->assertSame(2, Asset::count());
+        Queue::assertNotPushed(GenerateAssetMetadata::class);
+    }
+
     protected function jpegWithOrientation(int $width, int $height, int $orientation): string
     {
         ob_start();
