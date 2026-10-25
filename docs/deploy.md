@@ -58,11 +58,20 @@ ASSETS_RSVG_CONVERT=/home/ix569599/opt/media/bin/rsvg-convert
 
 Команда показывает версии всех программ, есть ли `imagick` и `libx264`, и завершается с ошибкой, если чего-то не хватает. Команды, которые запускает приложение (`ffprobe`, видеокопия с прогрессом, `gs` для EPS, `rsvg-convert` для SVG, чтение PNG в Imagick), проверены на сервере из PHP 8.4 с урезанным `PATH`.
 
+## Публикация на маркетплейсы
+
+Доставку работ на стоки по FTP/FTPS ([KB-29](https://github.com/Intiligent/kadrobit/issues/29)) запускают обработчики очереди из CLI. Проверено на сервере 25.10.2026:
+
+- В CLI PHP 8.4 есть `ftp` (с `ftp_ssl_connect`) и `openssl`, в `disable_functions` ничего нет, `max_execution_time` = 0.
+- Исходящие соединения на порт 21 и на высокие порты (нужны пассивному режиму FTP) открыты.
+- `ftps.shutterstock.com:21` с сервера доступен: явный TLS устанавливается, на вход с неверным логином сервер отвечает «Authentication failed», то есть до проверки пароля дело доходит. Передача файла с настоящим аккаунтом ещё не проверялась.
+- `exiftool` нет. Если IPTC окажется недостаточно и понадобится XMP, его можно поставить: `perl` 5.26 есть, а `exiftool` написан на Perl (или пакет `exiftool` из conda-forge через micromamba, как Ghostscript выше).
+
 ## Что ещё настроить при выкладке
 
 - [ ] **Лимиты PHP для веба** (панель adm.tools): в CLI сейчас `upload_max_filesize=2M`, `post_max_size=8M` — загрузка видео с такими лимитами не пройдёт. Нужны значения из `docs/library.md` («Лимит размера файла»): `upload_max_filesize = 200M`, `post_max_size = 210M`, `max_execution_time = 300`, и такой же лимит тела запроса у веб-сервера.
 - [ ] **Обработчики очереди.** Supervisor на shared hosting нет, задачи запускает cron панели (`/usr/local/bin/cron "…"`). Нужны свои обработчики для `default`, `uploads` (`docs/library.md`, «Очередь и обработчики») и `metadata` (генерация метаданных, `--timeout=150`, два обработчика), с `--timeout=300` у `uploads` меньше `DB_QUEUE_RETRY_AFTER` (330). Запуск раз в минуту с `--max-time=3600`, как у cubelab, может набрать десятки параллельных обработчиков, если обёртка cron не защищает от наложения, — для `uploads` с тяжёлым `ffmpeg` нужен запуск с блокировкой (например, `flock -n` на файл блокировки) или `--stop-when-empty`.
-- [ ] **Расширение PHP `ftp`** (панель adm.tools, для CLI и для `lsphp` сайта): его нет в списке расширений выше, а без него не работают подключение маркетплейсов по FTP/FTPS (`docs/settings.md`) и `composer install` (`ext-ftp` в `composer.json`).
+- [ ] **Расширение PHP `ftp` у сайта.** В CLI PHP 8.4 оно есть (проверено 25.10.2026, см. «Публикация на маркетплейсы»), отдельного `.ini` у него нет, то есть оно собрано в PHP и `lsphp` той же версии должен его иметь. После выкладки проверить из веба (`function_exists('ftp_ssl_connect')`): без него не работает подключение маркетплейсов по FTP/FTPS (`docs/settings.md`).
 - [ ] **`CREDENTIALS_KEY`** — ключ шифрования паролей маркетплейсов (`docs/settings.md`, «Хранение паролей»). Создать на сервере `php artisan credentials:key`, сохранить копию вне сервера: без ключа сохранённые пароли не расшифровать, придётся подключать маркетплейсы заново. Отдельных секретов окружения на shared hosting нет, поэтому ключ лежит в `.env` рядом с `APP_KEY` и от утечки `.env` целиком не защищает; защищает от утечки одной базы или бэкапа без `.env`.
 - [ ] **Pusher** (`docs/realtime.md`): `BROADCAST_CONNECTION=pusher`, `PUSHER_APP_ID`, `PUSHER_APP_KEY`, `PUSHER_APP_SECRET`, `PUSHER_APP_CLUSTER` в `.env` сервера до сборки фронта (`VITE_PUSHER_*` берутся из них при `npm run build`).
 - [ ] **Планировщик:** cron раз в минуту `php artisan schedule:run` (`passport:purge`, `model:prune`, `queue:prune-batches`).
