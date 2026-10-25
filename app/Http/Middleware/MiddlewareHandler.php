@@ -13,6 +13,8 @@ class MiddlewareHandler
     public function __invoke(BaseMiddleware $middleware): BaseMiddleware
     {
         $middleware->web(append: [
+            // Before Inertia: the shared `locale` prop is read when the middleware runs.
+            SetLocale::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             // Ends any session whose user changed the password elsewhere (e.g. a reset), for every session driver.
@@ -25,6 +27,7 @@ class MiddlewareHandler
         $middleware->api(prepend: [
             PassportCookieAuthentication::class,
         ], append: [
+            SetLocale::class,
             EnsureIdempotency::class,
         ]);
 
@@ -42,6 +45,9 @@ class MiddlewareHandler
 
         // Idempotency keys are scoped to the user, so the user must be resolved first.
         $middleware->appendToPriorityList(AuthenticatesRequests::class, EnsureIdempotency::class);
+
+        // The API user's language comes from their settings, so the token must be checked first.
+        $middleware->appendToPriorityList(AuthenticatesRequests::class, SetLocale::class);
 
         return $middleware;
     }

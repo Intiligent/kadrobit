@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
+import { getActiveLanguage } from 'laravel-vue-i18n';
 import { CircleCheck, CircleMinus, CircleX, Info, Plus, TriangleAlert } from 'lucide-vue-next';
 import { checkAsset } from '@/utils/marketplaceRules';
+import { formatNumberParams } from '@/utils/format';
 import { SETTINGS_MARKETPLACES_URL } from '@/config/constant';
 
 const props = defineProps({
@@ -19,6 +21,9 @@ const LEVEL = {
 };
 
 const rows = computed(() => props.accounts.map((account) => ({ account, result: checkAsset(props.asset, account) })));
+
+// "3.1 MP" reads "3,1 Мп" in Russian.
+const params = (item) => formatNumberParams(item.params, getActiveLanguage());
 
 const initials = (name) => name.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase();
 </script>
@@ -52,7 +57,7 @@ const initials = (name) => name.split(/\s+/).map((word) => word[0]).join('').sli
                         :class="LEVEL[item.level].class"
                     >
                         <component :is="LEVEL[item.level].icon" :size="14" :stroke-width="1.75" class="mt-0.5 flex-none" />
-                        <span>{{ item.choice === null ? $t(item.key, item.params) : $tChoice(item.key, item.choice, item.params) }}</span>
+                        <span>{{ item.choice === null ? $t(item.key, params(item)) : $tChoice(item.key, item.choice, params(item)) }}</span>
                     </span>
                 </div>
             </div>

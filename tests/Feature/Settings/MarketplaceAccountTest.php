@@ -58,9 +58,9 @@ class MarketplaceAccountTest extends TestCase
         ]);
     }
 
-    public function test_settings_open_on_marketplaces(): void
+    public function test_settings_open_on_general(): void
     {
-        $this->actingAs($this->user, 'web')->get('/settings')->assertRedirect('/settings/marketplaces');
+        $this->actingAs($this->user, 'web')->get('/settings')->assertRedirect('/settings/general');
     }
 
     public function test_marketplaces_page_lists_accounts_and_catalog_without_passwords(): void

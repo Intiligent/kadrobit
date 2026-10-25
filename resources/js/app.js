@@ -1,5 +1,7 @@
 import { createInertiaApp, router } from '@inertiajs/vue3';
 import { i18nVue } from 'laravel-vue-i18n';
+import { provideGlobalConfig } from 'element-plus';
+import elementRu from 'element-plus/es/locale/lang/ru';
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
 import notify from '@/core/notify';
 import autofocus from '@/directives/autofocus';
@@ -7,6 +9,9 @@ import { http, setTokenRefresher } from '@/core/api';
 import { API_TOKEN_REFRESH_URL } from '@/config/constant';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Kadrobit';
+
+// Texts built into Element Plus (empty lists, pagination, dialog buttons); English is its own default.
+const ELEMENT_LOCALES = { ru: elementRu };
 
 // After a deploy, a tab still running the previous build references chunk URLs that now 404.
 // Hard-load the page being visited so the user lands on it with fresh assets. Only GET visits are
@@ -74,8 +79,15 @@ createInertiaApp({
     withApp(app, { page }) {
         app.directive('autofocus', autofocus);
 
+        // The language is fixed for the page's lifetime: changing it in Settings → General reloads the page.
+        const locale = page.props.locale ?? 'en';
+
+        if (ELEMENT_LOCALES[locale]) {
+            provideGlobalConfig({ locale: ELEMENT_LOCALES[locale] }, app, true);
+        }
+
         app.use(i18nVue, {
-            lang: page.props.locale ?? 'en',
+            lang: locale,
             fallbackLang: 'en',
             // Called with "en" for lang/en.json and "php_en" for the compiled lang/en/*.php.
             resolve: async (lang) => {

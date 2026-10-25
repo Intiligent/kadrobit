@@ -41,7 +41,7 @@ return [
         'title' => 'Confirm your email',
         'greeting' => 'Hi :name,',
         'intro' => 'Enter this code on the confirmation screen to confirm your email address:',
-        'expire' => 'The code is valid for :count minutes.',
+        'expire' => '{1} The code is valid for :count minute.|[2,*] The code is valid for :count minutes.',
         'action_hint' => 'Or confirm with one click:',
         'action' => 'Confirm email',
         'outro' => 'If you did not create an account, ignore this email: nothing will happen.',

@@ -18,7 +18,15 @@ class SettingsController extends Controller
 {
     public function index(): RedirectResponse
     {
-        return redirect()->route('settings.marketplaces');
+        return redirect()->route('settings.general');
+    }
+
+    /**
+     * General: the interface language. The value comes from the shared `settings` prop.
+     */
+    public function general(): Response
+    {
+        return Inertia::render('settings/general/index');
     }
 
     public function marketplaces(Request $request): Response

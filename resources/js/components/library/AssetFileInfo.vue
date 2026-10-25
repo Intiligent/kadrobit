@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
 import { cameraRows } from '@/utils/cameraInfo';
-import { formatBytes, formatDateTime, formatDuration, megapixels } from '@/utils/format';
+import { formatBytes, formatDateTime, formatDuration, formatNumber, megapixels } from '@/utils/format';
 
 const props = defineProps({
     asset: { type: Object, required: true },
@@ -15,14 +15,15 @@ const rows = computed(() => {
     const a = props.asset;
     const locale = getActiveLanguage();
     const location = [a.location?.city, a.location?.country].filter(Boolean).join(', ');
+    const mp = a.type === 'video' ? null : megapixels(a.width, a.height);
 
     return [
         ['type', trans(`library.types.${a.type}`)],
         ['original', a.original_filename],
         ['format', a.mime],
-        ['dimensions', a.width && a.height ? `${a.width} × ${a.height} px` : null],
+        ['dimensions', a.width && a.height ? trans('library.file.dimensions_value', { width: a.width, height: a.height }) : null],
         // Counted from the work's own size, not from EXIF: rounded down, like the marketplace checks.
-        ['megapixels', a.type === 'video' || !megapixels(a.width, a.height) ? null : `${megapixels(a.width, a.height)} MP`],
+        ['megapixels', mp ? trans('library.file.megapixels_value', { mp: formatNumber(mp, locale) }) : null],
         ['duration', a.type === 'video' ? formatDuration(a.duration_ms) : null],
         ['size', formatBytes(a.size_bytes, locale)],
         ['captured', formatDateTime(a.captured_at, locale)],
@@ -56,8 +57,13 @@ const camera = computed(() => cameraRows(props.asset.camera));
         </div>
 
         <el-descriptions :column="1" size="small" class="file-info">
-            <el-descriptions-item v-for="[key, value] in rows" :key="key" :label="$t(`library.file.${key}`)">
-                <span :class="{ 'font-mono text-xs break-all': key === 'checksum' }">{{ value }}</span>
+            <el-descriptions-item
+                v-for="[key, value] in rows"
+                :key="key"
+                :label="$t(`library.file.${key}`)"
+                :class-name="key === 'checksum' ? 'file-info__checksum min-w-0 flex-1 truncate select-all font-mono text-xs' : ''"
+            >
+                {{ value }}
             </el-descriptions-item>
         </el-descriptions>
 
@@ -84,5 +90,17 @@ const camera = computed(() => cameraRows(props.asset.camera));
     display: inline-block;
     min-width: 110px;
     color: var(--el-text-color-secondary);
+}
+
+// The checksum stays on one line, cut by `truncate`: a flex cell gives it a width to cut at. Only the view is cut,
+// the whole hash is in the DOM, and one click selects all of it for copying (`select-all`). A fixed layout keeps the
+// table at the panel's width instead of growing with the unbroken line.
+.file-info :deep(.el-descriptions__table) {
+    table-layout: fixed;
+}
+
+.file-info :deep(.el-descriptions__cell:has(.file-info__checksum)) {
+    display: flex;
+    align-items: baseline;
 }
 </style>

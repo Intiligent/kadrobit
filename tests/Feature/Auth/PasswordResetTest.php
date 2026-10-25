@@ -119,7 +119,7 @@ class PasswordResetTest extends TestCase
 
         $this->assertStringContainsString(e(route('password.reset', ['token' => 'token-123', 'email' => 'jane@example.com'])), $html);
         $this->assertStringContainsString('Hi Jane,', $html);
-        $this->assertStringContainsString(__('passwords.email.expire', ['count' => 60]), $html);
+        $this->assertStringContainsString(trans_choice('passwords.email.expire', 60, ['count' => 60]), $html);
     }
 
     public function test_reset_page_renders_with_token_and_email(): void

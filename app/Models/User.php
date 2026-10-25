@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\UserSettingKey;
 use App\Models\Concerns\HasSettings;
 use App\Notifications\ResetPasswordNotification;
 use App\Services\Auth\EmailVerificationService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +18,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
 
-class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail, OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasSettings, HasUlids, Notifiable;
@@ -66,6 +68,14 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * The language of the user's emails and notifications, also when they are sent from the queue.
+     */
+    public function preferredLocale(): string
+    {
+        return (string) $this->setting(UserSettingKey::GeneralLocale);
     }
 
     /**
