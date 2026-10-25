@@ -8,6 +8,8 @@ import { dragHasType } from '@/utils/drag';
 const props = defineProps({
     assets: { type: Array, required: true },
     selectedId: { type: String, default: null },
+    // Connected marketplace accounts, for the delivery badges on the cards
+    accounts: { type: Array, default: () => [] },
     size: { type: String, default: 'large' },
     captions: { type: Boolean, default: true },
     // Cards can be dragged onto folders.
@@ -69,6 +71,7 @@ function onDrop(event) {
                     v-for="asset in assets"
                     :key="asset.id"
                     :asset="asset"
+                    :accounts="accounts"
                     :selected="asset.id === selectedId"
                     :captions="captions"
                     :draggable="draggable"

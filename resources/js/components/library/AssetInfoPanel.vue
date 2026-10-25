@@ -24,9 +24,11 @@ const props = defineProps({
     readonly: { type: Boolean, default: false },
     // The delete request is running.
     deleting: { type: Boolean, default: false },
+    // Listing ids with a cancel or retry request on its way
+    listingsBusy: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['update', 'status', 'delete', 'close']);
+const emit = defineEmits(['update', 'status', 'delete', 'close', 'cancel-listing', 'retry-listing']);
 
 // Remembered per browser, like the tile size: the panel reopens on the same tab.
 const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'marketplaces', 'file'] });
@@ -131,7 +133,14 @@ const footNote = computed(() => {
                         {{ $t('library.panel.tabs.marketplaces') }}
                     </el-badge>
                 </template>
-                <MarketplaceChecks :asset="asset" :accounts="accounts" />
+                <MarketplaceChecks
+                    :asset="asset"
+                    :accounts="accounts"
+                    :readonly="readonly"
+                    :busy="listingsBusy"
+                    @cancel="emit('cancel-listing', $event)"
+                    @retry="emit('retry-listing', $event)"
+                />
             </el-tab-pane>
             <el-tab-pane name="file" :label="$t('library.panel.tabs.file')">
                 <AssetFileInfo :asset="asset" />
