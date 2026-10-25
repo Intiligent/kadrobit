@@ -185,6 +185,7 @@ return [
         'software' => 'Программа',
         'shutter' => ':value с',
         'focal' => ':mm мм',
+        'bias' => ':value EV',
         'equivalent' => '(:mm мм в экв.)',
         'flash_fired' => 'Сработала',
         'flash_off' => 'Без вспышки',

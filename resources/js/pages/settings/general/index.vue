@@ -8,8 +8,10 @@ import { USER_SETTINGS_API_URL } from '@/config/constant';
 
 defineOptions({ layout: [AppLayout, SettingsLayout] });
 
-// Each language is named in itself, the same in every interface language.
-const LOCALES = ['en', 'ru'];
+// Languages of App\Enums\Locale; each is named in itself (settings.general.locale.options).
+defineProps({
+    locales: { type: Array, required: true },
+});
 
 const page = usePage();
 const saving = ref(false);
@@ -52,7 +54,7 @@ async function setLocale(value) {
                 class="!w-[180px] flex-none"
                 @change="setLocale"
             >
-                <el-option v-for="code in LOCALES" :key="code" :value="code" :label="$t(`settings.general.locale.options.${code}`)" />
+                <el-option v-for="code in locales" :key="code" :value="code" :label="$t(`settings.general.locale.options.${code}`)" />
             </el-select>
         </div>
     </div>

@@ -169,11 +169,21 @@ loading.any.value;     // идёт ли хоть один запрос с эти
 - Язык запроса выбирает `App\Http\Middleware\SetLocale` (группы `web` и `api`), он же попадает в общий prop `locale`. Как пользователь меняет язык — в [settings.md](settings.md#язык-интерфейса).
 - Встроенные тексты Element Plus (пустые списки, кнопки диалогов) переводятся через `provideGlobalConfig` в `app.js`: новый язык добавляется в `ELEMENT_LOCALES`.
 - `lang/{locale}/validation.php` и `pagination.php` — сообщения фреймворка. Названия полей в ошибках (`:attribute`) — в `validation.attributes`, одинаковые ключи во всех языках.
+- `lang/{locale}.json` — строки, которые фреймворк ищет по английскому тексту: заголовки страниц ошибок (`Not Found`, `Page Expired`).
+
+### Новый язык
+
+1. `case` в `App\Enums\Locale` — язык появится в выборе на странице General.
+2. `lang/{locale}/*.php` и `lang/{locale}.json` с теми же ключами, что у `en`; название языка на нём самом — `settings.general.locale.options.{locale}` во всех языках.
+3. Локаль Element Plus в `ELEMENT_LOCALES` (`app.js`).
+4. Если у языка другое число форм множественного числа — его число в `TranslationsTest::PLURAL_FORMS`.
+
+`TranslationsTest` проверяет пункт 2.
 
 ### Числа, даты, единицы
 
 - Даты, числа и списки форматируются через `Intl` с `getActiveLanguage()`: `utils/format.js` (`formatNumber`, `formatBytes`, `formatDateTime`), `utils/relativeTime.js`, `Intl.ListFormat`. В русском `3.1` — «3,1», `6000` — «6 000».
-- Единицы измерения — в переводах, а не в коде: `library.file.megapixels_value` («:mp MP» / «:mp Мп»), `library.camera.focal` и т. п.
+- Единицы измерения — в переводах, а не в коде: `library.file.megapixels_value` («:mp MP» / «:mp Мп»), `library.camera.focal`, `library.camera.bias` и т. п.
 - Числа в параметрах сообщения форматируются перед подстановкой (`formatNumberParams`).
 
 ### Множественное число

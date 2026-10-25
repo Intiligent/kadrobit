@@ -32,7 +32,7 @@ describe('cameraRows', () => {
             ['lens', 'iPhone 13 Pro back triple camera 5.7mm f/1.5'],
             ['exposure', 'library.camera.shutter(1/3704) · f/1.5 · ISO 50'],
             ['focal_length', 'library.camera.focal(5.7) library.camera.equivalent(26)'],
-            ['exposure_bias', '0 EV'],
+            ['exposure_bias', 'library.camera.bias(0)'],
             ['mode', 'library.camera.programs.auto · library.camera.metering.pattern'],
             ['flash', 'library.camera.flash_off · library.camera.white_balance.auto'],
             ['color_space', 'library.camera.uncalibrated'],
@@ -45,7 +45,7 @@ describe('cameraRows', () => {
     });
 
     it('shows a positive exposure bias with its sign and leaves out what is unknown', () => {
-        expect(cameraRows({ exposure_bias: 0.67, iso: 800 })).toEqual([['exposure', 'ISO 800'], ['exposure_bias', '+0.67 EV']]);
+        expect(cameraRows({ exposure_bias: 0.67, iso: 800 })).toEqual([['exposure', 'ISO 800'], ['exposure_bias', 'library.camera.bias(+0.67)']]);
         expect(cameraRows(null)).toEqual([]);
     });
 });

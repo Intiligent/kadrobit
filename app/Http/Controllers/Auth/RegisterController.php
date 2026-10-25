@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\UserSettingKey;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
@@ -23,6 +24,9 @@ class RegisterController extends Controller
         $user = User::create($request->safe()->only([
             'first_name', 'last_name', 'username', 'email', 'password',
         ]));
+
+        // The account keeps the language the user signed up in; set before the event sends the code email.
+        $user->setSetting(UserSettingKey::GeneralLocale, app()->getLocale());
 
         event(new Registered($user));
 

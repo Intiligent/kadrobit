@@ -51,6 +51,28 @@ class TranslationsTest extends TestCase
         }
     }
 
+    /**
+     * lang/{locale}.json: strings looked up by their English text, such as the titles of the framework's error pages.
+     */
+    public function test_every_locale_has_the_json_strings_of_english(): void
+    {
+        $english = $this->json('en');
+        $this->assertNotEmpty($english);
+
+        foreach ($this->otherLocales() as $locale) {
+            $this->assertEqualsCanonicalizing(array_keys($english), array_keys($this->json($locale)), "lang/{$locale}.json must have the keys of lang/en.json.");
+        }
+    }
+
+    public function test_every_locale_is_named_in_the_language_picker(): void
+    {
+        foreach (Locale::values() as $language) {
+            foreach (Locale::values() as $locale) {
+                $this->assertArrayHasKey("general.locale.options.{$language}", $this->strings($locale, 'settings.php'), "lang/{$locale}/settings.php names no language [{$language}].");
+            }
+        }
+    }
+
     public function test_every_translation_has_the_placeholders_of_english(): void
     {
         foreach ($this->otherLocales() as $locale) {
@@ -107,6 +129,25 @@ class TranslationsTest extends TestCase
 
                 foreach (array_slice($variants, $forms) as $variant) {
                     $this->assertMatchesRegularExpression(self::EXACT_MARKER, $variant, "{$label}: variants after the {$forms} plural forms must be exact numbers, like {0}.");
+                }
+            }
+        }
+    }
+
+    /**
+     * A translation pluralized where English is not would print its "|" and markers as text: the app looks
+     * the string up with __(), not trans_choice().
+     */
+    public function test_only_strings_plural_in_english_have_variants(): void
+    {
+        foreach ($this->otherLocales() as $locale) {
+            foreach ($this->files('en') as $file) {
+                $english = $this->strings('en', $file);
+
+                foreach ($this->strings($locale, $file) as $key => $value) {
+                    if (str_contains($value, '|')) {
+                        $this->assertStringContainsString('|', $english[$key] ?? '', "lang/{$locale}/{$file} [{$key}]: plural forms, but the English string is not plural.");
+                    }
                 }
             }
         }
@@ -173,6 +214,16 @@ class TranslationsTest extends TestCase
         $path = $this->langPath($locale).'/'.$file;
 
         return is_file($path) ? array_filter(Arr::dot(require $path), 'is_string') : [];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function json(string $locale): array
+    {
+        $path = dirname(__DIR__, 2)."/lang/{$locale}.json";
+
+        return is_file($path) ? json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR) : [];
     }
 
     protected function langPath(string $locale): string

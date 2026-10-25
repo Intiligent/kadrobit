@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Dev\EmailPreviewController;
+use App\Http\Controllers\FallbackController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Settings\SettingsController;
 use Illuminate\Support\Facades\Route;
@@ -76,3 +77,6 @@ Route::middleware('local.only')->prefix('dev/emails')->name('dev.emails.')->grou
     Route::get('reset-password', [EmailPreviewController::class, 'resetPassword'])->name('reset-password');
     Route::get('verify-email', [EmailPreviewController::class, 'verifyEmail'])->name('verify-email');
 });
+
+// Unknown pages get the 404 in the user's language (see FallbackController); unknown API URLs stay stateless.
+Route::fallback(FallbackController::class)->where('fallbackPlaceholder', '(?!api/).*');

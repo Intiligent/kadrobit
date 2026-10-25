@@ -21,7 +21,7 @@ const rows = computed(() => {
         ['type', trans(`library.types.${a.type}`)],
         ['original', a.original_filename],
         ['format', a.mime],
-        ['dimensions', a.width && a.height ? trans('library.file.dimensions_value', { width: a.width, height: a.height }) : null],
+        ['dimensions', a.width && a.height ? trans('library.file.dimensions_value', { width: formatNumber(a.width, locale), height: formatNumber(a.height, locale) }) : null],
         // Counted from the work's own size, not from EXIF: rounded down, like the marketplace checks.
         ['megapixels', mp ? trans('library.file.megapixels_value', { mp: formatNumber(mp, locale) }) : null],
         ['duration', a.type === 'video' ? formatDuration(a.duration_ms) : null],

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Enums\UserSettingKey;
+use App\Http\Middleware\SetLocale;
 use App\Models\User;
 use App\Notifications\VerifyEmailNotification;
 use App\Services\Auth\ApiTokenCookie;
@@ -97,6 +99,15 @@ class GoogleLoginTest extends TestCase
         $this->assertTrue($user->hasVerifiedEmail());
         Event::assertDispatched(Verified::class);
         Notification::assertNothingSent();
+    }
+
+    public function test_new_user_keeps_the_language_of_the_page_they_came_from(): void
+    {
+        $this->fakeGoogle();
+
+        $this->withSession([SetLocale::SESSION_KEY => 'ru'])->get('/oauth/google/callback')->assertRedirect();
+
+        $this->assertSame('ru', User::sole()->setting(UserSettingKey::GeneralLocale));
     }
 
     public function test_new_user_with_an_unverified_google_email_confirms_it_with_a_code(): void

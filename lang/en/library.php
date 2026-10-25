@@ -185,6 +185,7 @@ return [
         'software' => 'Software',
         'shutter' => ':value s',
         'focal' => ':mm mm',
+        'bias' => ':value EV',
         'equivalent' => '(:mm mm equiv.)',
         'flash_fired' => 'Flash fired',
         'flash_off' => 'No flash',

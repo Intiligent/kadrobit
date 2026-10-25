@@ -2,6 +2,7 @@
 
 namespace App\Services\Auth;
 
+use App\Enums\UserSettingKey;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
@@ -60,6 +61,9 @@ class GoogleAccountResolver
             // Nobody knows it: the account signs in with Google, or sets a password through "Forgot password?".
             'password' => Str::password(32),
         ]);
+
+        // The account keeps the language of the page the user came from; set before the event sends any email.
+        $user->setSetting(UserSettingKey::GeneralLocale, app()->getLocale());
 
         if ($verified) {
             $this->verification->markVerified($user);

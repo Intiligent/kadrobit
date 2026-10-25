@@ -7,7 +7,10 @@ use App\Http\Middleware\SetLocale;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
 use Database\Seeders\OauthSeeder;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Router;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Passport\Passport;
@@ -161,5 +164,97 @@ class LocaleTest extends TestCase
         $this->russian($this->user)->sendPasswordResetNotification('token');
 
         Notification::assertSentTo($this->user, ResetPasswordNotification::class, fn ($notification, $channels, $notifiable, $locale) => $locale === 'ru');
+    }
+
+    /**
+     * Errors of the web middleware (an expired CSRF token, a throttled form) are rendered in the user's language.
+     * The CSRF check is skipped in tests, so the order is checked instead.
+     */
+    public function test_the_language_is_set_right_after_the_session_starts(): void
+    {
+        $middleware = $this->routeMiddleware('library');
+
+        $position = fn (string $class) => array_search($class, $middleware, true);
+
+        $this->assertSame($position(StartSession::class) + 1, $position(SetLocale::class));
+        $this->assertLessThan($position(PreventRequestForgery::class), $position(SetLocale::class));
+    }
+
+    public function test_the_api_reads_the_user_from_the_token_guard(): void
+    {
+        $this->assertContains(SetLocale::class.':api', $this->routeMiddleware('api.settings.show'));
+    }
+
+    /**
+     * The route's middleware in the order they run. The kernel gives the router its groups on the first request.
+     *
+     * @return list<string>
+     */
+    protected function routeMiddleware(string $name): array
+    {
+        $this->get('/up');
+        $router = $this->app->make(Router::class);
+
+        return $router->gatherRouteMiddleware($router->getRoutes()->getByName($name));
+    }
+
+    public function test_an_unknown_page_is_not_found_in_the_users_language(): void
+    {
+        $this->actingAs($this->russian($this->user), 'web')
+            ->get('/no-such-page')
+            ->assertNotFound()
+            ->assertSee('Страница не найдена');
+
+        $this->post('/logout');
+
+        // A guest keeps the language of the session.
+        $this->get('/no/such/page')->assertNotFound()->assertSee('Страница не найдена');
+    }
+
+    public function test_an_unknown_api_url_stays_a_json_404(): void
+    {
+        $this->getJson('/api/no-such-url')->assertNotFound()->assertJsonPath('status', 404);
+    }
+
+    public function test_a_new_account_keeps_the_language_it_signed_up_in(): void
+    {
+        $this->withSession([SetLocale::SESSION_KEY => 'ru'])->post('/register', [
+            'first_name' => 'Ivan',
+            'last_name' => 'Petrov',
+            'username' => 'ivan.petrov',
+            'email' => 'ivan@example.com',
+            'password' => 'secret-pass',
+        ])->assertRedirect('/verify-email');
+
+        $user = User::where('email', 'ivan@example.com')->sole();
+        $this->assertSame('ru', $user->setting(UserSettingKey::GeneralLocale));
+
+        // The confirmation code email, sent through the Registered event, is in Russian too.
+        $email = app('mailer')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
+        $this->assertStringContainsString('код подтверждения', $email->getSubject());
+    }
+
+    public function test_an_account_signed_up_in_english_stores_no_language(): void
+    {
+        $this->post('/register', [
+            'first_name' => 'Ivan',
+            'last_name' => 'Petrov',
+            'username' => 'ivan.petrov',
+            'email' => 'ivan@example.com',
+            'password' => 'secret-pass',
+        ])->assertRedirect('/verify-email');
+
+        $this->assertSame(0, User::where('email', 'ivan@example.com')->sole()->settings()->count());
+    }
+
+    public function test_general_page_lists_the_languages(): void
+    {
+        $this->actingAs($this->user, 'web')
+            ->get('/settings/general')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('settings/general/index')
+                ->where('locales', ['en', 'ru'])
+                ->where('settings.general.locale', 'en'));
     }
 }

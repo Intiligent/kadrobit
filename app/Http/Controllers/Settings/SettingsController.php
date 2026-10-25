@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\Locale;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Settings\MarketplaceCatalogResource;
 use App\Http\Resources\Settings\MarketplaceConnectionResource;
@@ -22,11 +23,13 @@ class SettingsController extends Controller
     }
 
     /**
-     * General: the interface language. The value comes from the shared `settings` prop.
+     * General: the interface language. The chosen one comes from the shared `settings` prop.
      */
     public function general(): Response
     {
-        return Inertia::render('settings/general/index');
+        return Inertia::render('settings/general/index', [
+            'locales' => Locale::values(),
+        ]);
     }
 
     public function marketplaces(Request $request): Response
