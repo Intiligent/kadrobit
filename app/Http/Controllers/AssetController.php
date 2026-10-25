@@ -37,7 +37,7 @@ class AssetController extends Controller
         $user = $request->user();
 
         // TODO: paginate (Inertia infinite scroll) once libraries grow past a few hundred works.
-        $assets = $user->assets()->with(['files', 'folder:id,ulid'])->latest()->get();
+        $assets = $user->assets()->with(AssetResource::RELATIONS)->latest()->get();
 
         // TODO: это здесь не нужно с большой вероятностью, а то что это выводится в интерфейсе, то этого не будет. это переед в отдельный раздел настроек
         $accounts = $user->marketplaceAccounts()
@@ -91,7 +91,7 @@ class AssetController extends Controller
             $asset->refresh();
         }
 
-        return AssetResource::make($asset->load(['files', 'folder:id,ulid']));
+        return AssetResource::make($asset->load(AssetResource::RELATIONS));
     }
 
     /**
@@ -108,6 +108,12 @@ class AssetController extends Controller
 
             if ($work->status !== AssetStatus::Archived) {
                 throw new ExceptionWithMessage(__('library.delete.not_archived'), 409);
+            }
+
+            // Its upload may be running: the file must stay until it is over. A sent work can go, the marketplace
+            // keeps its copy (docs/publishing.md).
+            if ($work->listings()->pending()->exists()) {
+                throw new ExceptionWithMessage(__('library.delete.publishing'), 409);
             }
 
             // Not a soft delete: the work and its file rows (cascade) are gone, and the same file can be uploaded again.
@@ -130,7 +136,7 @@ class AssetController extends Controller
             'ids.*' => ['string'],
         ])['ids'];
 
-        $works = $request->user()->assets()->whereIn('ulid', $ids)->with(['files', 'folder:id,ulid'])->get();
+        $works = $request->user()->assets()->whereIn('ulid', $ids)->with(AssetResource::RELATIONS)->get();
 
         return response()->json(['data' => AssetResource::collection($works)->resolve($request)]);
     }

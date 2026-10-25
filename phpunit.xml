@@ -29,6 +29,7 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="PUBLISHING_QUEUE_CONNECTION" value="sync"/>
         <!-- Never the real key from .env: tests fake the provider and must not make paid calls. -->
         <env name="OPENAI_API_KEY" value="" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>

@@ -3,11 +3,24 @@ import { megapixels } from '@/utils/format';
 /**
  * Checks a work against a marketplace's rules: its file (marketplaces.file_rules, by media type)
  * and its base metadata (marketplaces.metadata_rules).
- * Pure functions, so the info panel and the publish flow show the same verdict.
+ * Pure functions, so the info panel and the publish flow show the same verdict. The server checks the same
+ * rules with the same keys before queuing (App\Services\Marketplaces\ListingChecks): keep both in sync.
  *
  * Every item: { level: 'ok' | 'warning' | 'error' | 'info' | 'off', key, params, choice }.
  * `key` is a translation key under library.checks; `choice` is the count for pluralized keys, otherwise null.
  */
+
+/** Format names used in marketplaces.file_rules.*.formats, by MIME type (App\Services\Marketplaces\ListingChecks). */
+const FORMATS = {
+    'image/jpeg': 'JPEG',
+    'image/png': 'PNG',
+    'image/tiff': 'TIFF',
+    'image/svg+xml': 'SVG',
+    'application/postscript': 'EPS',
+    'image/x-eps': 'EPS',
+    'video/mp4': 'MP4',
+    'video/quicktime': 'MOV',
+};
 
 const item = (level, key, params = {}, choice = null) => ({ level, key: `library.checks.${key}`, params, choice });
 
@@ -35,8 +48,15 @@ export function checkAsset(asset, account) {
 
     const items = fileItems(asset, marketplace.file_rules?.[asset.type]);
 
-    if (!asset.title?.trim()) {
-        items.push(item('warning', 'title_required'));
+    if (asset.is_ai_generated && rules.accepts_ai_generated === false) {
+        items.push(item('warning', 'ai_not_accepted'));
+    }
+
+    // Shutterstock has one text field, the description; most marketplaces need a title.
+    for (const field of rules.required ?? ['title']) {
+        if (!asset[field]?.trim()) {
+            items.push(item('warning', `${field}_required`));
+        }
     }
 
     // Metadata entered in the marketplace's own portal: nothing more to check on our side.
@@ -77,8 +97,8 @@ export function checkAsset(asset, account) {
 const megabytes = (bytes) => Math.round(bytes / 104_857.6) / 10;
 
 /**
- * File limits the marketplace rejects on upload. Errors, not warnings: editing metadata cannot fix them.
- * Skipped while the work's size is not known yet (still processing).
+ * File limits the marketplace rejects on upload. Resolution and size are errors: editing metadata cannot fix them.
+ * A format is a warning: Kadrobit may convert the file one day. Skipped while the work's size is not known yet.
  */
 function fileItems(asset, rules) {
     if (!rules) {
@@ -87,6 +107,11 @@ function fileItems(asset, rules) {
 
     const items = [];
     const { width, height, size_bytes: size } = asset;
+    const format = FORMATS[asset.mime];
+
+    if (format && rules.formats?.length && !rules.formats.includes(format)) {
+        items.push(item('warning', 'format', { format, formats: rules.formats.join(', ') }));
+    }
 
     if (width && height) {
         const mp = megapixels(width, height);

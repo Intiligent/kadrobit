@@ -19,7 +19,7 @@ const status = defineModel('status', { type: String, default: 'all' });
 const type = defineModel('type', { type: String, default: 'all' });
 
 const SORTS = ['newest', 'oldest', 'keywords', 'title'];
-const STATUSES = ['all', 'draft', 'ready', 'archived'];
+const STATUSES = ['all', 'draft', 'ready', 'submitted', 'archived'];
 const SIZES = [
     { key: 'large', icon: LayoutGrid },
     { key: 'small', icon: Grid3x3 },

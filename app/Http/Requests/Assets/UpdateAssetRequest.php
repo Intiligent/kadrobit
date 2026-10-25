@@ -53,7 +53,8 @@ class UpdateAssetRequest extends FormRequest
             'categories' => ['sometimes', 'array'],
             'categories.*' => ['array'],
             'categories.*.*' => ['string', 'max:100'],
-            'status' => ['sometimes', Rule::enum(AssetStatus::class)],
+            // Submitted is set by publishing (App\Services\Marketplaces\Publishing), not by the user.
+            'status' => ['sometimes', Rule::enum(AssetStatus::class)->except(AssetStatus::Submitted)],
             // Folder ulid, null for Unsorted.
             'folder_id' => ['sometimes', 'nullable', 'string', $this->ownFolderRule()],
         ];

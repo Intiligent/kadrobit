@@ -13,6 +13,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class AssetResource extends JsonResource
 {
+    /** Relations the resource reads: load them with the work to avoid a query per field. */
+    public const RELATIONS = ['files', 'folder:id,ulid', 'listings.account.marketplace'];
+
     /**
      * @return array<string, mixed>
      */
@@ -53,6 +56,12 @@ class AssetResource extends JsonResource
             // How the photo was taken (CameraInfoReader), null for works without EXIF.
             'camera' => ($this->media_info['camera'] ?? null) ?: null,
             'checksum' => $this->checksum,
+            // Deliveries to marketplace accounts (KB-30); empty for a work that was never queued.
+            'listings' => $this->whenLoaded(
+                'listings',
+                fn () => AssetListingResource::collection($this->listings->each->setRelation('asset', $this->resource))->resolve($request),
+                [],
+            ),
             'thumbnail_url' => $thumbnail?->url(),
             'preview_url' => $preview?->url(),
             'created_at' => $this->created_at?->toIso8601String(),

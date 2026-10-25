@@ -137,6 +137,11 @@ class Asset extends Model
         return $this->hasMany(AssetGeneration::class);
     }
 
+    public function listings(): HasMany
+    {
+        return $this->hasMany(AssetListing::class);
+    }
+
     public function files(): HasMany
     {
         return $this->hasMany(AssetFile::class);

@@ -145,6 +145,11 @@ function onDragStart(event) {
         background: var(--el-color-success-light-9);
     }
 
+    &.is-submitted {
+        color: var(--el-color-primary-dark-2);
+        background: var(--el-color-primary-light-9);
+    }
+
     &.is-archived {
         color: var(--el-color-white);
         background: var(--el-overlay-color-lighter);

@@ -53,6 +53,7 @@ return [
         'all' => 'All',
         'draft' => 'Draft',
         'ready' => 'Ready',
+        'submitted' => 'Submitted',
         'archived' => 'Archived',
     ],
 
@@ -224,7 +225,10 @@ return [
         'resolution_min' => 'Resolution too small: :width × :height px (:mp MP), needs at least :min MP',
         'resolution_max' => 'Resolution too large: :width × :height px (:mp MP), up to :max MP',
         'file_too_large' => 'File too large: :size MB, up to :max MB',
+        'format' => ':format is not accepted, needs :formats',
+        'ai_not_accepted' => 'Does not accept AI-generated works',
         'title_required' => 'Title is required',
+        'description_required' => 'Description is required',
         'keywords_required' => 'Add keywords',
         'keywords_min' => 'Needs at least :min keywords (:count now)',
         'keywords_max' => 'Up to :max keywords (:count now)',
@@ -245,8 +249,6 @@ return [
         'restore' => 'Restore',
         'back_to_draft' => 'Back to draft',
         'mark_ready' => 'Mark as ready',
-        'publish' => 'Publish',
-        'publish_soon' => 'Publishing to marketplaces: coming soon',
         'archive_confirm_title' => 'Archive this work?',
         'archive_confirm' => ':file will be hidden from the library. You can restore it from the Archived tab.',
         'leave_confirm' => 'Changes are still being saved. Leave the page and lose them?',
@@ -257,6 +259,12 @@ return [
 
     'delete' => [
         'not_archived' => 'Only archived works can be deleted. Archive it first.',
+        'publishing' => 'This work is being sent to a marketplace. Delete it when the upload is over.',
+    ],
+
+    'publishing' => [
+        'cancel_too_late' => 'The upload has already started or is over.',
+        'retry_not_failed' => 'Only a failed or cancelled upload can be sent again.',
     ],
 
     'generation' => [

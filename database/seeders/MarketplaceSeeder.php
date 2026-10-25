@@ -85,6 +85,10 @@ class MarketplaceSeeder extends Seeder
                 ],
                 'metadata_delivery' => MetadataDelivery::Iptc,
                 'metadata_rules' => [
+                    // One text field, Description, up to 200 characters: the work's title is not sent.
+                    'required' => ['description'],
+                    // Contributors may not submit generative AI content.
+                    'accepts_ai_generated' => false,
                     'keywords_min' => 7,
                     'keywords_max' => 50,
                     'categories_min' => 1,
@@ -94,9 +98,14 @@ class MarketplaceSeeder extends Seeder
                     'csv_upload' => 'web',
                     'submit' => 'web',
                 ],
+                // Per media type (submit.shutterstock.com, "What are the technical requirements for images"):
+                // photos JPEG or TIFF from 4 MP, vectors EPS (Illustrator 8/10) up to 100 MB. Over FTPS a JPEG
+                // may be up to 50 MB and a TIFF up to 4 GB, so the size is not checked by format here.
                 'file_rules' => [
-                    'web_max_file_mb' => 50,
-                    'web_max_files_per_batch' => 100,
+                    'photo' => ['formats' => ['JPEG', 'TIFF'], 'min_megapixels' => 4],
+                    'illustration' => ['formats' => ['JPEG', 'TIFF'], 'min_megapixels' => 4],
+                    'vector' => ['formats' => ['EPS'], 'max_file_mb' => 100],
+                    'video' => ['formats' => ['MP4', 'MOV']],
                 ],
             ],
             [

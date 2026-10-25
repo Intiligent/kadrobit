@@ -7,6 +7,7 @@ use App\Enums\MarketplaceAccountStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -73,6 +74,11 @@ class MarketplaceAccount extends Model
     public function marketplace(): BelongsTo
     {
         return $this->belongsTo(Marketplace::class);
+    }
+
+    public function listings(): HasMany
+    {
+        return $this->hasMany(AssetListing::class);
     }
 
     public function scopeActive(Builder $query): void
