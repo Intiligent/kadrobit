@@ -7,8 +7,7 @@ import AssetGrid from '@/components/library/AssetGrid.vue';
 import AssetInfoPanel from '@/components/library/AssetInfoPanel.vue';
 import AssetToolbar from '@/components/library/AssetToolbar.vue';
 import LibraryExplorer from '@/components/library/LibraryExplorer.vue';
-import PublishButton from '@/components/library/PublishButton.vue';
-import PublishDialog from '@/components/library/PublishDialog.vue';
+import PublishPopover from '@/components/library/PublishPopover.vue';
 import UploadStatus from '@/components/library/UploadStatus.vue';
 import { useAssetAutosave } from '@/composables/useAssetAutosave';
 import { usePendingAssets } from '@/composables/usePendingAssets';
@@ -171,9 +170,8 @@ const autosave = useAssetAutosave({ onSaved: applyServerAsset });
 // queue (KB-32) are refreshed when it is over.
 const pending = usePendingAssets({ assets, merge: (saved) => applyServerAsset(saved) });
 
-// Publishing: every ready work goes out in one batch from the toolbar button (docs/publishing.md).
+// Publishing: the ready works go out in one batch from the toolbar popover (docs/publishing.md).
 
-const publishOpen = ref(false);
 const ready = computed(() => readyCount(assets.value));
 
 // The batch is queued: fetch the ready works with their new listings, then the poll follows them until sent.
@@ -478,7 +476,7 @@ function addFiles(files) {
             :types="types"
         >
             <template #actions>
-                <PublishButton :count="ready" :accounts="accounts.length" :disabled="readonly" @open="publishOpen = true" />
+                <PublishPopover :count="ready" :accounts="accounts" :disabled="readonly" @published="onPublished" />
                 <UploadStatus
                     :items="uploader.items"
                     :summary="uploader.summary.value"
@@ -523,5 +521,4 @@ function addFiles(files) {
         @close="selectedId = null"
     />
 
-    <PublishDialog v-model="publishOpen" :accounts="accounts" :assets="assets" @published="onPublished" />
 </template>

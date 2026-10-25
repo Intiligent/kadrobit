@@ -12,8 +12,9 @@ use App\Models\MarketplaceAccount;
  * Checks a work against a marketplace account before it is queued: the server side of
  * resources/js/utils/marketplaceRules.js, with the same rules and translation keys (library.checks.*).
  *
- * A blocker means the upload cannot happen at all (account off, type not accepted). Everything else is a warning:
- * the work is still sent, since the user submits it in the marketplace's portal and can fix it there.
+ * A blocker means the upload cannot happen at all (account off, type not accepted). An error is a file the marketplace
+ * rejects on upload (resolution, size): editing metadata cannot fix it, so the pair is not sent. Everything else is a
+ * warning: the work is still sent, since the user submits it in the marketplace's portal and can fix it there.
  */
 class ListingChecks
 {
@@ -50,7 +51,7 @@ class ListingChecks
             return new ListingCheck($blocker);
         }
 
-        $warnings = $this->fileWarnings($asset, $marketplace->file_rules[$asset->type->value] ?? null);
+        [$warnings, $errors] = $this->fileChecks($asset, $marketplace->file_rules[$asset->type->value] ?? null);
 
         if ($asset->is_ai_generated && ($rules['accepts_ai_generated'] ?? true) === false) {
             $warnings[] = $this->warning('ai_not_accepted');
@@ -64,7 +65,7 @@ class ListingChecks
 
         // Metadata entered in the marketplace's own portal: nothing more to check on our side.
         if ($marketplace->metadata_delivery === MetadataDelivery::Manual) {
-            return new ListingCheck(warnings: $warnings);
+            return new ListingCheck(warnings: $warnings, errors: $errors);
         }
 
         $count = count($asset->keywords ?? []);
@@ -83,7 +84,7 @@ class ListingChecks
             $warnings[] = $this->warning('categories_min');
         }
 
-        return new ListingCheck(warnings: $warnings);
+        return new ListingCheck(warnings: $warnings, errors: $errors);
     }
 
     /**
@@ -100,16 +101,18 @@ class ListingChecks
 
     /**
      * Format, resolution and size of the original, from marketplaces.file_rules for the work's type.
+     * A format is a warning (Kadrobit may convert the file one day); resolution and size are errors.
      *
-     * @return list<array{key: string, params: array<string, mixed>}>
+     * @return array{0: list<array{key: string, params: array<string, mixed>}>, 1: list<array{key: string, params: array<string, mixed>}>} Warnings and errors
      */
-    protected function fileWarnings(Asset $asset, ?array $rules): array
+    protected function fileChecks(Asset $asset, ?array $rules): array
     {
         if (! $rules) {
-            return [];
+            return [[], []];
         }
 
         $warnings = [];
+        $errors = [];
         $original = $asset->file(AssetFileRole::Original);
         $format = self::FORMATS[$original?->mime] ?? null;
 
@@ -126,19 +129,19 @@ class ListingChecks
             $params = ['width' => $width, 'height' => $height, 'mp' => floor($pixels / 100_000) / 10];
 
             if (($rules['min_megapixels'] ?? null) && $pixels < $rules['min_megapixels'] * 1_000_000) {
-                $warnings[] = $this->warning('resolution_min', [...$params, 'min' => $rules['min_megapixels']]);
+                $errors[] = $this->warning('resolution_min', [...$params, 'min' => $rules['min_megapixels']]);
             } elseif (($rules['max_megapixels'] ?? null) && $pixels > $rules['max_megapixels'] * 1_000_000) {
-                $warnings[] = $this->warning('resolution_max', [...$params, 'max' => $rules['max_megapixels']]);
+                $errors[] = $this->warning('resolution_max', [...$params, 'max' => $rules['max_megapixels']]);
             }
         }
 
         $size = $original?->size_bytes;
 
         if ($size && ($rules['max_file_mb'] ?? null) && $size > $rules['max_file_mb'] * 1024 * 1024) {
-            $warnings[] = $this->warning('file_too_large', ['size' => round($size / 104_857.6) / 10, 'max' => $rules['max_file_mb']]);
+            $errors[] = $this->warning('file_too_large', ['size' => round($size / 104_857.6) / 10, 'max' => $rules['max_file_mb']]);
         }
 
-        return $warnings;
+        return [$warnings, $errors];
     }
 
     /**

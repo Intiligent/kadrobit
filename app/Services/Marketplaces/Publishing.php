@@ -2,6 +2,7 @@
 
 namespace App\Services\Marketplaces;
 
+use App\Enums\AssetFileRole;
 use App\Enums\AssetStatus;
 use App\Enums\ListingStatus;
 use App\Jobs\PublishListings;
@@ -26,18 +27,19 @@ class Publishing
     public function __construct(protected ListingChecks $checks) {}
 
     /**
-     * What the next batch would send, per connected account: for the confirmation dialog and the publish button.
+     * What the next batch would send: per connected account (the account list of the publish popover) and per ready
+     * work, with the checks of every pair the batch can still send (its work list).
      *
-     * @return array{works: int, accounts: list<array{account: int, blocked: ?string, works: int, unsupported: int, warnings: list<array{asset: string, warnings: list<array>}>}>}
+     * @return array{works: int, accounts: list<array{account: int, blocked: ?string, works: int, unsupported: int, warnings: list<array{asset: string, warnings: list<array>}>}>, items: list<array<string, mixed>>}
      */
     public function summary(User $user): array
     {
         $works = $this->readyWorks($user);
+        $plans = $this->accounts($user)->map(fn (MarketplaceAccount $account) => $this->plan($works, $account));
 
         return [
             'works' => $works->count(),
-            'accounts' => $this->accounts($user)
-                ->map(fn (MarketplaceAccount $account) => $this->plan($works, $account))
+            'accounts' => $plans
                 ->map(fn (array $plan) => [
                     'account' => $plan['account']->id,
                     'blocked' => $plan['blocked'],
@@ -51,6 +53,7 @@ class Publishing
                 ])
                 ->values()
                 ->all(),
+            'items' => $works->map(fn (Asset $asset) => $this->item($asset, $plans))->values()->all(),
         ];
     }
 
@@ -58,25 +61,37 @@ class Publishing
      * Queues the batch for the given accounts of the user and starts a session for each one that got work.
      * Accounts that are turned off or lost their sign-in are skipped.
      *
+     * With `$pairs`, only those work–account pairs are queued: the ones left ticked in the publish popover. A pair the
+     * batch cannot send (already queued or sent, rejected by the checks, someone else's) is skipped.
+     *
      * @param  list<int>  $accountIds
+     * @param  list<array{asset: string, account: int}>|null  $pairs  Asset ulid and account id
      * @return array<int, int> Listings queued, by account id: only those this request queued itself
      */
-    public function queue(User $user, array $accountIds): array
+    public function queue(User $user, array $accountIds, ?array $pairs = null): array
     {
         $works = $this->readyWorks($user);
         $queued = [];
+        $wanted = $pairs === null ? null : collect($pairs)->mapWithKeys(fn (array $pair) => ["{$pair['asset']}|{$pair['account']}" => true]);
+
+        if ($pairs !== null) {
+            $accountIds = array_values(array_unique(array_column($pairs, 'account')));
+        }
 
         foreach ($this->accounts($user)->whereIn('id', $accountIds) as $account) {
             $plan = $this->plan($works, $account);
+            $items = $wanted === null
+                ? $plan['items']
+                : array_values(array_filter($plan['items'], fn (array $item) => $wanted->has("{$item['asset']->ulid}|{$account->id}")));
 
-            if ($plan['blocked'] || ! $plan['items']) {
+            if ($plan['blocked'] || ! $items) {
                 continue;
             }
 
-            $count = DB::transaction(function () use ($account, $plan) {
+            $count = DB::transaction(function () use ($account, $items) {
                 $count = 0;
 
-                foreach ($plan['items'] as ['asset' => $asset, 'check' => $check, 'listing' => $listing]) {
+                foreach ($items as ['asset' => $asset, 'check' => $check, 'listing' => $listing]) {
                     $attributes = [
                         'status' => ListingStatus::Queued,
                         'warnings' => $check->warnings,
@@ -286,6 +301,40 @@ class Publishing
     }
 
     /**
+     * A ready work for the publish popover: what its row shows, and the checks on every account the batch can still
+     * send it to. Blocked accounts and accounts that already have the work (queued, on its way, sent) are left out.
+     *
+     * @param  Collection<int, array>  $plans
+     * @return array<string, mixed>
+     */
+    protected function item(Asset $asset, Collection $plans): array
+    {
+        $thumbnail = $asset->file(AssetFileRole::Thumbnail) ?? $asset->file(AssetFileRole::Preview);
+
+        return [
+            'asset' => $asset->ulid,
+            'title' => $asset->title ?? '',
+            'original_filename' => $asset->original_filename,
+            'type' => $asset->type->value,
+            'width' => $asset->width,
+            'height' => $asset->height,
+            'duration_ms' => $asset->duration_ms,
+            'size_bytes' => $asset->file(AssetFileRole::Original)?->size_bytes,
+            'keywords' => count($asset->keywords ?? []),
+            'thumbnail_url' => $thumbnail?->url(),
+            'accounts' => $plans
+                ->filter(fn (array $plan) => isset($plan['checks'][$asset->id]))
+                ->map(fn (array $plan) => [
+                    'account' => $plan['account']->id,
+                    'errors' => $plan['checks'][$asset->id]->rejections(),
+                    'warnings' => $plan['checks'][$asset->id]->warnings,
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
      * @return Collection<int, Asset>
      */
     protected function readyWorks(User $user): Collection
@@ -302,14 +351,16 @@ class Publishing
     }
 
     /**
-     * Works of the batch for one account with their checks, and why the account takes none.
+     * Works of the batch for one account with their checks, and why the account takes none. `unsupported` counts the
+     * works it will not take (type, file limits); `checks` has every pair the batch could still send, rejected ones
+     * included, by asset id.
      *
      * @param  Collection<int, Asset>  $works
-     * @return array{account: MarketplaceAccount, blocked: ?string, unsupported: int, items: list<array{asset: Asset, check: ListingCheck, listing: ?AssetListing}>}
+     * @return array{account: MarketplaceAccount, blocked: ?string, unsupported: int, items: list<array{asset: Asset, check: ListingCheck, listing: ?AssetListing}>, checks: array<int, ListingCheck>}
      */
     protected function plan(Collection $works, MarketplaceAccount $account): array
     {
-        $plan = ['account' => $account, 'blocked' => $this->checks->accountBlocker($account), 'unsupported' => 0, 'items' => []];
+        $plan = ['account' => $account, 'blocked' => $this->checks->accountBlocker($account), 'unsupported' => 0, 'items' => [], 'checks' => []];
 
         if ($plan['blocked']) {
             return $plan;
@@ -324,6 +375,7 @@ class Publishing
             }
 
             $check = $this->checks->check($asset, $account);
+            $plan['checks'][$asset->id] = $check;
 
             if ($check->sendable()) {
                 $plan['items'][] = ['asset' => $asset, 'check' => $check, 'listing' => $listing];

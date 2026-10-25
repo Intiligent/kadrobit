@@ -9,9 +9,9 @@ const props = defineProps({
     // Connected marketplace accounts
     accounts: { type: Number, default: 0 },
     disabled: { type: Boolean, default: false },
+    // The publish popover is open: its own content says the rest, the tooltip would cover it.
+    active: { type: Boolean, default: false },
 });
-
-const emit = defineEmits(['open']);
 
 const off = computed(() => props.disabled || !props.count || !props.accounts);
 
@@ -29,11 +29,12 @@ const tooltip = computed(() => {
 </script>
 
 <template>
-    <el-tooltip :content="tooltip" placement="bottom">
-        <!-- A wrapper: a disabled button gets no mouse events, and the tooltip must still say why. -->
+    <el-tooltip :content="tooltip" placement="bottom" :disabled="active">
+        <!-- A wrapper: a disabled button gets no mouse events, and the tooltip must still say why.
+             The click that opens the publish popover comes from its reference (PublishPopover.vue). -->
         <span class="inline-flex">
             <el-badge :value="count" :hidden="off" :max="999" :offset="[-2, 2]">
-                <el-button type="danger" :disabled="off" :aria-label="tooltip" class="publish-button" @click="emit('open')">
+                <el-button type="danger" :disabled="off" :aria-label="tooltip" class="publish-button" :class="{ 'is-active': active }">
                     <Send :size="17" :stroke-width="1.9" />
                 </el-button>
             </el-badge>
@@ -47,6 +48,12 @@ const tooltip = computed(() => {
     width: var(--el-component-size);
     height: var(--el-component-size);
     padding: 0;
+
+    // Pressed while its popover is open.
+    &.is-active {
+        background: var(--el-color-danger-dark-2);
+        border-color: var(--el-color-danger-dark-2);
+    }
 }
 
 // The count sits on a red button: dark, with an outline, so it does not merge into it.

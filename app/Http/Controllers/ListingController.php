@@ -28,16 +28,25 @@ class ListingController extends Controller
     }
 
     /**
-     * Sends the batch to the chosen accounts. Pairs already queued, on their way or sent are left as they are.
+     * Sends the batch: to the chosen accounts, or only the chosen work–account pairs (the publish popover).
+     * Pairs already queued, on their way or sent are left as they are.
      */
     public function publish(Request $request): JsonResponse
     {
-        $accounts = $request->validate([
-            'accounts' => ['required', 'array', 'min:1'],
+        $data = $request->validate([
+            'accounts' => ['required_without:pairs', 'array', 'min:1'],
             'accounts.*' => ['integer'],
-        ])['accounts'];
+            'pairs' => ['required_without:accounts', 'array', 'min:1', 'max:10000'],
+            'pairs.*.asset' => ['required', 'string', 'max:26'],
+            'pairs.*.account' => ['required', 'integer'],
+        ]);
 
-        $queued = $this->publishing->queue($request->user(), array_map('intval', $accounts));
+        $queued = isset($data['pairs'])
+            ? $this->publishing->queue($request->user(), [], array_map(
+                fn (array $pair) => ['asset' => $pair['asset'], 'account' => (int) $pair['account']],
+                $data['pairs'],
+            ))
+            : $this->publishing->queue($request->user(), array_map('intval', $data['accounts']));
 
         return response()->json(['data' => [
             // By account id; an object even when empty.
@@ -59,7 +68,8 @@ class ListingController extends Controller
 
     /**
      * Queues a failed or cancelled listing again. Only for a ready work (one moved out of the batch would be
-     * cancelled at once), and not for an account that is turned off or lost its sign-in.
+     * cancelled at once), not for an account that is turned off or lost its sign-in, and not for a file the
+     * marketplace rejects (resolution, size).
      */
     public function retry(Request $request, string $listing, ListingChecks $checks): AssetListingResource
     {
@@ -72,7 +82,9 @@ class ListingController extends Controller
         $check = $checks->check($listing->asset->load('files'), $listing->account);
 
         if (! $check->sendable()) {
-            throw new ExceptionWithMessage(__("library.checks.{$check->blocker}"), 409);
+            $reason = $check->rejections()[0];
+
+            throw new ExceptionWithMessage(__("library.checks.{$reason['key']}", $reason['params']), 409);
         }
 
         if (! $this->publishing->retry($listing, $check)) {

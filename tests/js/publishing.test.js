@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
-    batchRows,
+    batchAccounts,
     canCancel,
     canRetry,
-    defaultSelection,
+    defaultAccounts,
     hasPendingListings,
     listingFor,
     listingState,
     nextSteps,
+    pairKey,
+    pairState,
+    publishTotals,
     readyCount,
-    selectionTotals,
+    workRows,
 } from '../../resources/js/utils/publishing';
 
 const connection = (id, code, rules = {}) => ({ id, label: code, marketplace: { code, name: code, metadata_rules: rules } });
@@ -18,16 +21,32 @@ const accounts = [
     connection(1, 'shutterstock', { csv_upload: 'web', submit: 'web' }),
     connection(2, 'alamy'),
     connection(3, 'adobe_stock', { submit: 'web' }),
+    connection(4, 'dreamstime'),
+    connection(5, 'pond5'),
 ];
+
+const warning = { key: 'categories_min', params: {} };
+const error = { key: 'resolution_min', params: { mp: 3.1, min: 4 } };
 
 const summary = {
     works: 3,
     accounts: [
-        { account: 1, blocked: null, works: 3, unsupported: 0, warnings: [{ asset: 'a', warnings: [{ key: 'keywords_min', params: {} }] }] },
-        { account: 2, blocked: null, works: 2, unsupported: 1, warnings: [{ asset: 'a', warnings: [] }, { asset: 'b', warnings: [] }] },
+        { account: 1, blocked: null, works: 2, unsupported: 1, warnings: [] },
+        { account: 2, blocked: null, works: 3, unsupported: 0, warnings: [] },
         { account: 3, blocked: 'invalid_credentials', works: 0, unsupported: 0, warnings: [] },
+        // Every file rejected: still picked, so the reasons show
+        { account: 4, blocked: null, works: 0, unsupported: 1, warnings: [] },
+        // Everything sent already
+        { account: 5, blocked: null, works: 0, unsupported: 0, warnings: [] },
         // Gone from the page's accounts meanwhile
         { account: 9, blocked: null, works: 1, unsupported: 0, warnings: [] },
+    ],
+    items: [
+        { asset: 'a', accounts: [{ account: 1, errors: [error], warnings: [warning] }, { account: 2, errors: [], warnings: [] }] },
+        { asset: 'b', accounts: [{ account: 1, errors: [], warnings: [warning] }, { account: 2, errors: [], warnings: [] }] },
+        { asset: 'c', accounts: [{ account: 1, errors: [], warnings: [] }, { account: 2, errors: [], warnings: [] }] },
+        // Sent everywhere already
+        { asset: 'd', accounts: [] },
     ],
 };
 
@@ -65,22 +84,44 @@ describe('ready works and listings', () => {
     });
 });
 
-describe('publish dialog', () => {
-    const rows = batchRows(summary, accounts);
+describe('publish popover', () => {
+    const rows = batchAccounts(summary, accounts);
+    const all = new Set(['a', 'b', 'c', 'd']);
 
-    it('lists the summary accounts still connected and tells which can be picked', () => {
-        expect(rows.map((row) => [row.account, row.selectable])).toEqual([[1, true], [2, true], [3, false]]);
+    it('lists the summary accounts still connected and picks every one the batch can go to', () => {
+        expect(rows.map((row) => [row.account, row.selectable])).toEqual([[1, true], [2, true], [3, false], [4, true], [5, false]]);
         expect(rows[0].connection.marketplace.code).toBe('shutterstock');
+        expect(defaultAccounts(rows)).toEqual([1, 2, 4]);
     });
 
-    it('picks every account the batch can go to', () => {
-        expect(defaultSelection(rows)).toEqual([1, 2]);
+    it('never sends a rejected file, and sends the rest unless unticked', () => {
+        expect(pairState({ errors: [error], warnings: [] }, false)).toBe('error');
+        expect(pairState({ errors: [error], warnings: [] }, true)).toBe('error');
+        expect(pairState({ errors: [], warnings: [warning] }, true)).toBe('skipped');
+        expect(pairState({ errors: [], warnings: [warning] }, false)).toBe('warning');
+        expect(pairState({ errors: [], warnings: [] }, false)).toBe('ok');
     });
 
-    it('adds up uploads and counts each work with warnings once', () => {
-        expect(selectionTotals(rows, [1, 2])).toEqual({ listings: 5, warned: 2 });
-        expect(selectionTotals(rows, [1])).toEqual({ listings: 3, warned: 1 });
-        expect(selectionTotals(rows, [])).toEqual({ listings: 0, warned: 0 });
+    it('shows each work with its pairs on the picked accounts', () => {
+        const works = workRows(summary, [1, 2], all, new Set());
+
+        expect(works.map((w) => [w.item.asset, w.sending, w.total])).toEqual([['a', 1, 2], ['b', 2, 2], ['c', 2, 2], ['d', 0, 0]]);
+        expect(works[0].pairs.map((p) => p.state)).toEqual(['error', 'ok']);
+        expect(works[3].selectable).toBe(false);
+        expect(workRows(summary, [2], all, new Set())[0].pairs.map((p) => p.account)).toEqual([2]);
+    });
+
+    it('adds up the footer over ticked works and leaves rejected and unticked pairs out', () => {
+        const totals = publishTotals(workRows(summary, [1, 2], all, new Set()));
+
+        expect([totals.ok, totals.warning, totals.error]).toEqual([4, 1, 1]);
+        expect(totals.pairs).toHaveLength(5);
+        expect(totals.pairs).not.toContainEqual({ asset: 'a', account: 1 });
+
+        const fewer = publishTotals(workRows(summary, [1, 2], new Set(['a', 'b']), new Set([pairKey('b', 1)])));
+
+        expect([fewer.ok, fewer.warning, fewer.error]).toEqual([2, 0, 1]);
+        expect(fewer.pairs).toEqual([{ asset: 'a', account: 2 }, { asset: 'b', account: 2 }]);
     });
 
     it('names what is left on each marketplace that got work', () => {

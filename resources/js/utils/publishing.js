@@ -1,7 +1,7 @@
 /**
  * Publishing to marketplaces (docs/publishing.md): the batch of ready works and the deliveries of a work
  * (asset.listings, App\Http\Resources\AssetListingResource). Pure functions for the toolbar button, the publish
- * dialog, the cards and the Marketplace tab.
+ * popover, the cards and the Marketplace tab.
  */
 
 /** In the queue or on its way: the work is refetched until it is over. */
@@ -36,31 +36,89 @@ export const canRetry = (listing, asset) => ['failed', 'cancelled'].includes(lis
  */
 export const listingFor = (asset, accountId) => (asset.listings ?? []).find((listing) => listing.account_id === accountId) ?? null;
 
+/* Publish popover. Its data is the batch summary (GET /api/listings/batch): `accounts` per connected account,
+   `items` per ready work with the checks of every pair the batch can still send. */
+
+export const pairKey = (asset, account) => `${asset}|${account}`;
+
 /**
- * Rows of the publish dialog: the accounts of the batch summary (GET /api/listings/batch) with their connection.
- * An account can be picked when it is not blocked and gets at least one work.
+ * Accounts of the summary still connected on the page. One can be picked when it is not blocked and the batch
+ * still has a pair for it, even one it will not send: picking it shows why its files are rejected.
  */
-export function batchRows(summary, accounts) {
+export function batchAccounts(summary, accounts) {
     return summary.accounts
         .map((row) => ({ ...row, connection: accounts.find((account) => account.id === row.account) }))
         .filter((row) => row.connection)
-        .map((row) => ({ ...row, selectable: !row.blocked && row.works > 0 }));
+        .map((row) => ({ ...row, selectable: !row.blocked && row.works + row.unsupported > 0 }));
 }
 
-/** Picked by default: every account the batch can go to. */
-export const defaultSelection = (rows) => rows.filter((row) => row.selectable).map((row) => row.account);
+/** Picked by default: every account the batch has pairs for. */
+export const defaultAccounts = (rows) => rows.filter((row) => row.selectable).map((row) => row.account);
 
 /**
- * Works that go out with the chosen accounts, each counted once; and how many of them have warnings somewhere.
+ * How one pair is shown and whether it goes out: a file the marketplace rejects never does ('error'); one the user
+ * unticked does not ('skipped'); the rest go out, with or without warnings.
  */
-export function selectionTotals(rows, selected) {
-    const chosen = rows.filter((row) => selected.includes(row.account));
-    const warned = new Set(chosen.flatMap((row) => row.warnings.map((item) => item.asset)));
+export function pairState(pair, skipped) {
+    if (pair.errors.length) {
+        return 'error';
+    }
 
-    return {
-        listings: chosen.reduce((sum, row) => sum + row.works, 0),
-        warned: warned.size,
-    };
+    if (skipped) {
+        return 'skipped';
+    }
+
+    return pair.warnings.length ? 'warning' : 'ok';
+}
+
+/**
+ * Rows of the work list: each ready work with its pairs on the picked accounts.
+ * `sending` of `total` is what the row's summary shows.
+ *
+ * @param {object} summary
+ * @param {number[]} accounts Picked account ids
+ * @param {Set<string>} works Ulids of the ticked works
+ * @param {Set<string>} skipped pairKey()s the user unticked
+ */
+export function workRows(summary, accounts, works, skipped) {
+    return summary.items.map((item) => {
+        const pairs = item.accounts
+            .filter((pair) => accounts.includes(pair.account))
+            .map((pair) => ({ ...pair, state: pairState(pair, skipped.has(pairKey(item.asset, pair.account))) }));
+
+        return {
+            item,
+            pairs,
+            chosen: works.has(item.asset),
+            // A work the batch has nothing left for (all sent) cannot be ticked.
+            selectable: item.accounts.length > 0,
+            sending: pairs.filter((pair) => pair.state === 'ok' || pair.state === 'warning').length,
+            total: pairs.length,
+        };
+    });
+}
+
+/**
+ * Totals of the footer over the ticked works, and the pairs to send (POST /api/listings/batch, `pairs`).
+ */
+export function publishTotals(rows) {
+    const totals = { ok: 0, warning: 0, error: 0, pairs: [] };
+
+    for (const row of rows.filter((r) => r.chosen)) {
+        for (const pair of row.pairs) {
+            if (pair.state === 'skipped') {
+                continue;
+            }
+
+            totals[pair.state]++;
+
+            if (pair.state !== 'error') {
+                totals.pairs.push({ asset: row.item.asset, account: pair.account });
+            }
+        }
+    }
+
+    return totals;
 }
 
 /**

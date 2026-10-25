@@ -118,37 +118,109 @@ class PublishingTest extends TestCase
             'description' => '',
             'keywords' => ['glacier', 'lagoon'],
             'is_ai_generated' => true,
-            'width' => 1000,
-            'height' => 1000,
         ], 'image/png');
         $this->work(['type' => 'video', 'width' => 1920, 'height' => 1080], 'video/mp4');
+        // Under the Shutterstock minimum of 4 MP: rejected there, fine on Alamy.
+        $this->work(['width' => 1000, 'height' => 1000]);
         $this->work(['status' => AssetStatus::Draft]);
 
         $summary = $this->getJson('/api/listings/batch')->assertOk()->json('data');
 
-        $this->assertSame(3, $summary['works']);
+        $this->assertSame(4, $summary['works']);
 
         $shutter = $this->accountSummary($summary, $shutterstock);
         $this->assertNull($shutter['blocked']);
         $this->assertSame(3, $shutter['works']);
-        $this->assertSame(0, $shutter['unsupported']);
+        $this->assertSame(1, $shutter['unsupported']);
         $this->assertSame([$weak->ulid], array_column($shutter['warnings'], 'asset'));
         $this->assertSame(
-            ['format', 'resolution_min', 'ai_not_accepted', 'description_required', 'keywords_min'],
+            ['format', 'ai_not_accepted', 'description_required', 'keywords_min'],
             array_column($shutter['warnings'][0]['warnings'], 'key'),
         );
         $this->assertSame(['format' => 'PNG', 'formats' => 'JPEG, TIFF'], $shutter['warnings'][0]['warnings'][0]['params']);
-        $this->assertSame(['min' => 7, 'count' => 2], $shutter['warnings'][0]['warnings'][4]['params']);
+        $this->assertSame(['min' => 7, 'count' => 2], $shutter['warnings'][0]['warnings'][3]['params']);
 
         // Alamy takes no video and needs a title, not a description.
         $alamySummary = $this->accountSummary($summary, $alamy);
-        $this->assertSame(2, $alamySummary['works']);
+        $this->assertSame(3, $alamySummary['works']);
         $this->assertSame(1, $alamySummary['unsupported']);
         $this->assertNotContains('description_required', array_column($alamySummary['warnings'][0]['warnings'] ?? [], 'key'));
 
         $this->assertSame('disabled', $this->accountSummary($summary, $off)['blocked']);
         $this->assertSame(0, $this->accountSummary($summary, $off)['works']);
         $this->assertNotNull($good);
+    }
+
+    public function test_batch_summary_lists_each_ready_work_with_the_checks_of_its_pairs(): void
+    {
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        $small = $this->work(['width' => 1000, 'height' => 1000, 'keywords' => ['glacier', 'lagoon']]);
+        $sent = $this->work();
+        $this->listing($sent, $alamy, ['status' => ListingStatus::Sent]);
+
+        $items = collect($this->getJson('/api/listings/batch')->assertOk()->json('data.items'))->keyBy('asset');
+
+        $item = $items[$small->ulid];
+        $this->assertSame($small->original_filename, $item['original_filename']);
+        $this->assertSame(1_000_000, $item['size_bytes']);
+        $this->assertSame(2, $item['keywords']);
+
+        $pairs = collect($item['accounts'])->keyBy('account');
+        $this->assertSame(['resolution_min'], array_column($pairs[$shutterstock->id]['errors'], 'key'));
+        $this->assertSame(['keywords_min'], array_column($pairs[$shutterstock->id]['warnings'], 'key'));
+        $this->assertSame([], $pairs[$alamy->id]['errors']);
+
+        // Already sent to Alamy: only Shutterstock is left for this work.
+        $this->assertSame([$shutterstock->id], array_column($items[$sent->ulid]['accounts'], 'account'));
+    }
+
+    public function test_only_the_chosen_pairs_are_queued(): void
+    {
+        Queue::fake();
+        $shutterstock = $this->account();
+        $alamy = $this->account('alamy');
+        $first = $this->work();
+        $second = $this->work();
+
+        $this->postJson('/api/listings/batch', ['pairs' => [
+            ['asset' => $first->ulid, 'account' => $shutterstock->id],
+            ['asset' => $second->ulid, 'account' => $alamy->id],
+        ]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', [$shutterstock->id => 1, $alamy->id => 1]);
+
+        $this->assertSame([$shutterstock->id], $first->listings()->pluck('marketplace_account_id')->all());
+        $this->assertSame([$alamy->id], $second->listings()->pluck('marketplace_account_id')->all());
+    }
+
+    public function test_a_file_the_marketplace_rejects_is_not_queued_even_when_chosen(): void
+    {
+        Queue::fake();
+        $account = $this->account();
+        $small = $this->work(['width' => 1000, 'height' => 1000]);
+
+        $this->postJson('/api/listings/batch', ['pairs' => [['asset' => $small->ulid, 'account' => $account->id]]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', []);
+        $this->postJson('/api/listings/batch', ['accounts' => [$account->id]])
+            ->assertAccepted()
+            ->assertJsonPath('data.queued', []);
+
+        $this->assertSame(0, AssetListing::count());
+        Queue::assertNothingPushed();
+    }
+
+    public function test_a_failed_listing_of_a_file_the_marketplace_rejects_is_not_retried(): void
+    {
+        Queue::fake();
+        $asset = $this->work(['width' => 1000, 'height' => 1000]);
+        $listing = $this->listing($asset, $this->account(), ['status' => ListingStatus::Failed, 'error' => 'other']);
+
+        $this->postJson("/api/listings/{$listing->id}/retry")->assertConflict();
+
+        $this->assertSame(ListingStatus::Failed, $listing->refresh()->status);
+        Queue::assertNothingPushed();
     }
 
     public function test_publishing_sends_ready_works_in_one_session_and_marks_them_submitted(): void
@@ -415,7 +487,7 @@ class PublishingTest extends TestCase
 
     public function test_the_batch_needs_accounts(): void
     {
-        $this->postJson('/api/listings/batch', [])->assertUnprocessable()->assertJsonValidationErrors('accounts');
+        $this->postJson('/api/listings/batch', [])->assertUnprocessable()->assertJsonValidationErrors(['accounts', 'pairs']);
     }
 
     public function test_a_work_edited_after_sending_is_shown_as_outdated(): void

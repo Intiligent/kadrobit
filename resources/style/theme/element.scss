@@ -26,6 +26,20 @@
     transition: background-color 600000s 0s;
 }
 
+// ElCheckbox
+// Indeterminate bar back in the middle of the 16px box (theme/variables.scss). Element Plus: `top: 5px`, a fixed
+// value for its 14px box.
+// The small size keeps its own 12px box and `top: 4px`: its selector is more specific than this one.
+.el-checkbox .el-checkbox__input.is-indeterminate .el-checkbox__inner::before {
+    top: 6px;
+}
+
+// Checkmark 1px bolder. Element Plus draws it as the right and bottom border of `::after`, a fixed 1px.
+.el-checkbox .el-checkbox__inner::after {
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+}
+
 // ElMessage
 // Status icon 4px larger. Element Plus gives `.el-message__icon` no size: it inherits the page's 16px.
 .el-message .el-message__icon {
