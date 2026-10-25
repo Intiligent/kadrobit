@@ -96,3 +96,11 @@
         'padding-primary': 24px,
     ),
 );
+
+// Colours of the project beyond Element Plus' five (primary, success, warning, danger, info). Emitted as CSS
+// variables in theme/element.scss with the same shades Element Plus derives (light-9, dark-2).
+// `submitted`: a work sent to the marketplaces, out of the user's hands — neither the red of the brand nor the
+// green of "ready".
+$project-colors: (
+    'submitted': #3a70d0,
+);

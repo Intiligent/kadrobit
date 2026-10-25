@@ -45,7 +45,8 @@ const MODIFIER_KEY = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform |
 
 const TYPE_ICON = { photo: Image, video: Film, vector: PenTool, illustration: Sparkles };
 // Ready to publish is green, archived (next step: deleted) red, a draft neutral.
-const STATUS_TAG = { draft: 'info', ready: 'success', submitted: 'primary', archived: 'danger' };
+// Submitted has a project colour of its own (theme/variables.scss): the tag gets it from `.is-submitted` below.
+const STATUS_TAG = { draft: 'info', ready: 'success', archived: 'danger' };
 
 const subtitle = computed(() => {
     const a = props.asset;
@@ -104,7 +105,7 @@ const footNote = computed(() => {
             <div class="min-w-0 flex-1">
                 <div class="truncate font-semibold leading-5" :title="asset.original_filename">{{ asset.original_filename }}</div>
                 <div class="mt-1.5 flex items-center gap-1.5 text-[13px] leading-5 text-[var(--el-text-color-secondary)]">
-                    <el-tag size="small" round disable-transitions :type="STATUS_TAG[asset.status]">
+                    <el-tag size="small" round disable-transitions :type="STATUS_TAG[asset.status]" :class="{ 'is-submitted': asset.status === 'submitted' }">
                         {{ $t(`library.status.${asset.status}`) }}
                     </el-tag>
                     <span class="truncate">{{ subtitle }}</span>
@@ -208,6 +209,12 @@ const footNote = computed(() => {
 </template>
 
 <style scoped lang="scss">
+.el-tag.is-submitted {
+    color: var(--kb-color-submitted-dark-2);
+    background: var(--kb-color-submitted-light-9);
+    border-color: transparent;
+}
+
 .info-panel {
     display: flex;
     flex: none;

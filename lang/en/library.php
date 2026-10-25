@@ -333,7 +333,7 @@ return [
             'load_failed' => 'Could not load the works to publish. Try again in a minute.',
             'queued' => '{0} Nothing new to send|{1} :count upload is in the queue|[2,*] :count uploads are in the queue',
             'queued_hint' => 'Statuses update on the cards and in the Marketplaces tab of each work.',
-            'next_csv' => ':name: once the files appear in the upload area, upload the CSV with categories and submit them for review.',
+            'next_csv' => ':name: the description and keywords are in the files; once they appear in the upload area, choose categories and submit them for review.',
             'next_submit' => ':name: once the files appear in the upload area, submit them for review.',
         ],
         'status' => [
