@@ -11,6 +11,7 @@ use App\Models\Marketplace;
 use App\Models\MarketplaceCategory;
 use App\Models\User;
 use App\Support\Realtime;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -44,23 +45,30 @@ class AssetMetadataService
     }
 
     /**
-     * Queues filling for a work and marks it as generating, so the library shows it and waits for the notice.
-     * Inside a transaction the job is queued only once it commits.
+     * Queues filling for works and marks them as generating, so the library shows it and waits for the notice.
+     * One UPDATE for all of them; inside a transaction the jobs are queued only once it commits.
+     *
+     * @param  Asset|iterable<Asset>  $works
      */
-    public function queue(Asset $asset, GenerationTrigger $trigger): void
+    public function queue(Asset|iterable $works, GenerationTrigger $trigger): void
     {
-        $asset->forceFill(['metadata_generating_at' => now()])->save();
+        $works = $works instanceof Asset ? collect([$works]) : collect($works);
+        // The job's token: finish() clears the mark only if no later queue() has set it again.
+        $markedAt = now();
 
-        GenerateAssetMetadata::dispatch($asset, $trigger)->afterCommit();
+        Asset::query()->whereKey($works->map(fn (Asset $work) => $work->getKey())->all())->update(['metadata_generating_at' => $markedAt]);
+
+        $works->each(fn (Asset $work) => GenerateAssetMetadata::dispatch($work, $trigger, $markedAt)->afterCommit());
     }
 
     /**
-     * The queued generation is over, whatever the outcome: the mark goes and the user's browsers are told
-     * to fetch the work again.
+     * A queued generation is over, whatever the outcome: its mark goes (unless the work was queued again since)
+     * and the user's browsers are told to fetch the work again.
      */
-    public function finish(Asset $asset): void
+    public function finish(Asset $asset, CarbonInterface $markedAt): void
     {
-        Asset::query()->whereKey($asset->id)->update(['metadata_generating_at' => null]);
+        // With trashed works too: one deleted while queued must not stay marked if it is restored.
+        Asset::withTrashed()->whereKey($asset->id)->where('metadata_generating_at', '<=', $markedAt)->update(['metadata_generating_at' => null]);
 
         Realtime::changed($asset->user, 'asset', $asset->ulid, 'metadata');
     }

@@ -82,7 +82,7 @@ class AssetGenerationController extends Controller
             throw new GenerationLimitReached;
         }
 
-        $works->each(fn (Asset $work) => $this->metadata->queue($work, GenerationTrigger::Manual));
+        $this->metadata->queue($works, GenerationTrigger::Manual);
 
         return response()->json(['data' => ['queued' => $works->count()]], 202);
     }

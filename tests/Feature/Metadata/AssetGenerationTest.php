@@ -132,11 +132,13 @@ class AssetGenerationTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_a_second_job_for_the_same_work_is_dropped_not_released(): void
+    public function test_a_second_job_for_the_same_work_waits_and_is_limited_by_time_not_tries(): void
     {
-        $middleware = (new GenerateAssetMetadata($this->asset()))->middleware()[0];
+        $job = new GenerateAssetMetadata($this->asset());
 
-        $this->assertNull($middleware->releaseAfter);
+        $this->assertSame(30, $job->middleware()[0]->releaseAfter);
+        $this->assertSame(3, $job->maxExceptions);
+        $this->assertTrue($job->retryUntil()->isAfter(now()->addHours(2)));
     }
 
     public function test_without_a_provider_key_generation_on_request_is_unavailable(): void
@@ -350,15 +352,62 @@ class AssetGenerationTest extends TestCase
     public function test_a_queued_work_is_marked_until_the_job_finishes_and_the_user_is_told(): void
     {
         Event::fake([EntityChanged::class]);
+        Queue::fake();
         $this->fakeModel();
         $asset = $this->asset();
 
         app(AssetMetadataService::class)->queue($asset, GenerationTrigger::Manual);
 
-        // The sync queue has run the job already; before it, the work was marked.
+        $this->assertNotNull($asset->refresh()->metadata_generating_at);
+        $job = Queue::pushed(GenerateAssetMetadata::class)->sole();
+        app()->call([$job, 'handle']);
+
         $this->assertNull($asset->refresh()->metadata_generating_at);
         $this->assertSame(['sunset', 'ocean'], $asset->keywords);
         Event::assertDispatched(EntityChanged::class, fn ($event) => $event->type === 'asset' && $event->id === $asset->ulid && $event->reason === 'metadata');
+    }
+
+    public function test_a_job_leaves_the_mark_of_a_later_request_for_its_own_job(): void
+    {
+        Queue::fake();
+        Http::fake();
+        $asset = $this->asset(['title' => 'A', 'description' => 'B', 'keywords' => ['c']]);
+        $service = app(AssetMetadataService::class);
+
+        $service->queue($asset, GenerationTrigger::Upload);
+        $first = Queue::pushed(GenerateAssetMetadata::class)->sole();
+        $this->travel(5)->seconds();
+        $service->queue($asset, GenerationTrigger::Manual);
+
+        app()->call([$first, 'handle']);
+
+        // The second request is still queued: the work stays "generating".
+        $this->assertNotNull($asset->refresh()->metadata_generating_at);
+    }
+
+    public function test_a_work_in_the_trash_is_not_generated(): void
+    {
+        Event::fake([EntityChanged::class]);
+        Http::fake();
+        $asset = $this->asset();
+        $asset->forceFill(['metadata_generating_at' => now()])->save();
+        $asset->delete();
+
+        GenerateAssetMetadata::dispatchSync(Asset::withTrashed()->find($asset->id));
+
+        Http::assertNothingSent();
+        $this->assertSame(0, AssetGeneration::count());
+        $this->assertNull(Asset::withTrashed()->find($asset->id)->metadata_generating_at);
+    }
+
+    public function test_several_works_are_marked_at_once(): void
+    {
+        Queue::fake();
+        $works = [$this->asset(), $this->asset()];
+
+        $this->postJson('/api/assets/generations', ['assets' => [$works[0]->ulid, $works[1]->ulid]])->assertAccepted();
+
+        $this->assertSame(2, Asset::query()->whereNotNull('metadata_generating_at')->count());
     }
 
     public function test_the_mark_shows_as_pending_and_a_stale_one_does_not(): void
@@ -382,7 +431,7 @@ class AssetGenerationTest extends TestCase
         $asset = $this->asset();
         $asset->forceFill(['metadata_generating_at' => now()])->save();
 
-        GenerateAssetMetadata::dispatchSync($asset);
+        GenerateAssetMetadata::dispatchSync($asset, GenerationTrigger::Upload, now());
 
         $this->assertNull($asset->refresh()->metadata_generating_at);
         Event::assertDispatched(EntityChanged::class);
@@ -394,7 +443,7 @@ class AssetGenerationTest extends TestCase
         $asset = $this->asset();
         $asset->forceFill(['metadata_generating_at' => now()])->save();
 
-        (new GenerateAssetMetadata($asset))->failed(new RuntimeException('Invalid model'));
+        (new GenerateAssetMetadata($asset, GenerationTrigger::Upload, now()))->failed(new RuntimeException('Invalid model'));
 
         $this->assertNull($asset->refresh()->metadata_generating_at);
         Event::assertDispatched(EntityChanged::class);

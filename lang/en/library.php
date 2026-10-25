@@ -171,6 +171,7 @@ return [
     'checks' => [
         'intro' => 'Base metadata goes to every marketplace. Each one checks it against its own rules.',
         'none' => 'Connect a marketplace to see its requirements.',
+        'connect' => 'Connect a marketplace',
         'invalid_credentials' => 'Sign-in failed on the last check. Reconnect the account to publish.',
         'disabled' => 'Turned off in marketplace settings',
         'unsupported_type' => 'Does not accept this type of work',

@@ -54,6 +54,8 @@ class AssetResource extends JsonResource
             'thumbnail_url' => $thumbnail?->url(),
             'preview_url' => $preview?->url(),
             'created_at' => $this->created_at?->toIso8601String(),
+            // Lets the library skip a version older than the one it shows (responses may arrive out of order).
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }

@@ -45,7 +45,7 @@ class Asset extends Model
     use HasUlids, SoftDeletes;
 
     /** See isGeneratingMetadata(). */
-    public const GENERATING_STALE_MINUTES = 20;
+    public const GENERATING_STALE_MINUTES = 120;
 
     protected $fillable = [
         'folder_id',
@@ -123,8 +123,9 @@ class Asset extends Model
     }
 
     /**
-     * A generation is queued or running. One that has not finished in GENERATING_STALE_MINUTES is taken as lost
-     * (a worker killed mid-job), so the library does not wait for it forever.
+     * A generation is queued or running. One that has not finished GENERATING_STALE_MINUTES after it was queued is
+     * taken as lost (a worker killed mid-job), so the library does not wait for it forever. Generous, because a large
+     * upload waits in the queue: 200 works on two workers take about half an hour.
      */
     public function isGeneratingMetadata(): bool
     {

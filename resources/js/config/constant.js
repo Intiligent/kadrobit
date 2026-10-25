@@ -31,9 +31,11 @@ export const SETTINGS_METADATA_URL = '/settings/metadata';
 export const USER_SETTINGS_API_URL = '/api/settings';
 export const MARKETPLACE_ACCOUNTS_API_URL = '/api/marketplace-accounts';
 
-// Real-time notices (core/realtime.js): channel authorization, and the poll that replaces them without Pusher (ms)
+// Real-time notices (core/realtime.js): channel authorization; the poll that replaces them without a connection,
+// and the rarer one that catches a lost notice while connected (ms)
 export const BROADCASTING_AUTH_URL = '/broadcasting/auth';
 export const REALTIME_FALLBACK_POLL_INTERVAL = 5000;
+export const REALTIME_SAFETY_POLL_INTERVAL = 20000;
 
 // Uploads: files sent at once, and how often a batch's processing is polled (ms)
 export const ASSET_UPLOAD_CONCURRENCY = 3;
