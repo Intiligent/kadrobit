@@ -80,6 +80,21 @@ class MarketplaceAccountTest extends TestCase
         $this->assertStringNotContainsString(self::PASSWORD, $response->getContent());
     }
 
+    public function test_connected_account_links_to_the_contributor_portal(): void
+    {
+        $this->account();
+
+        $this->actingAs($this->user, 'web')->get('/settings/marketplaces')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('accounts.0.marketplace.contributor_url', 'https://submit.shutterstock.com/'));
+    }
+
+    public function test_every_marketplace_has_a_contributor_portal(): void
+    {
+        $this->assertSame(0, Marketplace::whereNull('contributor_url')->count());
+    }
+
     public function test_marketplace_is_connected_after_a_successful_sign_in(): void
     {
         // No server sent: the marketplace default is used.

@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Storage;
  * @property string $name
  * @property string|null $logo Path on the "public" disk (storage/app/public), e.g. marketplaces/adobe_stock.svg
  * @property-read string|null $logo_url
+ * @property string|null $contributor_url The contributor's own area on the marketplace site
  * @property bool $is_active
  * @property Collection<int, MediaType> $supported_types
  * @property UploadProtocol $upload_protocol
@@ -35,6 +36,7 @@ class Marketplace extends Model
         'code',
         'name',
         'logo',
+        'contributor_url',
         'is_active',
         'supported_types',
         'upload_protocol',

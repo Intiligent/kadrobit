@@ -1,6 +1,6 @@
 <script setup>
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
-import { Trash2 } from 'lucide-vue-next';
+import { ExternalLink, Trash2 } from 'lucide-vue-next';
 import MarketplaceLogo from '@/components/settings/MarketplaceLogo.vue';
 import { connectionState as state } from '@/utils/marketplaceConnection';
 import { formatRelative } from '@/utils/relativeTime';
@@ -65,6 +65,19 @@ const subline = (account) => [
                     <span class="truncate font-semibold">{{ account.label }}</span>
                     <el-tooltip v-if="account.marketplace.upload_protocol === 'ftp'" :content="$t('settings.marketplaces.plain_ftp_hint')">
                         <el-tag type="warning" size="small" round class="flex-none">{{ $t('settings.marketplaces.plain_ftp') }}</el-tag>
+                    </el-tooltip>
+                    <el-tooltip v-if="account.marketplace.contributor_url" :content="$t('settings.marketplaces.portal_hint', { name: account.marketplace.name })">
+                        <el-link
+                            :href="account.marketplace.contributor_url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            type="primary"
+                            underline="never"
+                            class="flex-none !text-xs"
+                        >
+                            {{ $t('settings.marketplaces.portal') }}
+                            <ExternalLink :size="12" :stroke-width="2" class="ml-0.5" />
+                        </el-link>
                     </el-tooltip>
                 </div>
                 <p class="truncate text-xs leading-[18px] text-[var(--el-text-color-secondary)]">{{ subline(account) }}</p>

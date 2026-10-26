@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('code')->unique();
             $table->string('name');
             $table->string('logo')->nullable();
+            $table->string('contributor_url')->nullable();
             $table->boolean('is_active')->default(true);
             $table->jsonb('supported_types')->default('[]');
             $table->enum('upload_protocol', array_column(UploadProtocol::cases(), 'value'));

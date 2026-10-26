@@ -68,6 +68,8 @@ return [
         'unsupported' => ':names accept uploads only through their own websites, so they can\'t be connected.',
         'plain_ftp' => 'Unencrypted FTP',
         'plain_ftp_hint' => 'This marketplace accepts only plain FTP',
+        'portal' => 'Portal',
+        'portal_hint' => 'Open your :name contributor account',
 
         'security' => [
             'summary' => 'Passwords are encrypted before they are saved and can\'t be viewed again, even by you. Only the upload service decrypts them, at the moment it sends files.',

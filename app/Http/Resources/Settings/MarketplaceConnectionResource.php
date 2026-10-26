@@ -34,6 +34,7 @@ class MarketplaceConnectionResource extends JsonResource
                 'code' => $this->marketplace->code,
                 'name' => $this->marketplace->name,
                 'logo_url' => $this->marketplace->logo_url,
+                'contributor_url' => $this->marketplace->contributor_url,
                 'upload_protocol' => $this->marketplace->upload_protocol->value,
             ],
         ];
