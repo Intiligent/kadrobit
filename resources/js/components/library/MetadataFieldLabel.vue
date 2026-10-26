@@ -8,12 +8,15 @@ defineProps({
 
 <template>
     <span class="flex w-full items-center justify-between gap-2">
-        <span>{{ label }}</span>
-        <span class="flex items-center gap-2 font-normal">
-            <slot />
+        <span class="flex items-center gap-2">
+            {{ label }}
             <el-tooltip v-if="generated" :content="$t('library.generation.ai_hint')" placement="top-end">
                 <span class="field-label__ai">AI</span>
             </el-tooltip>
+        </span>
+        <!-- Field actions and counters -->
+        <span class="flex items-center gap-2 font-normal">
+            <slot />
         </span>
     </span>
 </template>
