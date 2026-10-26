@@ -37,30 +37,23 @@ async function copyKeywords() {
     await navigator.clipboard?.writeText(props.asset.keywords.join(', '));
     notify.message.success({ message: trans('library.fields.keywords_copied') });
 }
+
+async function copyField(field) {
+    await navigator.clipboard?.writeText(props.asset[field]);
+    notify.message.success({ message: trans(`library.fields.${field}_copied`) });
+}
 </script>
 
 <template>
     <el-form label-position="top" :disabled="disabled" class="metadata-form" @submit.prevent>
-        <el-form-item :label="$t('library.folders.move_to')" :error="errors.folder_id">
-            <el-tree-select
-                :model-value="asset.folder_id ?? ''"
-                :data="folders"
-                :props="{ label: 'name', children: 'children' }"
-                node-key="id"
-                check-strictly
-                default-expand-all
-                filterable
-                clearable
-                :render-after-expand="false"
-                :placeholder="$t('library.folders.unsorted')"
-                class="w-full"
-                @update:model-value="set('folder_id', $event || null)"
-            />
-        </el-form-item>
-
         <el-form-item :error="errors.title">
             <template #label>
-                <MetadataFieldLabel :label="$t('library.fields.title')" :generated="isGenerated(asset, 'title')" />
+                <MetadataFieldLabel :label="$t('library.fields.title')" :generated="isGenerated(asset, 'title')">
+                    <!-- prevent: a click inside the label would otherwise focus the field -->
+                    <el-link type="primary" underline="never" :disabled="!asset.title" @click.prevent="copyField('title')">
+                        {{ $t('library.fields.copy') }}
+                    </el-link>
+                </MetadataFieldLabel>
             </template>
             <!-- A textarea so a long title wraps and stays readable; it is still one line: Enter (except the one that ends
                  an IME composition) and pasted breaks are dropped. -->
@@ -81,7 +74,12 @@ async function copyKeywords() {
 
         <el-form-item :error="errors.description">
             <template #label>
-                <MetadataFieldLabel :label="$t('library.fields.description')" :generated="isGenerated(asset, 'description')" />
+                <MetadataFieldLabel :label="$t('library.fields.description')" :generated="isGenerated(asset, 'description')">
+                    <!-- prevent: a click inside the label would otherwise focus the field -->
+                    <el-link type="primary" underline="never" :disabled="!asset.description" @click.prevent="copyField('description')">
+                        {{ $t('library.fields.copy') }}
+                    </el-link>
+                </MetadataFieldLabel>
             </template>
             <el-input
                 :model-value="asset.description"
@@ -99,7 +97,9 @@ async function copyKeywords() {
         <el-form-item :error="errors.keywords">
             <template #label>
                 <MetadataFieldLabel :label="$t('library.fields.keywords')" :generated="isGenerated(asset, 'keywords')">
-                    <span class="text-[13px] text-[var(--el-text-color-placeholder)]">{{ asset.keywords.length }} / {{ KEYWORDS_MAX }}</span>
+                    <el-link type="primary" underline="never" :disabled="!asset.keywords.length" @click.prevent="copyKeywords">
+                        {{ $t('library.fields.copy') }}
+                    </el-link>
                 </MetadataFieldLabel>
             </template>
             <p class="mb-1.5 text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ $t('library.fields.keywords_hint') }}</p>
@@ -109,13 +109,13 @@ async function copyKeywords() {
                 :disabled="disabled"
                 @update:model-value="set('keywords', $event)"
             />
-            <div class="mt-1.5 flex gap-3">
-                <el-link type="primary" underline="never" :disabled="!asset.keywords.length" @click="copyKeywords">
-                    {{ $t('library.fields.copy_keywords') }}
-                </el-link>
+            <div class="mt-1.5 flex w-full items-center gap-3">
                 <el-link underline="never" :disabled="disabled || !asset.keywords.length" @click="set('keywords', [])">
                     {{ $t('library.fields.clear_keywords') }}
                 </el-link>
+                <span class="metadata-form__counter" :class="{ 'is-over': asset.keywords.length > KEYWORDS_MAX }">
+                    {{ asset.keywords.length }} / {{ KEYWORDS_MAX }}
+                </span>
             </div>
         </el-form-item>
 
@@ -151,6 +151,23 @@ async function copyKeywords() {
                     </el-select>
                 </template>
             </div>
+        </el-form-item>
+
+        <el-form-item :label="$t('library.folders.move_to')" :error="errors.folder_id">
+            <el-tree-select
+                :model-value="asset.folder_id ?? ''"
+                :data="folders"
+                :props="{ label: 'name', children: 'children' }"
+                node-key="id"
+                check-strictly
+                default-expand-all
+                filterable
+                clearable
+                :render-after-expand="false"
+                :placeholder="$t('library.folders.unsorted')"
+                class="w-full"
+                @update:model-value="set('folder_id', $event || null)"
+            />
         </el-form-item>
 
         <el-divider class="!my-4" />
