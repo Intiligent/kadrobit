@@ -123,10 +123,32 @@ class MarketplaceSeeder extends Seeder
             ],
             [
                 'code' => 'istock',
-                'name' => 'iStock / Getty Images',
+                'name' => 'iStock',
                 'logo' => 'marketplaces/istock.svg',
-                'contributor_url' => 'https://esp.gettyimages.com/',
+                'contributor_url' => 'https://www.istockphoto.com/',
                 // No FTP and no public API: web portal (ESP) only.
+                'is_active' => false,
+                'supported_types' => $all,
+                'upload_protocol' => UploadProtocol::Web,
+                'upload_defaults' => [],
+                'metadata_delivery' => MetadataDelivery::Manual,
+                'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title and Description in ESP; no official limits found (the guides need an ESP sign-in).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => null],
+                        ['field' => 'description', 'name' => 'Description', 'max' => null],
+                    ],
+                    'submit' => 'web',
+                ],
+                'file_rules' => [],
+            ],
+            [
+                'code' => 'getty_images',
+                'name' => 'Getty Images',
+                'logo' => 'marketplaces/getty_images.svg',
+                'contributor_url' => 'https://www.gettyimages.com/',
+                // No FTP and no public API: web portal (ESP) only, shared with iStock.
                 'is_active' => false,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Web,
