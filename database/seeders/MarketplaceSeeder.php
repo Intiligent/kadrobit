@@ -19,6 +19,7 @@ use Illuminate\Database\Seeder;
  * TODO: supported_types are not covered by the research doc yet — verify per marketplace.
  * Logos: put files into storage/app/public/marketplaces/{code}.svg
  * ("public" disk; run `php artisan storage:link` once).
+ * contributor_url: the contributor's own area on the marketplace site, linked from the settings page.
  *
  * TODO: file_rules and title/description limits — verify against contributor docs.
  */
@@ -43,6 +44,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'adobe_stock',
                 'name' => 'Adobe Stock',
                 'logo' => 'marketplaces/adobe_stock.svg',
+                'contributor_url' => 'https://contributor.stock.adobe.com/',
                 'is_active' => true,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Sftp,
@@ -82,6 +84,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'shutterstock',
                 'name' => 'Shutterstock',
                 'logo' => 'marketplaces/shutterstock.svg',
+                'contributor_url' => 'https://submit.shutterstock.com/',
                 'is_active' => true,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Ftps,
@@ -120,9 +123,32 @@ class MarketplaceSeeder extends Seeder
             ],
             [
                 'code' => 'istock',
-                'name' => 'iStock / Getty Images',
+                'name' => 'iStock',
                 'logo' => 'marketplaces/istock.svg',
+                'contributor_url' => 'https://www.istockphoto.com/',
                 // No FTP and no public API: web portal (ESP) only.
+                'is_active' => false,
+                'supported_types' => $all,
+                'upload_protocol' => UploadProtocol::Web,
+                'upload_defaults' => [],
+                'metadata_delivery' => MetadataDelivery::Manual,
+                'metadata_rules' => [
+                    // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
+                    // Title and Description in ESP; no official limits found (the guides need an ESP sign-in).
+                    'text_fields' => [
+                        ['field' => 'title', 'name' => 'Title', 'max' => null],
+                        ['field' => 'description', 'name' => 'Description', 'max' => null],
+                    ],
+                    'submit' => 'web',
+                ],
+                'file_rules' => [],
+            ],
+            [
+                'code' => 'getty_images',
+                'name' => 'Getty Images',
+                'logo' => 'marketplaces/getty_images.svg',
+                'contributor_url' => 'https://www.gettyimages.com/',
+                // No FTP and no public API: web portal (ESP) only, shared with iStock.
                 'is_active' => false,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Web,
@@ -143,6 +169,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'alamy',
                 'name' => 'Alamy',
                 'logo' => 'marketplaces/alamy.svg',
+                'contributor_url' => 'https://www.alamy.com/contributor/',
                 'is_active' => true,
                 'supported_types' => [MediaType::Photo, MediaType::Vector],
                 'upload_protocol' => UploadProtocol::Ftp,
@@ -168,6 +195,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'dreamstime',
                 'name' => 'Dreamstime',
                 'logo' => 'marketplaces/dreamstime.svg',
+                'contributor_url' => 'https://www.dreamstime.com/upload',
                 'is_active' => true,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Ftp,
@@ -193,6 +221,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'depositphotos',
                 'name' => 'Depositphotos',
                 'logo' => 'marketplaces/depositphotos.svg',
+                'contributor_url' => 'https://depositphotos.com/contributors.html',
                 'is_active' => true,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Ftp,
@@ -205,14 +234,22 @@ class MarketplaceSeeder extends Seeder
                     'text_fields' => [
                         ['field' => 'description', 'name' => 'Description', 'max' => 250],
                     ],
+                    // AI-generated files are not accepted (intellectual property concerns).
+                    'accepts_ai_generated' => false,
                     'submit' => 'web',
                 ],
-                'file_rules' => [],
+                // Images (blog.depositphotos.com, "How to become a Depositphotos contributor"): JPEG or PNG in RGB,
+                // from 3.8 MP (2400 x 1600), up to 50 MB. The RGB color space is not checked here.
+                'file_rules' => [
+                    'photo' => ['formats' => ['JPEG', 'PNG'], 'min_megapixels' => 3.8, 'max_file_mb' => 50],
+                    'illustration' => ['formats' => ['JPEG', 'PNG'], 'min_megapixels' => 3.8, 'max_file_mb' => 50],
+                ],
             ],
             [
                 'code' => '123rf',
                 'name' => '123RF',
                 'logo' => 'marketplaces/123rf.svg',
+                'contributor_url' => 'https://www.123rf.com/sellimages/',
                 'is_active' => true,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Ftp,
@@ -238,6 +275,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'pond5',
                 'name' => 'Pond5',
                 'logo' => 'marketplaces/pond5.svg',
+                'contributor_url' => 'https://contributor.pond5.com/',
                 'is_active' => true,
                 'supported_types' => [MediaType::Video, MediaType::Photo],
                 'upload_protocol' => UploadProtocol::Ftp,
@@ -263,6 +301,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'magnific',
                 'name' => 'Magnific (Freepik)',
                 'logo' => 'marketplaces/magnific.svg',
+                'contributor_url' => 'https://contributor.magnific.com/',
                 'is_active' => true,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Ftp,
@@ -284,6 +323,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'vecteezy',
                 'name' => 'Vecteezy',
                 'logo' => 'marketplaces/vecteezy.svg',
+                'contributor_url' => 'https://contributors.vecteezy.com/',
                 'is_active' => true,
                 'supported_types' => $all,
                 'upload_protocol' => UploadProtocol::Ftp,
@@ -307,6 +347,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => 'canva',
                 'name' => 'Canva Creators',
                 'logo' => 'marketplaces/canva.svg',
+                'contributor_url' => 'https://www.canva.com/creators/',
                 // Web portal only; contributor program is by application.
                 'is_active' => false,
                 'supported_types' => $all,
