@@ -234,9 +234,16 @@ class MarketplaceSeeder extends Seeder
                     'text_fields' => [
                         ['field' => 'description', 'name' => 'Description', 'max' => 250],
                     ],
+                    // AI-generated files are not accepted (intellectual property concerns).
+                    'accepts_ai_generated' => false,
                     'submit' => 'web',
                 ],
-                'file_rules' => [],
+                // Images (blog.depositphotos.com, "How to become a Depositphotos contributor"): JPEG or PNG in RGB,
+                // from 3.8 MP (2400 x 1600), up to 50 MB. The RGB color space is not checked here.
+                'file_rules' => [
+                    'photo' => ['formats' => ['JPEG', 'PNG'], 'min_megapixels' => 3.8, 'max_file_mb' => 50],
+                    'illustration' => ['formats' => ['JPEG', 'PNG'], 'min_megapixels' => 3.8, 'max_file_mb' => 50],
+                ],
             ],
             [
                 'code' => '123rf',
