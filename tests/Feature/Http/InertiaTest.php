@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http;
 
 use App\Models\User;
+use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -24,6 +25,8 @@ class InertiaTest extends TestCase
 
     public function test_authenticated_user_is_shared(): void
     {
+        // A web login issues the API token cookie, which needs the personal access client.
+        $this->seed(OauthSeeder::class);
         $user = User::factory()->create(['first_name' => 'Jane']);
 
         // The home page redirects logged-in users, so the shared props are checked on the library.

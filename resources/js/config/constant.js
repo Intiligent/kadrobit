@@ -17,6 +17,9 @@ export const FORGOT_PASSWORD_URL = '/forgot-password';
 export const RESET_PASSWORD_URL = '/reset-password';
 export const VERIFY_EMAIL_URL = '/verify-email';
 
+// Language of a guest (the home page switcher); a logged-in user's comes from Settings → General.
+export const LOCALE_URL = '/locale';
+
 // Library: the main page after login, and its JSON endpoints (routes/api.php)
 export const LIBRARY_URL = '/library';
 export const ASSETS_API_URL = '/api/assets';

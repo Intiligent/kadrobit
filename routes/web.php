@@ -11,10 +11,14 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Dev\EmailPreviewController;
 use App\Http\Controllers\FallbackController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Settings\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// Language switcher of the home page: kept in the session for guests, in Settings → General for users.
+Route::post('locale', LocaleController::class)->middleware('throttle:auth-forms')->name('locale');
 
 // Touching any web route renews the XSRF-TOKEN cookie; the API client calls this after a 419.
 Route::get('csrf-token', fn () => response()->noContent())->name('csrf.refresh');

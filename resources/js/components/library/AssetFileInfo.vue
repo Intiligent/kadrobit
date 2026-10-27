@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
+import { LoaderCircle } from 'lucide-vue-next';
 import { cameraRows } from '@/utils/cameraInfo';
 import { formatBytes, formatDateTime, formatDuration, formatNumber, megapixels } from '@/utils/format';
 
@@ -53,7 +54,13 @@ const camera = computed(() => cameraRows(props.asset.camera));
                 class="size-full object-contain"
             />
             <!-- A video without its playback copy (uploaded before KB-19) shows the thumbnail. -->
-            <el-image v-else-if="image" :src="image" fit="contain" class="size-full" :preview-src-list="[image]" />
+            <el-image v-else-if="image" :src="image" fit="contain" class="size-full" :preview-src-list="[image]">
+                <template #placeholder>
+                    <div class="flex size-full items-center justify-center text-[var(--el-text-color-placeholder)]">
+                        <LoaderCircle :size="32" :stroke-width="1.5" class="animate-spin" />
+                    </div>
+                </template>
+            </el-image>
         </div>
 
         <el-descriptions :column="1" size="small" class="file-info">

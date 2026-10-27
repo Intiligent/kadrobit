@@ -5,6 +5,7 @@ import elementRu from 'element-plus/es/locale/lang/ru';
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
 import notify from '@/core/notify';
 import autofocus from '@/directives/autofocus';
+import reveal from '@/directives/reveal';
 import { http, setTokenRefresher } from '@/core/api';
 import { API_TOKEN_REFRESH_URL } from '@/config/constant';
 
@@ -78,6 +79,7 @@ createInertiaApp({
 
     withApp(app, { page }) {
         app.directive('autofocus', autofocus);
+        app.directive('reveal', reveal);
 
         // The language is fixed for the page's lifetime: changing it in Settings → General reloads the page.
         const locale = page.props.locale ?? 'en';
