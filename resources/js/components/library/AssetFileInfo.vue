@@ -53,7 +53,16 @@ const camera = computed(() => cameraRows(props.asset.camera));
                 class="size-full object-contain"
             />
             <!-- A video without its playback copy (uploaded before KB-19) shows the thumbnail. -->
-            <el-image v-else-if="image" :src="image" fit="contain" class="size-full" :preview-src-list="[image]" />
+            <el-image v-else-if="image" :src="image" fit="contain" class="size-full" :preview-src-list="[image]">
+                <!-- A skeleton wave over the whole frame while the preview loads. -->
+                <template #placeholder>
+                    <el-skeleton animated class="size-full">
+                        <template #template>
+                            <el-skeleton-item variant="rect" class="!block !size-full" />
+                        </template>
+                    </el-skeleton>
+                </template>
+            </el-image>
         </div>
 
         <el-descriptions :column="1" size="small" class="file-info">

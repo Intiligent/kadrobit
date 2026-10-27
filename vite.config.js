@@ -19,6 +19,11 @@ export default defineConfig({
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
                 }),
+                // Headings of the home page (font-serif). Latin only: Russian headings fall back to Georgia.
+                bunny('Instrument Serif', {
+                    weights: [400],
+                    styles: ['normal', 'italic'],
+                }),
             ],
         }),
         tailwindcss(),
