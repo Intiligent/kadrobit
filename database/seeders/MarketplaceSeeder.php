@@ -216,6 +216,7 @@ class MarketplaceSeeder extends Seeder
                         ['field' => 'title', 'name' => 'Title', 'max' => null],
                         ['field' => 'description', 'name' => 'Description', 'max' => null],
                     ],
+                    // Uploaded to the FTP root once the files are processed; columns in docs/marketplaces/dreamstime/README.md.
                     'csv_upload' => 'ftp',
                     // Model/property releases go in a separate CSV.
                     'releases_csv' => true,
