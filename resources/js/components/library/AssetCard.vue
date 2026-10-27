@@ -53,7 +53,12 @@ function onDragStart(event) {
         @dragend="dragging = false"
     >
         <div class="asset-card__thumb">
-            <el-image v-if="asset.thumbnail_url" :src="asset.thumbnail_url" fit="cover" lazy class="size-full">
+            <!-- Native lazy loading (loading="lazy"; the lazy prop is a JS observer of its own).
+                 The spinner stands in for the type icon while the file loads. -->
+            <el-image v-if="asset.thumbnail_url" :src="asset.thumbnail_url" fit="cover" loading="lazy" class="size-full">
+                <template #placeholder>
+                    <div class="asset-card__placeholder"><LoaderCircle :size="28" :stroke-width="1.5" class="animate-spin" /></div>
+                </template>
                 <template #error>
                     <div class="asset-card__placeholder"><component :is="TYPE_ICON[asset.type]" :size="36" :stroke-width="1.5" /></div>
                 </template>

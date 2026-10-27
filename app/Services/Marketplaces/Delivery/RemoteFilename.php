@@ -15,10 +15,19 @@ class RemoteFilename
     /** Longest name kept before the extension. */
     protected const BASE_MAX = 120;
 
-    public static function for(AssetListing $listing): string
+    /**
+     * @param  string|null  $extension  Another extension than the original's, for a marketplace that gets a copy in
+     *                                  another format (the JPEG of a vector): taken into account before the check
+     *                                  for a name already in use
+     */
+    public static function for(AssetListing $listing, ?string $extension = null): string
     {
         $asset = $listing->asset;
         $name = self::safe($asset->original_filename, $asset->ulid);
+
+        if ($extension !== null) {
+            $name = self::withExtension($name, $extension);
+        }
 
         $taken = AssetListing::query()
             ->where('marketplace_account_id', $listing->marketplace_account_id)

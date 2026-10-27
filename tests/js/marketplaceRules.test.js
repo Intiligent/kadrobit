@@ -190,6 +190,8 @@ describe('checkAsset: text fields', () => {
 
         expect(levels(result).slice(0, 2)).toEqual(['ok:text_title_fits', 'ok:text_description_goes']);
         expect(result.items[0].params).toEqual({ name: 'Caption', count: 14, max: 20 });
+        // No null :max for a field without a limit: laravel-vue-i18n throws on it.
+        expect(result.items[1].params).toEqual({ name: 'Description', count: 19 });
     });
 
     it('warns about a text longer than the marketplace takes, and skips empty ones', () => {
