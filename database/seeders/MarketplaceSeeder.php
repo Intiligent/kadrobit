@@ -216,13 +216,25 @@ class MarketplaceSeeder extends Seeder
                         ['field' => 'title', 'name' => 'Title', 'max' => null],
                         ['field' => 'description', 'name' => 'Description', 'max' => null],
                     ],
-                    // Uploaded to the FTP root once the files are processed; columns in docs/marketplaces/dreamstime/README.md.
+                    // CSV "Category 1–3" columns: category numbers, optional (MarketplaceCategorySeeder).
+                    'categories_min' => 0,
+                    'categories_max' => 3,
+                    // Uploaded to the FTP root once the files are processed (SendDreamstimeCsv);
+                    // columns in docs/marketplaces/dreamstime/README.md.
                     'csv_upload' => 'ftp',
+                    'csv_fields' => ['Filename', 'Image Name', 'Description', 'Category 1', 'Category 2', 'Category 3', 'keywords', 'Free', 'W-EL', 'P-EL', 'SR-EL', 'SR-Price', 'Editorial', 'MR doc Ids', 'Pr Docs'],
                     // Model/property releases go in a separate CSV.
                     'releases_csv' => true,
                     'submit' => 'web',
                 ],
-                'file_rules' => [],
+                // dreamstime.com/upload/help-ftp-upload: RGB JPEG from 3 MP, up to 1 GB. PNG and TIFF are taken here
+                // because DreamstimeDelivery sends them as a JPEG copy. Vectors go with their JPEG, video as MOV (preferred).
+                'file_rules' => [
+                    'photo' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 3, 'max_file_mb' => 1024],
+                    'illustration' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 3, 'max_file_mb' => 1024],
+                    'vector' => ['formats' => ['EPS', 'SVG']],
+                    'video' => ['formats' => ['MOV', 'MP4']],
+                ],
             ],
             [
                 'code' => 'depositphotos',

@@ -111,7 +111,8 @@ function textItems(asset, fields) {
             return [item('warning', `text_${field}_too_long`, { name, count, max })];
         }
 
-        return [item('ok', max ? `text_${field}_fits` : `text_${field}_goes`, { name, count, max })];
+        // No :max without a limit: laravel-vue-i18n cannot replace a null.
+        return [item('ok', max ? `text_${field}_fits` : `text_${field}_goes`, max ? { name, count, max } : { name, count })];
     });
 }
 

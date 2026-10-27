@@ -60,6 +60,14 @@ abstract class FtpDelivery implements Delivery
     abstract public function package(AssetListing $listing, string $directory): array;
 
     /**
+     * Called when a session closes, still signed in, with the listings it uploaded: a marketplace that takes the
+     * metadata separately (a CSV after the files) sends it here. Must not throw: the session is over either way.
+     *
+     * @param  list<AssetListing>  $listings
+     */
+    public function finished(FtpSession $session, array $listings): void {}
+
+    /**
      * Copies a work's file from storage to a local path.
      *
      * @throws DeliveryFailed file, when it cannot be read

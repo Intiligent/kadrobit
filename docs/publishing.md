@@ -80,7 +80,7 @@
 
 ### FTP и FTPS
 
-`FtpDelivery` — общая часть для стоков с FTP/FTPS (`upload_protocol`), её же возьмут стоки из [KB-33](https://github.com/Intiligent/kadrobit/issues/33):
+`FtpDelivery` — общая часть для стоков с FTP/FTPS (`upload_protocol`), её же используют Dreamstime и возьмут стоки из [KB-33](https://github.com/Intiligent/kadrobit/issues/33):
 
 - **Адрес:** хост аккаунта (или `upload_defaults.host` маркетплейса) разрешается заранее, соединение идёт на этот адрес, и он должен быть публичным (`HostResolver::publicAddress()`, как при проверке в настройках). Иначе — `connect`, сервер не трогается.
 - **Вход:** один на сессию, FTPS — явный TLS (`ftp_ssl_connect`), пассивный режим, соединения данных — на адрес, куда вошли (`FTP_USEPASVADDRESS` выключен). Неудачное TLS-рукопожатие — `other`, отклонённый логин — `auth` (`ConnectionResult::fromFtpLoginWarning()`). Клиент — `Delivery\Ftp\FtpClient` (`NativeFtpClient` на расширении `ftp`; в тестах подменяется).
@@ -97,6 +97,16 @@
 - **Категории** в файл не записываются: Shutterstock берёт их только из CSV или из формы на сайте. `ShutterstockCsv` собирает CSV (`Filename, Description, Keywords, Categories, Illustration, Mature Content, Editorial`) по отправленным публикациям; интерфейса для него нет. По FTPS CSV не принимается, загрузка CSV и проставление категорий в браузере пользователя — [KB-54](https://github.com/Intiligent/kadrobit/issues/54) (там же разобран внутренний API сайта и почему его нельзя вызывать с сервера).
 - **Изменения после отправки:** повторная загрузка создала бы дубль, поэтому изменённая работа остаётся «изменено после отправки»; обновить её метаданные на стоке — тоже KB-54.
 - **Проверено на настоящем аккаунте 26.10.2026:** файл, отправленный из Kadrobit, появился в «Не отправлено» с описанием и ключевыми словами из IPTC/XMP; категории, как и ожидалось, пустые. В официальной справке Shutterstock чтение метаданных из файла не описано.
+
+### Dreamstime
+
+`DreamstimeDelivery` — `upload.dreamstime.com:21`, явный TLS (в справке написано FTP, но сервер принимает `AUTH TLS`); логин — числовой User ID со страницы FTP upload, не email, пароль — от аккаунта (`login_is_contributor_id`). Файлы попадают в Unfinished, на модерацию их отправляет автор на сайте. Папки, колонки CSV и шаблоны — [`docs/marketplaces/dreamstime/`](marketplaces/dreamstime/README.md).
+
+- **Фото и иллюстрации** — JPEG в корень с метаданными внутри (`JpegMetadata`, как у Shutterstock). Dreamstime берёт только RGB JPEG: PNG, TIFF и CMYK уходят копией в sRGB JPEG (качество 95), имя — с `.jpg` (`RemoteFilename::for($listing, 'jpg')`).
+- **Вектор** — его JPEG (`raster_companion`) в корень и EPS/SVG с тем же именем в `/additional`. Имя публикации — JPEG.
+- **Видео** — оригинал в `/video`.
+- **CSV с метаданными** (`DreamstimeCsv`) — единственный способ передать категории: название, описание, до трёх категорий (номера из `MarketplaceCategorySeeder`), ключевые слова, Editorial; лицензии, бесплатный раздел и релизы — `0` и пусто. Берутся текущие метаданные работы, и после загрузки CSV они записываются в публикацию как отправленные (`listing->metadata`), так что пометка «изменено после отправки» снимается. CSV уходит сразу после файлов, в той же сессии (`FtpDelivery::finished()` перед выходом): `kadrobit-<дата>-<код>-images.csv`, для видео — `-videos.csv` со своими колонками, оба в корень. Dreamstime заполняет только уже обработанные файлы, поэтому `SendDreamstimeCsv` загружает тот же CSV под тем же именем ещё раз через `publishing.dreamstime.csv_delays` (30 мин); задача берёт блокировку аккаунта и лимит входов, как сессия, отклонённый логин не повторяет.
+- **Проверено на настоящем аккаунте 27.10.2026:** CSV, загруженный через 2 секунды после файла, обработан («Processed as csv» в Uploads history), категории проставились. Не проверено: куда класть CSV для видео ([KB-64](https://github.com/Intiligent/kadrobit/issues/64)).
 
 ## Интерфейс
 

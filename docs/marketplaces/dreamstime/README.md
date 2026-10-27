@@ -29,8 +29,8 @@
 2. Только потом загрузить CSV в корень FTP. Строки сопоставляются с файлами по имени; файлы, которых нет в таблице,
    не заполняются.
 
-Для Kadrobit это значит, что CSV нельзя отправить в той же сессии сразу после файлов: нужен второй заход позже,
-когда Dreamstime обработает загрузку.
+Kadrobit отправляет CSV сразу после файлов, в той же сессии, и на случай, если Dreamstime ещё не обработал какой-то
+файл, ещё раз через 30 минут (`SendDreamstimeCsv`, `docs/publishing.md`, раздел «Dreamstime»).
 
 ### Колонки для фото (`Image_spreadsheet_template.xls`, лист «Enter data here»)
 
@@ -55,8 +55,9 @@ Filename,Image Name,Description,Category 1,Category 2,Category 3,keywords,Free,W
 Dreamstime_1234.jpg,Perfect start of a dream,"Dreamstime, a photo`s dream come true",165,0,0,"test1,test2,test3",1,1,0,0,0,1,"252233,252234",1358
 ```
 
-Справка не говорит про разделитель, кодировку и кавычки; шаблон — Excel с переводом в CSV через Google Docs или
-OpenOffice, так что рассчитываем на запятую, UTF-8 и кавычки по RFC 4180. Проверить на первой реальной загрузке.
+Справка не говорит про разделитель, кодировку и кавычки. Kadrobit пишет запятую, UTF-8 и кавычки по RFC 4180: так
+CSV принят на настоящем аккаунте 27.10.2026 (Uploads history: «Processed as csv»), категории проставились, хотя CSV
+ушёл через 2 секунды после файла.
 
 ### Видео (`Video_spreadsheet_template.xls`)
 
@@ -77,4 +78,4 @@ Dreamstime присвоит релизам (их видно в MR Library). Че
 ## Категории
 
 `categories.csv` — 182 категории из листа «Image Legend» (у видео тот же список): `id` и название вида
-`Раздел -> Подраздел`. В `MarketplaceCategorySeeder` их пока нет.
+`Раздел -> Подраздел`. Заведены в `MarketplaceCategorySeeder` (название — `Раздел → Подраздел`), на работу — до трёх.

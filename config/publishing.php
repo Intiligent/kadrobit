@@ -1,5 +1,8 @@
 <?php
 
+use App\Services\Marketplaces\Delivery\DreamstimeDelivery;
+use App\Services\Marketplaces\Delivery\ShutterstockDelivery;
+
 return [
 
     /*
@@ -73,7 +76,19 @@ return [
     */
 
     'deliveries' => [
-        'shutterstock' => App\Services\Marketplaces\Delivery\ShutterstockDelivery::class,
+        'shutterstock' => ShutterstockDelivery::class,
+        'dreamstime' => DreamstimeDelivery::class,
+    ],
+
+    /*
+    | Dreamstime fills in the metadata CSV only for files it has already processed,
+    | and does not say when. The CSV goes at the end of the session, with the files,
+    | and again this many seconds after it, for files Dreamstime had not processed
+    | yet (App\Jobs\SendDreamstimeCsv).
+    */
+
+    'dreamstime' => [
+        'csv_delays' => [1800],
     ],
 
 ];
