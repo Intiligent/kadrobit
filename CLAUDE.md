@@ -67,6 +67,11 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Body: goal, scope as checkboxes, acceptance criteria, and a separate checklist of manual steps
   for the owner (accounts, keys, console settings) when there are any.
 
+## Marketplaces
+
+- `docs/marketplaces/README.md` is the status of every stock marketplace (coverage, delivery, metadata, categories,
+  checks on a real account). Update it in the same change whenever a task adds or changes a marketplace's support.
+
 ## Code style
 
 - Middleware configuration lives in `App\Http\Middleware\MiddlewareHandler`, exception handling in

@@ -2,7 +2,7 @@
 
 Отправка работ из библиотеки на подключённые стоки ([эпик KB-29](https://github.com/Intiligent/kadrobit/issues/29)). Публичного API загрузки для контрибьюторов нет ни у одного стока (`docs/Фотостоки API для загрузки фото с метаданными.md`): файлы уходят по FTP/FTPS/SFTP, метаданные — внутри файла или в CSV, финальный Submit на модерацию пользователь делает на сайте стока.
 
-Этот документ описывает общую часть ([KB-30](https://github.com/Intiligent/kadrobit/issues/30)): пачку, очередь, статусы и проверки. Протоколы доставки подключаются отдельными этапами: Shutterstock по FTPS — [KB-31](https://github.com/Intiligent/kadrobit/issues/31) (раздел «Доставка»), интерфейс — [KB-32](https://github.com/Intiligent/kadrobit/issues/32), остальные стоки — [KB-33](https://github.com/Intiligent/kadrobit/issues/33).
+Этот документ описывает общую часть ([KB-30](https://github.com/Intiligent/kadrobit/issues/30)): пачку, очередь, статусы и проверки. Статус каждого стока — [`docs/marketplaces/README.md`](marketplaces/README.md). Протоколы доставки подключаются отдельными этапами: Shutterstock по FTPS — [KB-31](https://github.com/Intiligent/kadrobit/issues/31) (раздел «Доставка»), интерфейс — [KB-32](https://github.com/Intiligent/kadrobit/issues/32), остальные стоки — [KB-33](https://github.com/Intiligent/kadrobit/issues/33).
 
 ## Механика
 
