@@ -34,6 +34,7 @@ Route::as('api.')->middleware('auth:api')->group(function () {
         Route::post('assets/move', [AssetController::class, 'move'])->name('assets.move');
         Route::patch('assets/{asset}', [AssetController::class, 'update'])->whereUlid('asset')->name('assets.update');
         Route::delete('assets/{asset}', [AssetController::class, 'destroy'])->whereUlid('asset')->name('assets.destroy');
+        Route::post('assets/{asset}/rotate', [AssetController::class, 'rotate'])->whereUlid('asset')->name('assets.rotate');
 
         // Metadata generation: a paid call to the model, counted against the monthly limit.
         Route::controller(AssetGenerationController::class)->name('assets.generations.')->group(function () {

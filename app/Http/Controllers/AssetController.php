@@ -17,6 +17,8 @@ use App\Http\Resources\FolderResource;
 use App\Http\Resources\MarketplaceAccountResource;
 use App\Jobs\DeleteAssetStorage;
 use App\Models\MarketplaceCategory;
+use App\Services\Assets\AssetRotator;
+use App\Services\Assets\UnreadableMedia;
 use App\Services\Assets\UploadBatches;
 use App\Services\Metadata\AssetMetadataService;
 use Illuminate\Http\JsonResponse;
@@ -102,6 +104,23 @@ class AssetController extends Controller
         }
 
         return AssetResource::make($asset->load(AssetResource::RELATIONS));
+    }
+
+    /**
+     * Turns a raster work by 90, 180 or 270 degrees clockwise: its original is replaced (AssetRotator).
+     */
+    public function rotate(Request $request, string $asset, AssetRotator $rotator): AssetResource
+    {
+        $degrees = (int) $request->validate(['degrees' => ['required', 'integer', 'in:90,180,270']])['degrees'];
+        $work = $request->user()->ownAsset($asset);
+
+        try {
+            $work = $rotator->rotate($work, $degrees);
+        } catch (UnreadableMedia) {
+            throw new ExceptionWithMessage(__('library.tools.rotate_failed'), 422);
+        }
+
+        return AssetResource::make($work->load(AssetResource::RELATIONS));
     }
 
     /**

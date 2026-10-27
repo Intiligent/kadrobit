@@ -108,7 +108,8 @@ return [
         'tabs' => [
             'metadata' => 'Metadata',
             'marketplaces' => 'Marketplaces',
-            'file' => 'File info',
+            'file' => 'File',
+            'tools' => 'Tools',
         ],
     ],
 
@@ -366,6 +367,23 @@ return [
         'fill_hint' => 'Only empty fields are filled; your edits stay.',
         'fill_too_many' => '{1} One fill takes one work. Select fewer.|[2,*] One fill takes up to :max works. Select fewer.',
         'fill_queued' => '{0} Nothing to fill: every field is already filled in.|{1} :count work is being filled in|[2,*] :count works are being filled in',
+    ],
+
+    'tools' => [
+        'rotate' => 'Rotate',
+        'rotate_hint' => 'The original is replaced by the rotated file, and that is what goes to marketplaces.',
+        'rotate_left' => 'Rotate left',
+        'rotate_right' => 'Rotate right',
+        'rotating' => 'Rotating…',
+        'rotate_done' => 'Work rotated',
+        'rotate_busy' => 'The work is already being rotated. Wait a moment.',
+        'rotate_unsupported' => 'Only photos and illustrations can be rotated.',
+        'rotate_not_editable' => 'A submitted or archived work cannot be rotated.',
+        'rotate_publishing' => 'The work is queued for marketplaces and cannot be rotated now.',
+        'rotate_failed' => 'The file could not be rotated.',
+        'upscale' => 'Upscale',
+        'upscale_hint' => 'A neural network enlarges the image without blur or artifacts.',
+        'soon' => 'Soon',
     ],
 
     'generation' => [

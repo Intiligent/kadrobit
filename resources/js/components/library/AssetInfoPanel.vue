@@ -5,6 +5,7 @@ import { Film, Image, LoaderCircle, PenTool, Sparkles, TriangleAlert, X } from '
 import AssetFileInfo from '@/components/library/AssetFileInfo.vue';
 import AssetGenerationActions from '@/components/library/AssetGenerationActions.vue';
 import AssetMetadataForm from '@/components/library/AssetMetadataForm.vue';
+import AssetTools from '@/components/library/AssetTools.vue';
 import MarketplaceChecks from '@/components/library/MarketplaceChecks.vue';
 import { countIssues } from '@/utils/marketplaceRules';
 import { formatDuration } from '@/utils/format';
@@ -33,12 +34,14 @@ const props = defineProps({
     generating: { type: String, default: null },
     // Bumped after a regeneration or a restore
     generationVersion: { type: Number, default: 0 },
+    // Degrees of the rotation the page is running, otherwise null
+    rotating: { type: Number, default: null },
 });
 
-const emit = defineEmits(['update', 'status', 'delete', 'close', 'cancel-listing', 'retry-listing', 'regenerate', 'restore']);
+const emit = defineEmits(['update', 'status', 'delete', 'close', 'cancel-listing', 'retry-listing', 'regenerate', 'restore', 'rotate']);
 
 // Remembered per browser, like the tile size: the panel reopens on the same tab.
-const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'file', 'marketplaces'] });
+const tab = useStoredRef('library.panel-tab', 'metadata', { allowed: ['metadata', 'file', 'marketplaces', 'tools'] });
 
 // The key that skips the archive confirmation, as the keyboard shows it.
 const MODIFIER_KEY = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
@@ -163,6 +166,9 @@ const footNote = computed(() => {
                     @retry="emit('retry-listing', $event)"
                 />
             </el-tab-pane>
+            <el-tab-pane name="tools" :label="$t('library.panel.tabs.tools')">
+                <AssetTools :asset="asset" :disabled="readonly" :rotating="rotating" @rotate="emit('rotate', $event)" />
+            </el-tab-pane>
         </el-tabs>
 
         <footer class="info-panel__footer flex flex-none items-center gap-2.5 border-t border-[var(--el-border-color-light)] px-5 py-3">
@@ -275,9 +281,26 @@ const footNote = computed(() => {
         padding: 0 20px;
     }
 
+    // Four tabs fit the panel's width without scroll arrows only with narrower gaps than Element Plus' 20px.
     :deep(.el-tabs__item) {
         height: 44px;
+        padding: 0 8px;
         font-size: 14px;
+
+        // The first child of the nav is the active bar.
+        &:nth-child(2) {
+            padding-left: 0;
+        }
+
+        &:last-child {
+            padding-right: 0;
+        }
+    }
+
+    // Element Plus turns on the scroll arrows when the tabs are measured before the font loads, and the arrows'
+    // padding then keeps them too narrow to be measured as fitting again. Without it the next resize corrects it.
+    :deep(.el-tabs__nav-wrap.is-scrollable) {
+        padding: 0;
     }
 
     :deep(.el-tabs__content) {
