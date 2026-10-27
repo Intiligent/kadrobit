@@ -430,6 +430,32 @@ async function changeMetadata(action, generationId = null) {
     }
 }
 
+// Rotating the open work: its original is replaced on the server (AssetRotator), the response brings the new files.
+
+// Degrees of the running rotation, otherwise null
+const rotating = ref(null);
+
+async function rotate(degrees) {
+    const asset = selected.value;
+
+    if (!asset || readonly.value || rotating.value !== null) {
+        return;
+    }
+
+    rotating.value = degrees;
+
+    try {
+        const body = await api.post(`${ASSETS_API_URL}/${asset.id}/rotate`, { degrees });
+
+        applyServerAsset(body.data);
+        notify.message.success({ message: trans('library.tools.rotate_done') });
+    } catch {
+        // Reported by the API client (409 with the reason).
+    } finally {
+        rotating.value = null;
+    }
+}
+
 // Archived works only (the API refuses others): the work and its files are gone for good.
 const deleting = ref(false);
 
@@ -661,6 +687,8 @@ function addFiles(files) {
         :generation-version="generationVersion"
         @regenerate="changeMetadata('regenerate')"
         @restore="changeMetadata('restore', $event)"
+        :rotating="rotating"
+        @rotate="rotate"
         @close="selectedId = null"
     />
 

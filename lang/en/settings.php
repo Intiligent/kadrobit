@@ -169,7 +169,7 @@ return [
             'adobe_stock' => 'SFTP is available to qualified contributor accounts. Your contributor ID is the SFTP login. The SFTP password is issued by Adobe and differs from your Adobe ID password: find it under Upload → Learn More in the Adobe Stock Contributor portal.',
             'shutterstock' => 'Use your Shutterstock contributor login. Categories and the final submit for review are done on the Shutterstock website after the files arrive.',
             'pond5' => 'Pond5 uses a separate FTP password. Set it in your Pond5 account settings; your account password won\'t work here.',
-            'dreamstime' => 'Use your Dreamstime login. Model and property releases are sent as a separate file.',
+            'dreamstime' => 'The contributor ID is the User ID from the FTP upload page of your Dreamstime account (a number, not the email); the password is the account one. Model and property releases are sent as a separate file.',
             'alamy' => 'Captions and tags are added in Alamy Image Manager after the upload.',
             'depositphotos' => 'Find the FTP server and login in your Depositphotos contributor settings.',
             '123rf' => 'Video goes to a separate 123RF server. The FTP folder holds up to 4 GB at a time.',

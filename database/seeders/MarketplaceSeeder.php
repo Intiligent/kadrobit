@@ -198,9 +198,15 @@ class MarketplaceSeeder extends Seeder
                 'contributor_url' => 'https://www.dreamstime.com/upload',
                 'is_active' => true,
                 'supported_types' => $all,
-                'upload_protocol' => UploadProtocol::Ftp,
+                // The help page says FTP, but the server takes AUTH TLS (FEAT): FTPS keeps the password off the wire.
+                'upload_protocol' => UploadProtocol::Ftps,
+                // dreamstime.com/upload/help-ftp-upload: passive mode; JPEG images in the root folder, vectors and RAW
+                // in /additional named like their JPEG (12345.eps for 12345.jpg), video in /video, releases in /modelrelease.
                 'upload_defaults' => [
                     'host' => 'upload.dreamstime.com',
+                    'port' => 21,
+                    // The FTP login is the numeric user ID shown on that page, not the email; the password is the account's.
+                    'login_is_contributor_id' => true,
                 ],
                 'metadata_delivery' => MetadataDelivery::Csv,
                 'metadata_rules' => [
