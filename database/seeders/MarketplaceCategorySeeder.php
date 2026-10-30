@@ -20,6 +20,9 @@ use Illuminate\Database\Seeder;
  *   One list for all content; categories marked * are "Not available for video".
  * - Dreamstime: the "Image Legend" sheet of its CSV template (docs/marketplaces/dreamstime/categories.csv).
  *   The CSV "Category 1–3" columns take the category number; the video template has the same list.
+ * - Alamy: "Alamy Content Categorisation" (Image Categories Guide, linked from alamy.com/help/contributor-image-sales-guide,
+ *   checked 30.10.2026). One list of 25 for the Primary and the optional Secondary category, set by name in Image Manager:
+ *   external_id = name. Alamy takes no video from contributors.
  */
 class MarketplaceCategorySeeder extends Seeder
 {
@@ -28,6 +31,7 @@ class MarketplaceCategorySeeder extends Seeder
         $this->seedAdobeStock();
         $this->seedShutterstock();
         $this->seedDreamstime();
+        $this->seedAlamy();
     }
 
     private function seedAdobeStock(): void
@@ -327,6 +331,49 @@ class MarketplaceCategorySeeder extends Seeder
         }
 
         $this->seed('dreamstime', $categories);
+    }
+
+    private function seedAlamy(): void
+    {
+        $names = [
+            'Abstracts and backgrounds',
+            'Animals and wildlife',
+            'Architecture and interiors',
+            'Archive or historical',
+            'Art and artwork',
+            'Business',
+            'Celebrations and life events',
+            'Concepts',
+            'Education',
+            'Entertainment and celebrities',
+            'Food and drink',
+            'Healthcare and medical',
+            'Industry and agriculture',
+            'Landscapes',
+            'Lifestyle',
+            'News and reportage',
+            'Objects and still life',
+            'Occupations',
+            'Plants and gardens',
+            'Science',
+            'Sport',
+            'Technology',
+            'Transport',
+            'Travel',
+            'Weather and seasons',
+        ];
+
+        $categories = [];
+
+        foreach ($names as $name) {
+            $categories[] = [
+                'external_id' => $name,
+                'name' => $name,
+                'media_types' => [MediaType::Photo, MediaType::Illustration, MediaType::Vector],
+            ];
+        }
+
+        $this->seed('alamy', $categories);
     }
 
     private function seed(string $marketplaceCode, array $categories): void

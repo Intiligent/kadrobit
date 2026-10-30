@@ -192,6 +192,10 @@ class MarketplaceSeeder extends Seeder
                     ],
                     // AI-generated images are not accepted.
                     'accepts_ai_generated' => false,
+                    // Primary and optional Secondary category (MarketplaceCategorySeeder), chosen in Image Manager:
+                    // the file carries none and there is no CSV, so they are not sent.
+                    'categories_min' => 0,
+                    'categories_max' => 2,
                     'submit' => 'web',
                 ],
                 // alamy.com/help/contributor-uploading: RGB baseline JPEG over 17 MB uncompressed (17 MiB / 3 bytes a pixel

@@ -40,7 +40,26 @@ FAQ Alamy о подписях и тегах для векторов, форум 
 - Caption у Alamy — до 128 символов, по нему ищут; это наше название. Поэтому Kadrobit пишет название работы и в
   IPTC Description. Description у Alamy (до 2000 символов, по нему не ищут) из файла не заполняется — его автор
   вводит в Image Manager, если нужно.
-- CSV нет, категорий нет.
+- CSV нет.
+
+## Категории
+
+Основная (Primary) и необязательная дополнительная (Secondary) категория, обе из одного списка в 25 названий —
+[Image Categories Guide](https://assets.ctfassets.net/kdawwlsweh27/34e5nFT9mqGAmUMUOiu2zn/47dde3cde483f974f710da859f1ee669/Alamy_Image_Categories_Guide.pdf)
+(«Alamy Content Categorisation», по ссылке из [справки](https://www.alamy.com/help/contributor-image-sales-guide/), 30.10.2026).
+Обязательными они не являются.
+
+В Kadrobit список в `MarketplaceCategorySeeder` (`external_id` — название, номеров у Alamy нет), до двух на работу
+(`categories_max = 2`, первая — основная). Работе их можно выбрать и сгенерировать, но до Alamy они не доходят: в
+файле категории не передаются, CSV у Alamy нет. Автор выбирает их в Image Manager.
+
+Abstracts and backgrounds, Animals and wildlife, Architecture and interiors, Archive or historical, Art and artwork,
+Business, Celebrations and life events, Concepts, Education, Entertainment and celebrities, Food and drink,
+Healthcare and medical, Industry and agriculture, Landscapes, Lifestyle, News and reportage, Objects and still life,
+Occupations, Plants and gardens, Science, Sport, Technology, Transport, Travel, Weather and seasons.
+
+Archive or historical — для архивной загрузки (снимки старше 20 лет), News and reportage и Entertainment and
+celebrities — в основном для новостной ленты.
 
 ## После загрузки
 
