@@ -80,7 +80,7 @@
 
 ### FTP и FTPS
 
-`FtpDelivery` — общая часть для стоков с FTP/FTPS (`upload_protocol`), её же используют Dreamstime и возьмут стоки из [KB-33](https://github.com/Intiligent/kadrobit/issues/33):
+`FtpDelivery` — общая часть для стоков с FTP/FTPS (`upload_protocol`), её же используют Dreamstime и Alamy и возьмут стоки из [KB-33](https://github.com/Intiligent/kadrobit/issues/33):
 
 - **Адрес:** хост аккаунта (или `upload_defaults.host` маркетплейса) разрешается заранее, соединение идёт на этот адрес, и он должен быть публичным (`HostResolver::publicAddress()`, как при проверке в настройках). Иначе — `connect`, сервер не трогается.
 - **Вход:** один на сессию, FTPS — явный TLS (`ftp_ssl_connect`), пассивный режим, соединения данных — на адрес, куда вошли (`FTP_USEPASVADDRESS` выключен). Неудачное TLS-рукопожатие — `other`, отклонённый логин — `auth` (`ConnectionResult::fromFtpLoginWarning()`). Клиент — `Delivery\Ftp\FtpClient` (`NativeFtpClient` на расширении `ftp`; в тестах подменяется).
@@ -107,6 +107,15 @@
 - **Видео** — оригинал в `/video`.
 - **CSV с метаданными** (`DreamstimeCsv`) — единственный способ передать категории: название, описание, до трёх категорий (номера из `MarketplaceCategorySeeder`), ключевые слова, Editorial; лицензии, бесплатный раздел и релизы — `0` и пусто. Берутся текущие метаданные работы, и после загрузки CSV они записываются в публикацию как отправленные (`listing->metadata`), так что пометка «изменено после отправки» снимается. CSV уходит сразу после файлов, в той же сессии (`FtpDelivery::finished()` перед выходом): `kadrobit-<дата>-<код>-images.csv`, для видео — `-videos.csv` со своими колонками, оба в корень. Dreamstime заполняет только уже обработанные файлы, поэтому `SendDreamstimeCsv` загружает тот же CSV под тем же именем ещё раз через `publishing.dreamstime.csv_delays` (30 мин); задача берёт блокировку аккаунта и лимит входов, как сессия, отклонённый логин не повторяет.
 - **Проверено на настоящем аккаунте 27.10.2026:** CSV, загруженный через 2 секунды после файла, обработан («Processed as csv» в Uploads history), категории проставились. Не проверено: куда класть CSV для видео ([KB-64](https://github.com/Intiligent/kadrobit/issues/64)).
+
+### Alamy
+
+`AlamyDelivery` — `upload.alamy.com:21`, обычный FTP: сервер не предлагает `AUTH TLS`, так что пароль идёт открытым текстом — иначе с Alamy нельзя. Логин — email аккаунта, пароль — от аккаунта. Загрузка сразу ставит файлы в очередь QC, кнопки Submit нет. Папки и требования — [`docs/marketplaces/alamy/`](marketplaces/alamy/README.md).
+
+- **Фото** — JPEG в `Stock` с метаданными внутри (`JpegMetadata`). Alamy заполняет свою подпись (Caption, до 128 символов) из IPTC Description, поэтому туда идёт название работы, а не описание; Description у Alamy из файла не заполняется. Alamy берёт только baseline RGB JPEG: PNG, TIFF, CMYK и progressive JPEG уходят копией (`MakesJpegCopies`, общий с Dreamstime), имя — с `.jpg`.
+- **Вектор** — EPS и его JPEG (`raster_companion`) с одним именем в `Vectors`; из JPEG Alamy берёт только подпись и теги. Имя публикации — EPS. SVG и AI Alamy не принимает: `file_rules.vector.formats_strict` делает неподходящий формат ошибкой, и такая пара не уходит.
+- **Видео** Alamy от авторов не принимает (`supported_types`).
+- **Не проверено на настоящем аккаунте:** имена папок и чтение IPTC у фото ([KB-74](https://github.com/Intiligent/kadrobit/issues/74)).
 
 ## Интерфейс
 

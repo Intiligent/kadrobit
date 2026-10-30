@@ -134,7 +134,8 @@ function fileItems(asset, rules) {
     const format = FORMATS[asset.mime];
 
     if (format && rules.formats?.length && !rules.formats.includes(format)) {
-        items.push(item('warning', 'format', { format, formats: rules.formats.join(', ') }));
+        // formats_strict: the marketplace takes nothing else and Kadrobit does not convert it, so the work is not sent.
+        items.push(item(rules.formats_strict ? 'error' : 'warning', 'format', { format, formats: rules.formats.join(', ') }));
     }
 
     if (width && height) {

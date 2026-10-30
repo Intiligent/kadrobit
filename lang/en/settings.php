@@ -170,7 +170,7 @@ return [
             'shutterstock' => 'Use your Shutterstock contributor login. Categories and the final submit for review are done on the Shutterstock website after the files arrive.',
             'pond5' => 'Pond5 uses a separate FTP password. Set it in your Pond5 account settings; your account password won\'t work here.',
             'dreamstime' => 'The contributor ID is the User ID from the FTP upload page of your Dreamstime account (a number, not the email); the password is the account one. Model and property releases are sent as a separate file.',
-            'alamy' => 'Captions and tags are added in Alamy Image Manager after the upload.',
+            'alamy' => 'The login is your Alamy account email, the password is the account\'s. Alamy\'s server takes plain FTP only, without encryption. Alamy takes the caption and tags from the file; the description and the rest are filled in Image Manager.',
             'depositphotos' => 'Find the FTP server and login in your Depositphotos contributor settings.',
             '123rf' => 'Video goes to a separate 123RF server. The FTP folder holds up to 4 GB at a time.',
             'magnific' => 'Find the FTP details in your Freepik contributor panel. Titles and keywords are embedded into the files.',
