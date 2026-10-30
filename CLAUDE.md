@@ -83,8 +83,9 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Table columns follow a logical order: keys and identifiers first, related fields grouped together,
   `created_at`/`updated_at` (and `deleted_at`) always last. A new column goes next to the fields it belongs with,
   not at the end. PostgreSQL ignores `->after()` and always appends: before the table has production data, put the
-  column into the table's create migration instead of adding an alter migration; once it has, discuss
-  rebuilding the table.
+  column into the table's create migration instead of adding an alter migration; once it has, put it into the create
+  migration too and rebuild the table in a new migration with `App\Support\Database\TableRebuilder`, after a backup
+  to `database/dump` (`docs/development.md`, «Колонка в середине таблицы»).
 - Eloquent models declare their settings as explicit properties (`$fillable`, `$hidden`, `$guarded`, `$table`,
   `$appends`, etc.) with docblocks, not with PHP attributes such as `#[Fillable]` or `#[Hidden]`.
 

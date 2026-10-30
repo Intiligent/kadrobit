@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $asset_id
  * @property int $marketplace_account_id
+ * @property string|null $external_id The work's id on the marketplace, in its own format
  * @property ListingStatus $status
  * @property list<array{key: string, params: array<string, mixed>}> $warnings Checks that did not pass when it was queued
  * @property string|null $remote_filename Name of the file on the marketplace's server
@@ -43,6 +44,7 @@ class AssetListing extends Model
     protected $fillable = [
         'asset_id',
         'marketplace_account_id',
+        'external_id',
         'status',
         'warnings',
         'remote_filename',

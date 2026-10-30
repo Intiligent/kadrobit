@@ -14,6 +14,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('asset_id')->constrained()->cascadeOnDelete();
             $table->foreignId('marketplace_account_id')->constrained()->cascadeOnDelete();
+            // The work's id on the marketplace, in the marketplace's own format; null until it is known.
+            $table->string('external_id', 64)->nullable();
             $table->enum('status', array_column(ListingStatus::cases(), 'value'))
                 ->default(ListingStatus::Queued->value);
 

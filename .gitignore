@@ -27,3 +27,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /lang/php_*.json
+
+# Local database backups (pg_dump): never committed, they hold user data.
+/database/dump/
