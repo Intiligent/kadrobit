@@ -38,6 +38,13 @@
     transition: background-color 600000s 0s;
 }
 
+// A textarea is never lower than an input (--el-component-size, theme/variables.scss), so a one-row textarea lines up
+// with the inputs beside it. Element Plus: one row is 31px, and autosize writes that min-height inline, hence !important;
+// a taller min-height from autosize still applies through the inline height, which min-height does not cap.
+.el-textarea .el-textarea__inner {
+    min-height: var(--el-component-size) !important;
+}
+
 // ElCheckbox
 // Indeterminate bar back in the middle of the 16px box (theme/variables.scss). Element Plus: `top: 5px`, a fixed
 // value for its 14px box.
