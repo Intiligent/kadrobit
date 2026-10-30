@@ -4,6 +4,7 @@ namespace App\Http\Requests\Assets;
 
 use App\Enums\AssetStatus;
 use App\Http\Requests\Concerns\ResolvesOwnFolders;
+use App\Http\Requests\Concerns\ValidatesTags;
 use App\Models\Asset;
 use App\Models\Marketplace;
 use App\Models\MarketplaceCategory;
@@ -17,7 +18,7 @@ use Illuminate\Validation\Validator;
  */
 class UpdateAssetRequest extends FormRequest
 {
-    use ResolvesOwnFolders;
+    use ResolvesOwnFolders, ValidatesTags;
 
     /** Longest keyword list a marketplace accepts (Shutterstock: 50, Adobe Stock: 49). */
     public const KEYWORDS_MAX = 50;
@@ -57,7 +58,18 @@ class UpdateAssetRequest extends FormRequest
             'status' => ['sometimes', Rule::enum(AssetStatus::class)->except(AssetStatus::Submitted)],
             // Folder ulid, null for Unsorted.
             'folder_id' => ['sometimes', 'nullable', 'string', $this->ownFolderRule()],
+            // The whole set of the work's tags: the ones left out are taken off.
+            'tags' => ['sometimes', 'array', 'max:'.self::TAGS_MAX],
+            ...$this->tagItemRules(),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->tagMessages();
     }
 
     /**
@@ -72,13 +84,13 @@ class UpdateAssetRequest extends FormRequest
     }
 
     /**
-     * Validated fields as stored: the folder ulid becomes its id.
+     * Validated fields as stored: the folder ulid becomes its id. Tags are not a column (see the controller).
      *
      * @return array<string, mixed>
      */
     public function assetAttributes(): array
     {
-        $data = $this->validated();
+        $data = $this->safe()->except('tags');
 
         if (array_key_exists('folder_id', $data)) {
             $data['folder_id'] = $this->ownFolderId($data['folder_id']);
@@ -97,10 +109,12 @@ class UpdateAssetRequest extends FormRequest
 
     /**
      * Keywords are stored trimmed, lowercase and unique, in the order given.
-     * Categories drop repeated values and marketplaces left without any.
+     * Categories drop repeated values and marketplaces left without any. Tag names are trimmed.
      */
     protected function prepareForValidation(): void
     {
+        $this->trimTagNames();
+
         if (is_array($this->input('keywords'))) {
             $this->merge([
                 'keywords' => collect($this->input('keywords'))

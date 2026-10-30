@@ -173,6 +173,11 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return $this->hasMany(Folder::class);
     }
 
+    public function tags(): HasMany
+    {
+        return $this->hasMany(Tag::class);
+    }
+
     public function marketplaceAccounts(): HasMany
     {
         return $this->hasMany(MarketplaceAccount::class);

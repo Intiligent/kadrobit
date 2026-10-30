@@ -10,14 +10,18 @@ use App\Exceptions\ExceptionWithMessage;
 use App\Http\Requests\Assets\GenerateMetadataBatchRequest;
 use App\Http\Requests\Assets\MoveAssetsRequest;
 use App\Http\Requests\Assets\StoreAssetUploadRequest;
+use App\Http\Requests\Assets\TagAssetsRequest;
 use App\Http\Requests\Assets\UpdateAssetRequest;
 use App\Http\Resources\AssetResource;
 use App\Http\Resources\AssetUploadResource;
 use App\Http\Resources\FolderResource;
 use App\Http\Resources\MarketplaceAccountResource;
+use App\Http\Resources\TagResource;
 use App\Jobs\DeleteAssetStorage;
 use App\Models\MarketplaceCategory;
+use App\Models\Tag;
 use App\Services\Assets\AssetRotator;
+use App\Services\Assets\AssetTags;
 use App\Services\Assets\UnreadableMedia;
 use App\Services\Assets\UploadBatches;
 use App\Services\Metadata\AssetMetadataService;
@@ -53,9 +57,13 @@ class AssetController extends Controller
         // Flat list in tree order; the explorer builds the tree.
         $folders = $user->folders()->with('parent:id,ulid')->ordered()->get();
 
+        // For the tag picker and the library filter, alphabetically.
+        $tags = $user->tags()->orderByRaw('lower(name)')->get();
+
         return Inertia::render('library/index', [
             'assets' => AssetResource::collection($assets)->resolve(),
             'folders' => FolderResource::collection($folders)->resolve(),
+            'tags' => TagResource::collection($tags)->resolve(),
             'accounts' => MarketplaceAccountResource::collection($accounts)->resolve(),
             'categories' => $this->categories($accounts->pluck('marketplace_id')->unique()->all()),
             // Metadata generation (docs/metadata-generation.md): without a provider the panel offers no regeneration;
@@ -83,12 +91,16 @@ class AssetController extends Controller
     /**
      * Partial update of the base metadata and status; the info panel autosaves through it.
      */
-    public function update(UpdateAssetRequest $request): AssetResource
+    public function update(UpdateAssetRequest $request, AssetTags $tags): AssetResource
     {
         $asset = $request->asset();
         $attributes = $request->assetAttributes();
 
         $asset->update($attributes);
+
+        if ($request->has('tags')) {
+            $asset->tags()->sync($tags->ids($request->user(), $request->validated('tags')));
+        }
 
         // A field the user edits is theirs from now on: generation no longer fills it on its own. Merged in the
         // database, not from this copy of the work: a generation applied meanwhile keeps its marks for other fields.
@@ -181,6 +193,28 @@ class AssetController extends Controller
         $moved = $user->assets()->whereIn('ulid', $request->input('assets'))->update(['folder_id' => $folderId]);
 
         return response()->json(['data' => ['moved' => $moved]]);
+    }
+
+    /**
+     * Adds tags to several works at once (the selection panel); the tags they already have stay.
+     * Answers how many works were tagged and the tags themselves, new ones with their ids.
+     */
+    public function tag(TagAssetsRequest $request, AssetTags $tags): JsonResponse
+    {
+        $user = $request->user();
+        $tagIds = $tags->ids($user, $request->validated('tags'));
+        $assetIds = $user->assets()->whereIn('ulid', $request->input('assets'))->pluck('id');
+
+        // One insert per chunk instead of a sync per work; pairs the work already has are skipped.
+        $assetIds->crossJoin($tagIds)
+            ->map(fn (array $pair) => ['asset_id' => $pair[0], 'tag_id' => $pair[1]])
+            ->chunk(1000)
+            ->each(fn ($rows) => DB::table('asset_tag')->insertOrIgnore($rows->values()->all()));
+
+        return response()->json(['data' => [
+            'tagged' => $assetIds->count(),
+            'tags' => TagResource::collection(Tag::query()->whereIn('id', $tagIds)->orderByRaw('lower(name)')->get())->resolve($request),
+        ]]);
     }
 
     /**

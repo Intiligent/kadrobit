@@ -12,8 +12,10 @@ import {
 } from '../../resources/js/utils/libraryFilters';
 
 const sent = (account) => ({ account_id: account, status: 'sent' });
-const photo = { type: 'photo', listings: [sent(1), sent(2)], tags: ['iceland', 'sea'] };
-const video = { type: 'video', listings: [{ account_id: 1, status: 'failed' }], tags: ['sea'] };
+const ICELAND = 7;
+const SEA = 8;
+const photo = { type: 'photo', listings: [sent(1), sent(2)], tags: [{ id: ICELAND, name: 'Iceland' }, { id: SEA, name: 'sea' }] };
+const video = { type: 'video', listings: [{ account_id: 1, status: 'failed' }], tags: [{ id: SEA, name: 'sea' }] };
 const vector = { type: 'vector', listings: [sent(2)] };
 
 describe('library filters', () => {
@@ -39,15 +41,16 @@ describe('library filters', () => {
         expect(matchesMarketplaces(photo, [NOT_UPLOADED, 1])).toBe(true);
     });
 
-    it('needs every chosen tag, and a work without tags matches only no tags', () => {
-        expect(matchesTags(photo, ['iceland', 'sea'])).toBe(true);
-        expect(matchesTags(video, ['iceland', 'sea'])).toBe(false);
+    it('takes a work with any of the chosen tags, by id', () => {
+        expect(matchesTags(photo, [ICELAND, SEA])).toBe(true);
+        expect(matchesTags(video, [ICELAND])).toBe(false);
+        expect(matchesTags(video, [ICELAND, SEA])).toBe(true);
         expect(matchesTags(vector, [])).toBe(true);
-        expect(matchesTags(vector, ['sea'])).toBe(false);
+        expect(matchesTags(vector, [SEA])).toBe(false);
     });
 
     it('combines the filters', () => {
-        const filters = { types: ['photo', 'video'], marketplaces: [2], tags: ['sea'] };
+        const filters = { types: ['photo', 'video'], marketplaces: [2], tags: [SEA] };
 
         expect([photo, video, vector].filter((asset) => matchesFilters(asset, filters))).toEqual([photo]);
         expect(activeCount(filters)).toBe(4);
@@ -59,6 +62,7 @@ describe('library filters', () => {
         expect(filterCounts([photo, video, vector, twice])).toEqual({
             types: { photo: 2, video: 1, vector: 1 },
             marketplaces: { [NOT_UPLOADED]: 1, 1: 2, 2: 2 },
+            tags: { [ICELAND]: 1, [SEA]: 2 },
         });
     });
 

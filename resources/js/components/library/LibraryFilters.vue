@@ -10,12 +10,11 @@ const props = defineProps({
     // Connected marketplace accounts (MarketplaceAccountResource)
     accounts: { type: Array, default: () => [] },
     // Works per choice, utils/libraryFilters.js filterCounts()
-    counts: { type: Object, default: () => ({ types: {}, marketplaces: {} }) },
+    counts: { type: Object, default: () => ({ types: {}, marketplaces: {}, tags: {} }) },
     // Works shown with the current filters: the footer button
     shown: { type: Number, default: 0 },
-    // Tags to pick from: [{ name, count }]. Tags are not stored yet: the block is shown switched off.
+    // The user's tags, alphabetically: [{ id, name }]
     tags: { type: Array, default: () => [] },
-    tagsEnabled: { type: Boolean, default: false },
 });
 
 const sort = defineModel('sort', { type: String, default: 'newest' });
@@ -44,6 +43,13 @@ const marketplaces = computed(() => [
 
     // Nothing to find there: off, unless already chosen and still to be cleared.
     return { ...row, count, disabled: !count && !filters.value.marketplaces.includes(row.key) };
+}));
+
+// Same as the marketplaces: a tag no work here carries is off, unless already chosen.
+const tagOptions = computed(() => props.tags.map((tag) => {
+    const count = props.counts.tags?.[tag.id] ?? 0;
+
+    return { ...tag, count, disabled: !count && !filters.value.tags.includes(tag.id) };
 }));
 
 function resetAll() {
@@ -119,7 +125,6 @@ function resetAll() {
                 <section class="filters__section">
                     <div class="filters__head">
                         <h3 class="filters__title">{{ $t('library.filters.tags') }}</h3>
-                        <el-tag v-if="!tagsEnabled" size="small" type="info" round disable-transitions>{{ $t('library.filters.soon') }}</el-tag>
                         <el-link v-if="filters.tags.length" type="primary" underline="never" @click="set('tags', [])">
                             {{ $t('library.filters.reset') }}
                         </el-link>
@@ -130,16 +135,15 @@ function resetAll() {
                         multiple
                         filterable
                         :teleported="false"
-                        :disabled="!tagsEnabled"
                         :placeholder="$t('library.filters.tags_placeholder')"
                         :no-data-text="$t('library.filters.tags_empty')"
                         :no-match-text="$t('library.filters.tags_no_match')"
                         @update:model-value="set('tags', $event)"
                     >
-                        <el-option v-for="tag in tags" :key="tag.name" :value="tag.name" :label="tag.name">
+                        <el-option v-for="tag in tagOptions" :key="tag.id" :value="tag.id" :label="tag.name" :disabled="tag.disabled">
                             <span class="flex items-center justify-between gap-3">
-                                {{ tag.name }}
-                                <span class="filters__count">{{ tag.count }}</span>
+                                <span class="truncate">{{ tag.name }}</span>
+                                <span v-if="tag.count" class="filters__count">{{ tag.count }}</span>
                             </span>
                         </el-option>
                     </el-select>

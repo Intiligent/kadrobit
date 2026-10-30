@@ -1,7 +1,7 @@
 /**
  * Library filters from the toolbar popover (LibraryFilters.vue): content types, marketplaces a work was uploaded to,
- * tags. Every filter is a list; an empty list lets everything through. Values inside one list are alternatives,
- * except tags: a work must carry every chosen tag.
+ * tags (by id). Every filter is a list; an empty list lets everything through. Values inside one list are
+ * alternatives: a work matches any of them.
  */
 
 // The "not uploaded anywhere" choice in the marketplace filter, next to account ids.
@@ -26,7 +26,7 @@ export function matchesMarketplaces(asset, marketplaces) {
     return marketplaces.some((key) => (key === NOT_UPLOADED ? !uploaded.length : uploaded.includes(key)));
 }
 
-export const matchesTags = (asset, tags) => tags.every((tag) => (asset.tags ?? []).includes(tag));
+export const matchesTags = (asset, tags) => !tags.length || (asset.tags ?? []).some((tag) => tags.includes(tag.id));
 
 export const matchesFilters = (asset, filters) => matchesTypes(asset, filters.types)
     && matchesMarketplaces(asset, filters.marketplaces)
@@ -35,12 +35,21 @@ export const matchesFilters = (asset, filters) => matchesTypes(asset, filters.ty
 /** Chosen values in all filters: the count on the toolbar button. */
 export const activeCount = (filters) => filters.types.length + filters.marketplaces.length + filters.tags.length;
 
-/** Works per choice, for the counts in the popover: { types: { photo: 3 }, marketplaces: { [accountId]: 2, none: 1 } }. */
+/**
+ * Works per choice, for the counts in the popover:
+ * { types: { photo: 3 }, marketplaces: { [accountId]: 2, none: 1 }, tags: { [tagId]: 4 } }.
+ */
 export function filterCounts(assets) {
-    const counts = { types: {}, marketplaces: { [NOT_UPLOADED]: 0 } };
+    const counts = { types: {}, marketplaces: { [NOT_UPLOADED]: 0 }, tags: {} };
 
     for (const asset of assets) {
         counts.types[asset.type] = (counts.types[asset.type] ?? 0) + 1;
+
+        for (const tag of asset.tags ?? []) {
+            if (tag.id != null) {
+                counts.tags[tag.id] = (counts.tags[tag.id] ?? 0) + 1;
+            }
+        }
 
         const uploaded = new Set(uploadedAccounts(asset));
 

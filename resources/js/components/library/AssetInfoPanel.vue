@@ -18,6 +18,8 @@ const props = defineProps({
     categories: { type: Object, default: () => ({}) },
     // Folder tree for "Move to folder": [{ id, name, children }]
     folders: { type: Array, default: () => [] },
+    // The user's tags to choose from: [{ id, name }]
+    tags: { type: Array, default: () => [] },
     // Autosave state of this work: 'pending' | 'saving' | 'saved' | 'error'
     saveState: { type: String, default: null },
     // { field: message } from the last failed save
@@ -133,6 +135,7 @@ const footNote = computed(() => {
                     :accounts="accounts"
                     :categories="categories"
                     :folders="folders"
+                    :tags="tags"
                     :errors="errors"
                     :disabled="readonly"
                     :limits="generation.limits"

@@ -17,13 +17,14 @@ import { useAssetUpload } from '@/composables/useAssetUpload';
 import { useFolders } from '@/composables/useFolders';
 import api from '@/core/api';
 import notify from '@/core/notify';
-import { ASSETS_API_URL, LISTINGS_API_URL } from '@/config/constant';
+import { ASSETS_API_URL, ASSETS_TAGS_API_URL, LISTINGS_API_URL } from '@/config/constant';
 import { readyCount } from '@/utils/publishing';
 import { editedFields, markEdited } from '@/utils/generation';
 import { selectWorks } from '@/utils/selection';
 import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
 import { emptyFilters, filterCounts, matchesFilters } from '@/utils/libraryFilters';
+import { sameTag, withTags } from '@/utils/tags';
 
 defineOptions({ layout: AppLayout });
 
@@ -31,6 +32,8 @@ const props = defineProps({
     assets: { type: Array, required: true },
     // Flat list: [{ id, parent_id, name }]
     folders: { type: Array, default: () => [] },
+    // The user's tags, alphabetically: [{ id, name }]
+    tags: { type: Array, default: () => [] },
     accounts: { type: Array, default: () => [] },
     // Category lists by marketplace code: { shutterstock: [{ id, name, media_types }] }
     categories: { type: Object, default: () => ({}) },
@@ -51,6 +54,12 @@ const folderStore = useFolders(props.folders);
 const folders = folderStore.folders;
 watch(() => props.folders, (next) => {
     folders.value = next.map((folder) => ({ ...folder }));
+});
+
+// Tags created by saves join the list at once.
+const tags = ref(props.tags);
+watch(() => props.tags, (next) => {
+    tags.value = next;
 });
 
 // 'all', 'unsorted' or a folder id
@@ -210,6 +219,36 @@ async function fillPicked() {
     }
 }
 
+// Add tags to the picked works, keeping theirs; `done` clears the panel's choice.
+const tagging = ref(false);
+
+async function tagPicked(added, done) {
+    const ids = picked.value;
+
+    if (!ids.length || !added.length || readonly.value || tagging.value) {
+        return;
+    }
+
+    tagging.value = true;
+
+    try {
+        const { data } = await api.post(ASSETS_TAGS_API_URL, { assets: ids, tags: added });
+
+        tags.value = withTags(tags.value, data.tags);
+        assets.value.filter((a) => ids.includes(a.id)).forEach((asset) => {
+            const own = asset.tags ?? [];
+            asset.tags = [...own, ...data.tags.filter((tag) => !own.some((t) => sameTag(t, tag)))];
+        });
+
+        notify.message.success({ message: transChoice('library.selection.tags_added', data.tagged, { count: data.tagged }) });
+        done();
+    } catch {
+        // Reported by the API client (422 with the rejected tag).
+    } finally {
+        tagging.value = false;
+    }
+}
+
 // Back on the page, the remembered card is brought into view.
 onMounted(async () => {
     await nextTick();
@@ -238,6 +277,8 @@ function applyServerAsset(saved, local = autosave.localFields(saved.id)) {
     if (asset) {
         mergeAsset(asset, saved, local);
     }
+
+    tags.value = withTags(tags.value, saved.tags ?? []);
 }
 
 const autosave = useAssetAutosave({ onSaved: applyServerAsset });
@@ -635,6 +676,7 @@ function addFiles(files) {
             :counts="statusCounts"
             :types="types"
             :accounts="accounts"
+            :tags="tags"
             :filter-counts="counts"
             :shown="visible.length"
         >
@@ -671,8 +713,11 @@ function addFiles(files) {
         :assets="pickedAssets"
         :generation="generation"
         :filling="filling"
+        :tags="tags"
+        :tagging="tagging"
         :readonly="readonly"
         @fill="fillPicked"
+        @tag="tagPicked"
         @clear="pick([])"
     />
 
@@ -682,6 +727,7 @@ function addFiles(files) {
         :accounts="accounts"
         :categories="categories"
         :folders="tree"
+        :tags="tags"
         :save-state="autosave.state[selected.id] ?? null"
         :errors="autosave.errors[selected.id] ?? {}"
         :readonly="readonly"
