@@ -98,6 +98,8 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Inertia 3 + Vue 3 + Element Plus; see `docs/frontend.md`.
 - Element Plus styles are compiled from its SCSS sources with the theme in `resources/style/theme/variables.scss`;
   never import its prebuilt CSS (`element-plus/dist/index.css`, `.../style/css`).
+- UI controls are Element Plus components (`el-checkbox`, `el-radio-group`, `el-select`, `el-button`…), adjusted with
+  styles where needed; never hand-made look-alikes (a `<button>` drawn as a checkbox, a custom switch).
 - HTTP requests outside Inertia visits go through `resources/js/core/api.js`, never a bare axios/fetch call.
 - User-facing texts on the frontend come from `lang/{locale}/*.php` via `laravel-vue-i18n` (`trans()`, `$t()`).
 - Every new or changed string goes into all languages at once (`lang/en`, `lang/ru`): the languages never differ

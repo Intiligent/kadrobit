@@ -1,5 +1,7 @@
 <script setup>
 import { Grid3x3, LayoutGrid, Search } from 'lucide-vue-next';
+import LibraryFilters from '@/components/library/LibraryFilters.vue';
+import { emptyFilters } from '@/utils/libraryFilters';
 
 defineProps({
     title: { type: String, required: true },
@@ -10,15 +12,21 @@ defineProps({
     counts: { type: Object, required: true },
     // Work types present in this place, for the type filter
     types: { type: Array, default: () => [] },
+    // Connected marketplace accounts, for the marketplace filter
+    accounts: { type: Array, default: () => [] },
+    // Works per filter choice (utils/libraryFilters.js filterCounts())
+    filterCounts: { type: Object, default: () => ({ types: {}, marketplaces: {} }) },
+    // Works shown with the current filters
+    shown: { type: Number, default: 0 },
 });
 
 const query = defineModel('query', { type: String, default: '' });
 const sort = defineModel('sort', { type: String, default: 'newest' });
 const size = defineModel('size', { type: String, default: 'large' });
 const status = defineModel('status', { type: String, default: 'all' });
-const type = defineModel('type', { type: String, default: 'all' });
+// { types, marketplaces, tags } (utils/libraryFilters.js)
+const filters = defineModel('filters', { type: Object, default: emptyFilters });
 
-const SORTS = ['newest', 'oldest', 'keywords', 'title'];
 const STATUSES = ['all', 'draft', 'ready', 'submitted', 'archived'];
 const SIZES = [
     { key: 'large', icon: LayoutGrid },
@@ -44,11 +52,18 @@ const SIZES = [
                 class="toolbar__search"
             >
                 <template #prefix><Search :size="16" :stroke-width="1.75" /></template>
+                <!-- Filters and sorting open from the search field's end: one input group. -->
+                <template #append>
+                    <LibraryFilters
+                        v-model:sort="sort"
+                        v-model:filters="filters"
+                        :types="types"
+                        :accounts="accounts"
+                        :counts="filterCounts"
+                        :shown="shown"
+                    />
+                </template>
             </el-input>
-
-            <el-select v-model="sort" class="toolbar__sort">
-                <el-option v-for="key in SORTS" :key="key" :value="key" :label="$t(`library.toolbar.sort.${key}`)" />
-            </el-select>
 
             <el-radio-group v-model="size" class="toolbar__sizes">
                 <el-radio-button v-for="item in SIZES" :key="item.key" :value="item.key" :aria-label="$t(`library.toolbar.size_${item.key}`)">
@@ -68,19 +83,6 @@ const SIZES = [
                     </template>
                 </el-tab-pane>
             </el-tabs>
-
-            <div class="ml-auto flex items-center gap-1">
-                <button
-                    v-for="key in ['all', ...types]"
-                    :key="key"
-                    type="button"
-                    class="toolbar__type"
-                    :class="{ 'is-active': type === key }"
-                    @click="type = key"
-                >
-                    {{ $t(`library.toolbar.types.${key}`) }}
-                </button>
-            </div>
         </div>
     </header>
 </template>
@@ -88,12 +90,16 @@ const SIZES = [
 <style scoped lang="scss">
 
 .toolbar__search {
-    flex: 0 1 264px;
-    min-width: 160px;
-}
+    flex: 0 1 380px;
+    min-width: 260px;
 
-.toolbar__sort {
-    width: 152px;
+    // The filters button fills the append slot, on the field's own background. The slot's border is an inset
+    // shadow: the 1px padding keeps the button's hover background from covering it.
+    :deep(.el-input-group__append) {
+        padding: 1px 1px 1px 0;
+        overflow: hidden;
+        background: var(--el-bg-color);
+    }
 }
 
 // Icon-only segments: the chosen one grey rather than filled with the primary colour.
@@ -156,27 +162,6 @@ const SIZES = [
 
     :deep(.el-tabs__active-bar) {
         height: 3px;
-    }
-}
-
-.toolbar__type {
-    height: 28px;
-    padding: 0 12px;
-    font-size: 13px;
-    color: var(--el-text-color-secondary);
-    cursor: pointer;
-    background: transparent;
-    border: 0;
-    border-radius: 14px;
-
-    &:hover {
-        color: var(--el-text-color-primary);
-    }
-
-    &.is-active {
-        font-weight: 500;
-        color: var(--el-bg-color);
-        background: var(--el-text-color-primary);
     }
 }
 </style>

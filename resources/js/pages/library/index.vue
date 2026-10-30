@@ -23,6 +23,7 @@ import { editedFields, markEdited } from '@/utils/generation';
 import { selectWorks } from '@/utils/selection';
 import { useStoredRef } from '@/utils/storage';
 import { buildFolderTree, folderPath, subtreeIds } from '@/utils/folders';
+import { emptyFilters, filterCounts, matchesFilters } from '@/utils/libraryFilters';
 
 defineOptions({ layout: AppLayout });
 
@@ -54,7 +55,8 @@ watch(() => props.folders, (next) => {
 
 // 'all', 'unsorted' or a folder id
 const place = ref('all');
-const type = ref('all');
+// Types, marketplaces and tags from the filters popover (utils/libraryFilters.js)
+const filters = ref(emptyFilters());
 // Status tab, remembered per browser.
 const status = useStoredRef('library.status', 'all', { allowed: ['all', 'draft', 'ready', 'submitted', 'archived'] });
 const query = ref('');
@@ -95,10 +97,15 @@ const placeCounts = computed(() => ({
 
 const placeAssets = computed(() => assets.value.filter(inPlace.value));
 
-// Types offered by the type filter: those present here, and the chosen one so it can be cleared.
-const types = computed(() => TYPES.filter((t) => t === type.value || placeAssets.value.some((a) => a.type === t)));
+// Types offered by the type filter: those present here, and the chosen ones so they can be cleared.
+const types = computed(() => TYPES.filter((t) => filters.value.types.includes(t) || placeAssets.value.some((a) => a.type === t)));
 
-const typedAssets = computed(() => placeAssets.value.filter((a) => type.value === 'all' || a.type === type.value));
+const typedAssets = computed(() => placeAssets.value.filter((a) => matchesFilters(a, filters.value)));
+
+const inStatus = (a) => (status.value === 'all' ? isLive(a) : a.status === status.value);
+
+// Counts in the popover: works in this place and status tab, before the filters.
+const counts = computed(() => filterCounts(placeAssets.value.filter(inStatus)));
 
 const statusCounts = computed(() => ({
     all: typedAssets.value.filter(isLive).length,
@@ -120,7 +127,7 @@ const visible = computed(() => {
     const q = query.value.trim().toLowerCase();
 
     return typedAssets.value
-        .filter((a) => (status.value === 'all' ? isLive(a) : a.status === status.value))
+        .filter(inStatus)
         .filter((a) => !q || [a.title, a.description, a.original_filename, ...a.keywords].join(' ').toLowerCase().includes(q))
         .sort(SORTERS[sort.value]);
 });
@@ -214,7 +221,7 @@ const path = computed(() => folderPath(folders.value, place.value));
 const title = computed(() => path.value.at(-1) ?? trans(`library.explorer.views.${place.value}`));
 
 watch(place, () => {
-    type.value = 'all';
+    filters.value = { ...filters.value, types: [] };
 });
 
 // Editing: changes show at once and are saved in the background.
@@ -621,12 +628,15 @@ function addFiles(files) {
             v-model:sort="sort"
             v-model:size="size"
             v-model:status="status"
-            v-model:type="type"
+            v-model:filters="filters"
             :title="title"
             :path="path.slice(0, -1)"
             :total="statusCounts.all"
             :counts="statusCounts"
             :types="types"
+            :accounts="accounts"
+            :filter-counts="counts"
+            :shown="visible.length"
         >
             <template #actions>
                 <PublishPopover :count="ready" :accounts="accounts" :disabled="readonly" @published="onPublished" />
