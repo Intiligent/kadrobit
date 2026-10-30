@@ -32,6 +32,7 @@ Route::as('api.')->middleware('auth:api')->group(function () {
         });
 
         Route::post('assets/move', [AssetController::class, 'move'])->name('assets.move');
+        Route::post('assets/tags', [AssetController::class, 'tag'])->name('assets.tag');
         Route::patch('assets/{asset}', [AssetController::class, 'update'])->whereUlid('asset')->name('assets.update');
         Route::delete('assets/{asset}', [AssetController::class, 'destroy'])->whereUlid('asset')->name('assets.destroy');
         Route::post('assets/{asset}/rotate', [AssetController::class, 'rotate'])->whereUlid('asset')->name('assets.rotate');

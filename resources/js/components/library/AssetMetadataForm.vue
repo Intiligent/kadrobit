@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import KeywordInput from '@/components/library/KeywordInput.vue';
 import MetadataFieldLabel from '@/components/library/MetadataFieldLabel.vue';
+import TagSelect from '@/components/library/TagSelect.vue';
 import notify from '@/core/notify';
 import { categoryFields } from '@/utils/marketplaceRules';
 import { isGenerated, overLimit } from '@/utils/generation';
@@ -14,6 +15,8 @@ const props = defineProps({
     categories: { type: Object, default: () => ({}) },
     // Folder tree: [{ id, name, children }]
     folders: { type: Array, default: () => [] },
+    // The user's tags to choose from: [{ id, name }]
+    tags: { type: Array, default: () => [] },
     // { field: message } from the last failed save
     errors: { type: Object, default: () => ({}) },
     // Read-only, e.g. until the email is confirmed
@@ -168,6 +171,10 @@ async function copyField(field) {
                 class="w-full"
                 @update:model-value="set('folder_id', $event || null)"
             />
+        </el-form-item>
+
+        <el-form-item :label="$t('library.tags.label')" :error="errors.tags">
+            <TagSelect :model-value="asset.tags ?? []" :tags="tags" @update:model-value="set('tags', $event)" />
         </el-form-item>
 
         <el-divider class="!my-4" />

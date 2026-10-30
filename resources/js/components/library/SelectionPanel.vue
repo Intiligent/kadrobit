@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from 'vue';
-import { Film, Image, PenTool, Sparkles, X } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import { Film, Image, PenTool, Sparkles, Tag, X } from 'lucide-vue-next';
+import TagSelect from '@/components/library/TagSelect.vue';
 
 const props = defineProps({
     // The picked works, in the grid's order
@@ -9,10 +10,21 @@ const props = defineProps({
     generation: { type: Object, default: () => ({ available: false }) },
     // The fill request is running
     filling: { type: Boolean, default: false },
+    // The user's tags to choose from: [{ id, name }]
+    tags: { type: Array, default: () => [] },
+    // The tagging request is running
+    tagging: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['fill', 'clear']);
+const emit = defineEmits(['fill', 'tag', 'clear']);
+
+// Tags to add to every picked work; the page clears them once added (`done`).
+const adding = ref([]);
+
+const addTags = () => emit('tag', adding.value, () => {
+    adding.value = [];
+});
 
 const TYPE_ICON = { photo: Image, video: Film, vector: PenTool, illustration: Sparkles };
 
@@ -45,6 +57,16 @@ const tooMany = computed(() => props.assets.length > props.generation.batch);
         <p v-if="assets.length > PREVIEWS" class="mt-1.5 px-5 text-xs text-[var(--el-text-color-placeholder)]">
             {{ $tChoice('library.selection.more', assets.length - PREVIEWS, { count: assets.length - PREVIEWS }) }}
         </p>
+
+        <section class="mx-5 mt-5 border-t border-[var(--el-border-color-lighter)] pt-4">
+            <p class="font-medium">{{ $t('library.tags.label') }}</p>
+            <p class="mt-0.5 text-[13px] leading-[18px] text-[var(--el-text-color-secondary)]">{{ $t('library.selection.tags_hint') }}</p>
+            <TagSelect v-model="adding" :tags="tags" :disabled="readonly" class="mt-3" />
+            <el-button class="mt-3" :loading="tagging" :disabled="readonly || !adding.length" @click="addTags">
+                <Tag :size="15" :stroke-width="2" class="mr-1.5" />
+                {{ $tChoice('library.selection.tags_add', assets.length, { count: assets.length }) }}
+            </el-button>
+        </section>
 
         <section v-if="generation.available" class="mx-5 mt-5 border-t border-[var(--el-border-color-lighter)] pt-4">
             <p class="font-medium">{{ $t('library.generation.title') }}</p>

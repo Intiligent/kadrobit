@@ -14,8 +14,10 @@ defineProps({
     types: { type: Array, default: () => [] },
     // Connected marketplace accounts, for the marketplace filter
     accounts: { type: Array, default: () => [] },
+    // The user's tags, for the tag filter: [{ id, name }]
+    tags: { type: Array, default: () => [] },
     // Works per filter choice (utils/libraryFilters.js filterCounts())
-    filterCounts: { type: Object, default: () => ({ types: {}, marketplaces: {} }) },
+    filterCounts: { type: Object, default: () => ({ types: {}, marketplaces: {}, tags: {} }) },
     // Works shown with the current filters
     shown: { type: Number, default: 0 },
 });
@@ -59,6 +61,7 @@ const SIZES = [
                         v-model:filters="filters"
                         :types="types"
                         :accounts="accounts"
+                        :tags="tags"
                         :counts="filterCounts"
                         :shown="shown"
                     />

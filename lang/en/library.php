@@ -61,7 +61,6 @@ return [
         'tags_placeholder' => 'Choose tags',
         'tags_empty' => 'No tags yet',
         'tags_no_match' => 'No such tags',
-        'soon' => 'Soon',
         'reset' => 'Reset',
         'reset_all' => 'Reset all',
         'show' => '{0} Nothing found|{1} Show :count work|[2,*] Show :count works',
@@ -374,6 +373,12 @@ return [
     ],
 
     // Several works picked in the grid (SelectionPanel.vue)
+    'tags' => [
+        'label' => 'Tags',
+        'placeholder' => 'Choose a tag from the list or create your own',
+        'empty' => 'No tags yet — create the first one',
+    ],
+
     'selection' => [
         'title' => '{1} :count work selected|[2,*] :count works selected',
         'hint' => 'Cmd/Ctrl-click adds or removes a work, Shift-click adds a range. Esc clears.',
@@ -383,6 +388,9 @@ return [
         'fill_hint' => 'Only empty fields are filled; your edits stay.',
         'fill_too_many' => '{1} One fill takes one work. Select fewer.|[2,*] One fill takes up to :max works. Select fewer.',
         'fill_queued' => '{0} Nothing to fill: every field is already filled in.|{1} :count work is being filled in|[2,*] :count works are being filled in',
+        'tags_hint' => 'Added to the tags each work already has; none are taken off.',
+        'tags_add' => '{1} Add to :count work|[2,*] Add to :count works',
+        'tags_added' => '{1} Tags added to :count work|[2,*] Tags added to :count works',
     ],
 
     'tools' => [
@@ -431,5 +439,9 @@ return [
         'categories_marketplace' => 'This marketplace is not connected.',
         'categories_max' => '{1} Choose one category.|[2,*] Choose up to :max categories.',
         'categories_unknown' => 'This category is not on the marketplace list for this type of work.',
+        'tags_max' => 'A work can have up to :max tags.',
+        'tag_unknown' => 'This tag was not found. Reload the page and choose it again.',
+        'tag_name_max' => 'A tag can be up to :max characters long.',
+        'tag_name_chars' => 'A tag can contain only letters, digits, spaces, hyphens and underscores.',
     ],
 ];

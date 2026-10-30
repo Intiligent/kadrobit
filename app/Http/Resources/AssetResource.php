@@ -14,7 +14,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class AssetResource extends JsonResource
 {
     /** Relations the resource reads: load them with the work to avoid a query per field. */
-    public const RELATIONS = ['files', 'folder:id,ulid', 'listings.account.marketplace'];
+    public const RELATIONS = ['files', 'folder:id,ulid', 'tags:id,name', 'listings.account.marketplace'];
 
     /**
      * @return array<string, mixed>
@@ -37,6 +37,12 @@ class AssetResource extends JsonResource
             'title' => $this->title ?? '',
             'description' => $this->description ?? '',
             'keywords' => $this->keywords,
+            // The user's own tags, alphabetically; never sent to marketplaces.
+            'tags' => $this->whenLoaded(
+                'tags',
+                fn () => TagResource::collection($this->tags->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values())->resolve($request),
+                [],
+            ),
             // An object even when empty, so the frontend can index it by marketplace code.
             'categories' => (object) ($this->categories ?? []),
             'is_editorial' => $this->is_editorial,

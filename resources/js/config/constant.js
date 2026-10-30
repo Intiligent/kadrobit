@@ -24,6 +24,8 @@ export const LOCALE_URL = '/locale';
 export const LIBRARY_URL = '/library';
 export const ASSETS_API_URL = '/api/assets';
 export const ASSETS_MOVE_API_URL = '/api/assets/move';
+// Adding tags to several works at once
+export const ASSETS_TAGS_API_URL = '/api/assets/tags';
 export const FOLDERS_API_URL = '/api/folders';
 export const ASSET_UPLOADS_API_URL = '/api/assets/uploads';
 // Works per GET /api/assets request (AssetController::LIST_MAX)
@@ -53,6 +55,8 @@ export const ASSET_UPLOAD_POLL_INTERVAL = 3000;
 // Editing: edits are saved this long after the last change (ms). Keyword limits mirror UpdateAssetRequest.
 export const ASSET_AUTOSAVE_DELAY = 600;
 export const KEYWORDS_MAX = 50;
+// Tags of one work (ValidatesTags::TAGS_MAX)
+export const TAGS_MAX = 50;
 // The first keywords carry the most weight on marketplaces and are highlighted.
 export const KEYWORDS_HIGHLIGHTED = 10;
 
