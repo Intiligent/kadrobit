@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { ChevronDown, Check, ListFilter } from 'lucide-vue-next';
 import MarketplaceLogo from '@/components/settings/MarketplaceLogo.vue';
-import { NOT_UPLOADED, activeCount, emptyFilters, toggle } from '@/utils/libraryFilters';
+import { NOT_UPLOADED, activeCount, emptyFilters } from '@/utils/libraryFilters';
 
 const props = defineProps({
     // Types offered: those in the current place, and the chosen ones so they can be cleared
@@ -31,8 +31,6 @@ const dirty = computed(() => active.value > 0 || sort.value !== 'newest');
 const set = (key, value) => {
     filters.value = { ...filters.value, [key]: value };
 };
-
-const flip = (key, value) => set(key, toggle(filters.value[key], value));
 
 const marketplaces = computed(() => [
     ...props.accounts.map((account) => ({
@@ -65,61 +63,40 @@ function resetAll() {
         popper-class="library-filters"
     >
         <template #reference>
-            <button type="button" class="filters-button" :class="{ 'is-open': open }" :aria-expanded="open" :aria-label="$t('library.filters.button')">
+            <el-button class="filters-button" :class="{ 'is-open': open }" :aria-expanded="open" :aria-label="$t('library.filters.button')">
                 <ListFilter :size="16" :stroke-width="2" />
                 <span>{{ $t('library.filters.button') }}</span>
                 <span v-if="active" class="filters-button__count">{{ active }}</span>
                 <ChevronDown :size="14" :stroke-width="2.25" class="filters-button__chevron" />
-            </button>
+            </el-button>
         </template>
 
         <div class="filters" @keydown.esc="open = false">
             <div class="filters__body">
                 <section class="filters__section">
                     <h3 class="filters__title">{{ $t('library.filters.sort') }}</h3>
-                    <div class="filters__sorts" role="radiogroup">
-                        <button
-                            v-for="key in SORTS"
-                            :key="key"
-                            type="button"
-                            role="radio"
-                            :aria-checked="sort === key"
-                            class="filters__row"
-                            :class="{ 'is-active': sort === key }"
-                            @click="sort = key"
-                        >
+                    <el-radio-group v-model="sort" class="filters__sorts">
+                        <el-radio v-for="key in SORTS" :key="key" :value="key" class="filters__sort">
                             <span class="flex-1 truncate">{{ $t(`library.toolbar.sort.${key}`) }}</span>
                             <Check v-if="sort === key" :size="14" :stroke-width="2.5" class="filters__check" />
-                        </button>
-                    </div>
+                        </el-radio>
+                    </el-radio-group>
                 </section>
 
                 <section class="filters__section">
                     <h3 class="filters__title">{{ $t('library.filters.types') }}</h3>
                     <!-- Several types at once; "All" is on while none is chosen and clears the choice. -->
                     <div class="filters__types">
-                        <button
-                            type="button"
-                            class="filters__type"
-                            :class="{ 'is-active': !filters.types.length }"
-                            :aria-pressed="!filters.types.length"
-                            @click="set('types', [])"
-                        >
+                        <el-checkbox-button :model-value="!filters.types.length" class="filters__type" @change="set('types', [])">
                             {{ $t('library.filters.all') }}
-                        </button>
-                        <button
-                            v-for="key in types"
-                            :key="key"
-                            type="button"
-                            class="filters__type"
-                            :class="{ 'is-active': filters.types.includes(key) }"
-                            :aria-pressed="filters.types.includes(key)"
-                            @click="flip('types', key)"
-                        >
-                            <Check v-if="filters.types.includes(key)" :size="12" :stroke-width="3" class="filters__check" />
-                            {{ $t(`library.toolbar.types.${key}`) }}
-                            <span class="filters__count">{{ counts.types[key] ?? 0 }}</span>
-                        </button>
+                        </el-checkbox-button>
+                        <el-checkbox-group :model-value="filters.types" class="contents" @update:model-value="set('types', $event)">
+                            <el-checkbox-button v-for="key in types" :key="key" :value="key" class="filters__type">
+                                <Check v-if="filters.types.includes(key)" :size="12" :stroke-width="3" class="filters__check" />
+                                {{ $t(`library.toolbar.types.${key}`) }}
+                                <span class="filters__count">{{ counts.types[key] ?? 0 }}</span>
+                            </el-checkbox-button>
+                        </el-checkbox-group>
                     </div>
                 </section>
 
@@ -182,25 +159,31 @@ function resetAll() {
 </template>
 
 <style scoped lang="scss">
-// Sits in the search field's append slot: the two read as one input group.
-.filters-button {
+// Sits in the search field's append slot: the two read as one input group. Element's append rules (negative
+// margins, transparent background on hover) are overridden, hence the `button.el-button` weight.
+button.el-button.filters-button {
     display: flex;
-    gap: 6px;
     align-items: center;
     height: 100%;
     padding: 0 10px 0 11px;
+    margin: 0;
     font-size: 14px;
     font-weight: 500;
+    line-height: inherit;
     color: var(--el-text-color-primary);
-    white-space: nowrap;
-    cursor: pointer;
     background: transparent;
     border: 0;
     // Inside the field's 1px border: rounded like its corners, so the hover background stays off the border.
     border-radius: 0 calc(var(--el-input-border-radius, var(--el-border-radius-base)) - 1px) calc(var(--el-input-border-radius, var(--el-border-radius-base)) - 1px) 0;
 
+    :deep(> span) {
+        gap: 6px;
+    }
+
     &:hover,
+    &:focus-visible,
     &.is-open {
+        color: var(--el-text-color-primary);
         background: var(--el-fill-color-light);
     }
 }
@@ -283,34 +266,42 @@ function resetAll() {
     margin: 0 -6px;
 }
 
-// One line of the sort list.
-.filters__row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
+// A sort: the radio's own circle is hidden (kept for the keyboard), the chosen one is bold with a check mark.
+.filters__sort.el-radio {
     height: 32px;
     padding: 0 6px;
-    font-size: 14px;
+    margin-right: 0;
+    font-weight: 400;
     color: var(--el-text-color-regular);
-    text-align: left;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
     border-radius: 6px;
 
-    &:hover:not(:disabled) {
-        color: var(--el-text-color-primary);
+    &:hover {
         background: var(--el-fill-color-light);
     }
 
-    &.is-active {
-        font-weight: 600;
+    :deep(.el-radio__input) {
+        position: absolute;
+        opacity: 0;
+    }
+
+    :deep(.el-radio__label) {
+        display: flex;
+        flex: 1;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        padding-left: 0;
+        font-size: 14px;
+        color: inherit;
+    }
+
+    &:hover,
+    &.is-checked {
         color: var(--el-text-color-primary);
     }
 
-    &:disabled {
-        cursor: default;
-        opacity: 0.45;
+    &.is-checked {
+        font-weight: 600;
     }
 }
 
@@ -352,33 +343,53 @@ function resetAll() {
     padding: 2px;
     background: var(--el-fill-color);
     border-radius: 8px;
+
+    // The group zeroes its font for inline-block gaps; it has no box here, so the segments take the popover's text.
+    :deep(.el-checkbox-group) {
+        font-size: inherit;
+        line-height: inherit;
+    }
 }
 
 .filters__type {
     display: flex;
     flex: 1 1 auto;
-    gap: 5px;
-    align-items: center;
-    justify-content: center;
-    height: 28px;
-    padding: 0 10px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--el-text-color-secondary);
-    white-space: nowrap;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
     border-radius: 6px;
 
-    &:hover {
-        color: var(--el-text-color-primary);
+    // The segment is drawn on the label; Element's button look of the inner part is switched off.
+    :deep(.el-checkbox-button__inner) {
+        display: flex;
+        flex: 1;
+        gap: 5px;
+        align-items: center;
+        justify-content: center;
+        height: 28px;
+        padding: 0 10px;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: inherit;
+        color: var(--el-text-color-secondary);
+        background: transparent;
+        border: 0;
+        border-radius: 6px;
+        outline: 0;
+        box-shadow: none;
+        transition: none;
+
+        &:hover {
+            color: var(--el-text-color-primary);
+        }
     }
 
-    &.is-active {
-        color: var(--el-text-color-primary);
+    &.is-checked {
         background: var(--el-bg-color);
         box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+
+        :deep(.el-checkbox-button__inner) {
+            color: var(--el-text-color-primary);
+            background: transparent;
+            box-shadow: none;
+        }
     }
 }
 
