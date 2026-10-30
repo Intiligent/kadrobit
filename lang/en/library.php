@@ -37,7 +37,6 @@ return [
         'size_large' => 'Large tiles',
         'size_small' => 'Small tiles',
         'types' => [
-            'all' => 'All types',
             'photo' => 'Photos',
             'video' => 'Videos',
             'vector' => 'Vectors',
@@ -49,6 +48,23 @@ return [
             'keywords' => 'Fewest keywords',
             'title' => 'Title A–Z',
         ],
+    ],
+
+    'filters' => [
+        'button' => 'Filters',
+        'sort' => 'Sort',
+        'types' => 'Content type',
+        'all' => 'All',
+        'marketplaces' => 'Uploaded to',
+        'not_uploaded' => 'Not uploaded anywhere',
+        'tags' => 'Tags',
+        'tags_placeholder' => 'Choose tags',
+        'tags_empty' => 'No tags yet',
+        'tags_no_match' => 'No such tags',
+        'soon' => 'Soon',
+        'reset' => 'Reset',
+        'reset_all' => 'Reset all',
+        'show' => '{0} Nothing found|{1} Show :count work|[2,*] Show :count works',
     ],
 
     'status' => [
