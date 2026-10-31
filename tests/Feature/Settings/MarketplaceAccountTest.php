@@ -239,8 +239,8 @@ class MarketplaceAccountTest extends TestCase
         $this->tester();
 
         $this->postJson('/api/marketplace-accounts', [
-            'marketplace' => 'depositphotos',
-            'label' => 'Depositphotos',
+            'marketplace' => 'magnific',
+            'label' => 'Magnific',
             'login' => 'akadrov',
             'password' => self::PASSWORD,
         ])->assertJsonValidationErrors('host');

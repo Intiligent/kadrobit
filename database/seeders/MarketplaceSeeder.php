@@ -258,8 +258,14 @@ class MarketplaceSeeder extends Seeder
                 'contributor_url' => 'https://depositphotos.com/contributors.html',
                 'is_active' => true,
                 'supported_types' => $all,
+                // depositphotos.com/faq/article/360010106174.html: ftp.depositphotos.com, the account's login and password.
+                // Plain FTP: the server lists AUTH TLS in FEAT but answers it with "500 This security scheme is not
+                // implemented" (30.10.2026), so the password goes in the clear.
                 'upload_protocol' => UploadProtocol::Ftp,
-                'upload_defaults' => [],
+                'upload_defaults' => [
+                    'host' => 'ftp.depositphotos.com',
+                    'port' => 21,
+                ],
                 // No data on how metadata is delivered yet.
                 'metadata_delivery' => null,
                 'metadata_rules' => [
