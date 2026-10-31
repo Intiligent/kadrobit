@@ -14,6 +14,8 @@ class ConnectionResultTest extends TestCase
     {
         $this->assertSame(ConnectionResult::OTHER, ConnectionResult::fromFtpLoginWarning('ftp_login(): SSL/TLS handshake failed')->reason);
         $this->assertSame(ConnectionResult::OTHER, ConnectionResult::fromFtpLoginWarning("ftp_login(): Server doesn't support FTPS.")->reason);
+        // ftp.depositphotos.com lists AUTH TLS in FEAT, then refuses it.
+        $this->assertSame(ConnectionResult::OTHER, ConnectionResult::fromFtpLoginWarning('ftp_login(): This security scheme is not implemented')->reason);
     }
 
     public function test_rejected_ftp_login_is_a_wrong_password(): void

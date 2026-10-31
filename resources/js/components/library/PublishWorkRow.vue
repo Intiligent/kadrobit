@@ -12,11 +12,9 @@ const props = defineProps({
     connections: { type: Object, required: true },
     expanded: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
-    // The send is full (publishing.batch_works): this work cannot be ticked
-    locked: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['toggle', 'expand', 'pair']);
+const emit = defineEmits(['expand', 'pair']);
 
 const TAG = { ok: 'success', warning: 'warning', error: 'danger', skipped: 'info' };
 
@@ -53,13 +51,27 @@ const filesLine = (connection) => [item.value.original_filename, formatBytes(ite
     .filter(Boolean)
     .join(' · ');
 
+// Accounts whose pair goes out: the model of the pairs' own el-checkbox-group, which keeps them apart from the
+// works' group around the row (PublishPanel.vue).
+const goingOut = computed(() => props.row.pairs.filter((pair) => pair.state !== 'error' && pair.state !== 'skipped').map((pair) => pair.account));
+
+// The group reports the whole list; the pair whose tick changed is the one in only one of the lists.
+const togglePair = (next) => {
+    const changed = props.row.pairs.find((pair) => next.includes(pair.account) !== goingOut.value.includes(pair.account));
+
+    if (changed) {
+        emit('pair', changed.account);
+    }
+};
+
 const checkText = (check, translate) => translate(`library.checks.${check.key}`, formatNumberParams(check.params, locale));
 </script>
 
 <template>
     <div class="border-t border-[var(--el-border-color-extra-light)]">
         <div class="flex items-center gap-3 px-5 py-2.5">
-            <el-checkbox :model-value="row.chosen" :disabled="disabled || locked || !row.selectable" @update:model-value="emit('toggle')" />
+            <!-- A member of the works' el-checkbox-group in PublishPanel.vue. -->
+            <el-checkbox :value="item.asset" :disabled="!row.selectable" />
 
             <div class="publish-row__thumb" :class="{ 'opacity-45': !row.chosen }">
                 <el-image v-if="item.thumbnail_url" :src="item.thumbnail_url" fit="cover" class="size-full" />
@@ -94,7 +106,7 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
             </button>
         </div>
 
-        <div v-if="expanded" class="flex flex-col gap-1.5 pb-3 pl-[90px] pr-5">
+        <el-checkbox-group v-if="expanded" :model-value="goingOut" :disabled="disabled" class="publish-row__pairs flex flex-col gap-1.5 pb-3 pl-[90px] pr-5" @update:model-value="togglePair">
             <p v-if="!row.pairs.length" class="text-xs text-[var(--el-text-color-secondary)]">{{ $t('library.publishing.popover.pick_marketplace') }}</p>
 
             <div v-for="pair in row.pairs" :key="pair.account" class="publish-row__pair">
@@ -103,11 +115,7 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
                         :content="$t(pair.state === 'error' ? 'library.publishing.popover.pair_blocked' : pair.state === 'skipped' ? 'library.publishing.popover.pair_include' : 'library.publishing.popover.pair_skip')"
                         placement="top"
                     >
-                        <el-checkbox
-                            :model-value="pair.state !== 'error' && pair.state !== 'skipped'"
-                            :disabled="disabled || pair.state === 'error'"
-                            @update:model-value="emit('pair', pair.account)"
-                        />
+                        <el-checkbox :value="pair.account" :disabled="pair.state === 'error'" />
                     </el-tooltip>
                     <MarketplaceLogo :name="connections[pair.account].marketplace.name" :logo-url="connections[pair.account].marketplace.logo_url" :size="20" />
                     <span class="truncate font-semibold">{{ connections[pair.account].label || connections[pair.account].marketplace.name }}</span>
@@ -131,7 +139,7 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
                     </span>
                 </div>
             </div>
-        </div>
+        </el-checkbox-group>
     </div>
 </template>
 
@@ -184,6 +192,12 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
     &:disabled {
         cursor: default;
     }
+}
+
+// Element's group zeroes its font for inline-block gaps; here it holds the cards with their text.
+.publish-row__pairs {
+    font-size: inherit;
+    line-height: inherit;
 }
 
 .publish-row__pair {

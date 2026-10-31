@@ -49,11 +49,13 @@ final readonly class ConnectionResult
     /**
      * A failed ftp_login(). With FTPS the TLS handshake runs inside ftp_login(), so its failure must not
      * read as a wrong password; PHP names it in the warning ("SSL/TLS handshake failed",
-     * "Server doesn't support FTPS."). Any other warning carries the server's answer to the login.
+     * "Server doesn't support FTPS."), or the server refuses AUTH TLS in its own words (Pure-FTPd:
+     * "This security scheme is not implemented", though its FEAT lists AUTH TLS). Any other warning carries
+     * the server's answer to the login.
      */
     public static function fromFtpLoginWarning(?string $warning): self
     {
-        return self::failed(preg_match('/SSL|TLS|FTPS/', $warning ?? '') ? self::OTHER : self::AUTH);
+        return self::failed(preg_match('/SSL|TLS|FTPS|security scheme/i', $warning ?? '') ? self::OTHER : self::AUTH);
     }
 
     public function isAuthError(): bool

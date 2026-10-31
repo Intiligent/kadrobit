@@ -78,6 +78,24 @@ describe('checkAsset: file rules', () => {
         expect(levels(checkAsset(asset({ mime: 'image/tiff' }), shutterstock))).toEqual(['ok:keywords_ok']);
     });
 
+    it('rejects a format the marketplace never takes when the formats are strict', () => {
+        const alamy = account('alamy', {}, {
+            marketplace: {
+                code: 'alamy',
+                name: 'Alamy',
+                supported_types: ['vector'],
+                metadata_delivery: 'iptc',
+                metadata_rules: {},
+                file_rules: { vector: { formats: ['EPS'], formats_strict: true } },
+            },
+        });
+        const svg = checkAsset(asset({ type: 'vector', mime: 'image/svg+xml' }), alamy);
+
+        expect(svg.needsFix).toBe(true);
+        expect(levels(svg)).toEqual(['error:format', 'ok:keywords_ok']);
+        expect(levels(checkAsset(asset({ type: 'vector', mime: 'application/postscript' }), alamy))).toEqual(['ok:keywords_ok']);
+    });
+
     it('skips file checks without rules for the type or before the size is known', () => {
         expect(levels(checkAsset(asset({ type: 'video', width: 640, height: 480 }), adobe()))).toEqual(['ok:keywords_ok']);
         expect(levels(checkAsset(asset({ width: null, height: null }), adobe()))).toEqual(['ok:keywords_ok']);

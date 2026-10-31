@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Marketplaces\Delivery\AlamyDelivery;
 use App\Services\Marketplaces\Delivery\DreamstimeDelivery;
 use App\Services\Marketplaces\Delivery\ShutterstockDelivery;
 
@@ -78,6 +79,7 @@ return [
     'deliveries' => [
         'shutterstock' => ShutterstockDelivery::class,
         'dreamstime' => DreamstimeDelivery::class,
+        'alamy' => AlamyDelivery::class,
     ],
 
     /*

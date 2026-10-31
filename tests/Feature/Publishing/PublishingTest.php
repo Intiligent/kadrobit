@@ -36,6 +36,8 @@ class PublishingTest extends TestCase
         parent::setUp();
 
         $this->seed([OauthSeeder::class, MarketplaceSeeder::class]);
+        // Alamy stands for a marketplace without file limits here: a photo too small for Shutterstock goes there.
+        Marketplace::where('code', 'alamy')->update(['file_rules' => []]);
         FakeDelivery::reset();
         config([
             'publishing.deliveries' => ['shutterstock' => FakeDelivery::class, 'alamy' => FakeDelivery::class],

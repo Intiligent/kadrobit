@@ -171,14 +171,18 @@ class MarketplaceSeeder extends Seeder
                 'logo' => 'marketplaces/alamy.svg',
                 'contributor_url' => 'https://www.alamy.com/contributor/',
                 'is_active' => true,
+                // Video is taken from partner agencies only (alamy.com/help/contributor-uploading).
                 'supported_types' => [MediaType::Photo, MediaType::Vector],
+                // Plain FTP: the server offers no AUTH TLS (FEAT), so the password goes in the clear.
+                // The login is the account's email. Folders: Stock, Vectors (Live News and Archive stock need Alamy's consent).
                 'upload_protocol' => UploadProtocol::Ftp,
                 'upload_defaults' => [
                     'host' => 'upload.alamy.com',
                     'port' => 21,
                 ],
-                // Captions and tags are set in Image Manager; IPTC is read for vectors.
-                'metadata_delivery' => MetadataDelivery::Manual,
+                // Alamy reads the caption (IPTC description) and tags (keywords) from the JPEG (Alamy's FAQ
+                // "Captions and keywords"); the rest is entered in Image Manager.
+                'metadata_delivery' => MetadataDelivery::Iptc,
                 'metadata_rules' => [
                     // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
                     // Caption up to 128 characters, searchable; Description up to 2000, not searchable (Alamy's PDF guide "Captions and keywords", may be dated).
@@ -186,10 +190,21 @@ class MarketplaceSeeder extends Seeder
                         ['field' => 'title', 'name' => 'Caption', 'max' => 128],
                         ['field' => 'description', 'name' => 'Description', 'max' => 2000],
                     ],
-                    'iptc_read_for' => ['vector'],
+                    // AI-generated images are not accepted.
+                    'accepts_ai_generated' => false,
+                    // Primary and optional Secondary category (MarketplaceCategorySeeder), chosen in Image Manager:
+                    // the file carries none and there is no CSV, so they are not sent.
+                    'categories_min' => 0,
+                    'categories_max' => 2,
                     'submit' => 'web',
                 ],
-                'file_rules' => [],
+                // alamy.com/help/contributor-uploading: RGB baseline JPEG over 17 MB uncompressed (17 MiB / 3 bytes a pixel
+                // ≈ 5.94 MP). PNG and TIFF are taken here because AlamyDelivery sends them as a JPEG copy. Vectors are EPS
+                // only (not AI or SVG), with a JPEG of the same name for the metadata; no size limits are given.
+                'file_rules' => [
+                    'photo' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 5.94],
+                    'vector' => ['formats' => ['EPS'], 'formats_strict' => true],
+                ],
             ],
             [
                 'code' => 'dreamstime',
@@ -243,8 +258,14 @@ class MarketplaceSeeder extends Seeder
                 'contributor_url' => 'https://depositphotos.com/contributors.html',
                 'is_active' => true,
                 'supported_types' => $all,
+                // depositphotos.com/faq/article/360010106174.html: ftp.depositphotos.com, the account's login and password.
+                // Plain FTP: the server lists AUTH TLS in FEAT but answers it with "500 This security scheme is not
+                // implemented" (30.10.2026), so the password goes in the clear.
                 'upload_protocol' => UploadProtocol::Ftp,
-                'upload_defaults' => [],
+                'upload_defaults' => [
+                    'host' => 'ftp.depositphotos.com',
+                    'port' => 21,
+                ],
                 // No data on how metadata is delivered yet.
                 'metadata_delivery' => null,
                 'metadata_rules' => [

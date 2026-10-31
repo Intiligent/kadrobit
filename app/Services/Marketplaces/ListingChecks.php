@@ -122,7 +122,8 @@ class ListingChecks
 
     /**
      * Format, resolution and size of the original, from marketplaces.file_rules for the work's type.
-     * A format is a warning (Kadrobit may convert the file one day); resolution and size are errors.
+     * A format is a warning (Kadrobit may convert the file one day), or an error with formats_strict (the marketplace
+     * takes nothing else and Kadrobit does not convert it); resolution and size are errors.
      *
      * @return array{0: list<array{key: string, params: array<string, mixed>}>, 1: list<array{key: string, params: array<string, mixed>}>} Warnings and errors
      */
@@ -138,7 +139,13 @@ class ListingChecks
         $format = self::FORMATS[$original?->mime] ?? null;
 
         if ($format && ($rules['formats'] ?? null) && ! in_array($format, $rules['formats'], true)) {
-            $warnings[] = $this->issue('format', ['format' => $format, 'formats' => implode(', ', $rules['formats'])]);
+            $issue = $this->issue('format', ['format' => $format, 'formats' => implode(', ', $rules['formats'])]);
+
+            if ($rules['formats_strict'] ?? false) {
+                $errors[] = $issue;
+            } else {
+                $warnings[] = $issue;
+            }
         }
 
         $width = $asset->width;

@@ -20,7 +20,8 @@ const emit = defineEmits(['published', 'close', 'busy']);
 const stage = ref('loading');
 const summary = ref(null);
 const picked = ref([]);
-const works = ref(new Set());
+// Ulids of the ticked works: the model of the works' el-checkbox-group.
+const works = ref([]);
 const skipped = ref(new Set());
 const expanded = ref(new Set());
 const accountsOpen = ref(false);
@@ -31,15 +32,17 @@ const accountRows = computed(() => (summary.value ? batchAccounts(summary.value,
 const pickedConnected = computed(() => picked.value.filter((id) => connections.value[id]));
 // Cards show on the picked accounts and on those turned off or signed out: those say why the work waits.
 const shownAccounts = computed(() => [...pickedConnected.value, ...accountRows.value.filter((row) => row.blocked).map((row) => row.account)]);
-const rows = computed(() => (summary.value ? workRows(summary.value, shownAccounts.value, works.value, skipped.value) : []));
+const rows = computed(() => (summary.value ? workRows(summary.value, shownAccounts.value, new Set(works.value), skipped.value) : []));
 const totals = computed(() => publishTotals(rows.value));
 
 const selectable = computed(() => rows.value.filter((row) => row.selectable));
 const chosenCount = computed(() => selectable.value.filter((row) => row.chosen).length);
 // Works one send takes (publishing.batch_works); beyond it the rest waits for the next send.
 const limit = computed(() => summary.value?.limit ?? Infinity);
-const full = computed(() => chosenCount.value >= limit.value);
-const allChosen = computed(() => chosenCount.value > 0 && chosenCount.value === Math.min(selectable.value.length, limit.value));
+// What "select all" ticks: works with a pair that goes out, up to the limit. A work every picked marketplace rejects
+// is not among them, so it never keeps the header checkbox half-ticked.
+const allWorks = computed(() => (summary.value ? firstWorks(summary.value, pickedConnected.value) : new Set()));
+const allChosen = computed(() => allWorks.value.size > 0 && [...allWorks.value].every((asset) => works.value.includes(asset)));
 const allExpanded = computed(() => rows.value.length > 0 && rows.value.every((row) => expanded.value.has(row.item.asset)));
 
 const stats = computed(() => {
@@ -65,12 +68,9 @@ const toggleIn = (set, key) => {
     return next;
 };
 
-function toggleAccount(account) {
-    picked.value = picked.value.includes(account) ? picked.value.filter((id) => id !== account) : [...picked.value, account];
-}
-
+// Ticked or half-ticked: clears the choice; clear: ticks every work that goes out.
 function toggleAll() {
-    works.value = allChosen.value ? new Set() : firstWorks(summary.value, pickedConnected.value);
+    works.value = chosenCount.value ? [] : [...allWorks.value];
 }
 
 function toggleExpandAll() {
@@ -101,7 +101,7 @@ onMounted(async () => {
         const { data } = await api.get(LISTINGS_BATCH_API_URL);
         summary.value = data;
         picked.value = defaultAccounts(batchAccounts(data, props.accounts));
-        works.value = firstWorks(data, picked.value);
+        works.value = [...firstWorks(data, picked.value)];
         // The first work opens, so the per-marketplace breakdown is seen at once.
         expanded.value = new Set(data.items.slice(0, 1).map((item) => item.asset));
         stage.value = 'ready';
@@ -177,16 +177,17 @@ async function send() {
                 </div>
 
                 <div v-if="accountsOpen" class="flex flex-wrap items-center gap-x-[18px] gap-y-1 pt-0.5">
-                    <el-checkbox
-                        v-for="row in accountRows"
-                        :key="row.account"
-                        :model-value="picked.includes(row.account)"
-                        :disabled="!row.selectable || stage === 'sending'"
-                        @update:model-value="toggleAccount(row.account)"
-                    >
-                        {{ row.connection.label || row.connection.marketplace.name }}
-                        <span v-if="accountNote(row)" class="ml-1 text-xs" :class="accountNote(row).class">{{ accountNote(row).text }}</span>
-                    </el-checkbox>
+                    <el-checkbox-group v-model="picked" :disabled="stage === 'sending'" class="publish-panel__group contents">
+                        <el-checkbox
+                            v-for="row in accountRows"
+                            :key="row.account"
+                            :value="row.account"
+                            :disabled="!row.selectable"
+                        >
+                            {{ row.connection.label || row.connection.marketplace.name }}
+                            <span v-if="accountNote(row)" class="ml-1 text-xs" :class="accountNote(row).class">{{ accountNote(row).text }}</span>
+                        </el-checkbox>
+                    </el-checkbox-group>
                     <Link :href="SETTINGS_MARKETPLACES_URL" class="text-xs font-medium text-[var(--el-color-primary)] hover:underline">
                         {{ $t('library.publishing.popover.manage') }}
                     </Link>
@@ -197,11 +198,11 @@ async function send() {
                 <el-checkbox
                     :model-value="allChosen"
                     :indeterminate="chosenCount > 0 && !allChosen"
-                    :disabled="stage === 'sending' || !selectable.length"
+                    :disabled="stage === 'sending' || !allWorks.size"
                     @update:model-value="toggleAll"
                 />
                 <span class="flex-1 text-xs font-semibold text-[var(--el-text-color-secondary)]">
-                    {{ allChosen && selectable.length <= limit
+                    {{ chosenCount === selectable.length
                         ? $t('library.publishing.popover.works', { count: selectable.length })
                         : $t('library.publishing.popover.works_some', { selected: chosenCount, total: selectable.length }) }}
                 </span>
@@ -214,7 +215,8 @@ async function send() {
                 {{ $tChoice('library.publishing.popover.limit', limit, { max: limit }) }}
             </p>
 
-            <div class="min-h-0 flex-1 overflow-y-auto">
+            <!-- max: once the send is full (publishing.batch_works), the works not ticked cannot be. -->
+            <el-checkbox-group v-model="works" :max="limit" :disabled="stage === 'sending'" class="publish-panel__group min-h-0 flex-1 overflow-y-auto">
                 <PublishWorkRow
                     v-for="row in rows"
                     :key="row.item.asset"
@@ -222,12 +224,10 @@ async function send() {
                     :connections="connections"
                     :expanded="expanded.has(row.item.asset)"
                     :disabled="stage === 'sending'"
-                    :locked="full && !row.chosen"
-                    @toggle="works = toggleIn(works, row.item.asset)"
                     @expand="expanded = toggleIn(expanded, row.item.asset)"
                     @pair="(account) => (skipped = toggleIn(skipped, pairKey(row.item.asset, account)))"
                 />
-            </div>
+            </el-checkbox-group>
 
             <footer class="flex flex-none items-center gap-4 border-t border-[var(--el-border-color-light)] px-5 py-3">
                 <p class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs font-medium">
@@ -247,6 +247,12 @@ async function send() {
 </template>
 
 <style scoped lang="scss">
+// Element's group zeroes its font for inline-block gaps; here it holds the account labels and the work rows.
+.publish-panel__group {
+    font-size: inherit;
+    line-height: inherit;
+}
+
 .publish-panel__link {
     display: inline-flex;
     gap: 2px;

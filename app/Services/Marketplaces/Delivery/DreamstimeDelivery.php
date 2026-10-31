@@ -6,7 +6,6 @@ use App\Enums\AssetFileRole;
 use App\Enums\ListingStatus;
 use App\Enums\MediaType;
 use App\Jobs\SendDreamstimeCsv;
-use App\Models\AssetFile;
 use App\Models\AssetListing;
 use App\Models\MarketplaceAccount;
 use App\Services\Marketplaces\DreamstimeCsv;
@@ -16,8 +15,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Imagick;
-use ImagickPixel;
 use Throwable;
 
 /**
@@ -26,14 +23,13 @@ use Throwable;
  * (SendDreamstimeCsv). The contributor submits the works on the website.
  *
  * - Photo and illustration: a JPEG in the root folder, with the title, description and keywords inside as well
- *   (JpegMetadata). Dreamstime takes RGB JPEG only: PNG, TIFF and CMYK go as an sRGB JPEG copy.
+ *   (JpegMetadata). Dreamstime takes RGB JPEG only: PNG, TIFF and CMYK go as an sRGB JPEG copy (MakesJpegCopies).
  * - Vector: its JPEG (raster_companion) in the root folder and the EPS or SVG under the same name in /additional.
  * - Video: the original in /video.
  */
 class DreamstimeDelivery extends FtpDelivery
 {
-    /** JPEG quality of a copy made from another format: Dreamstime asks for the best compression quality. */
-    public const JPEG_QUALITY = 95;
+    use MakesJpegCopies;
 
     public function __construct(HostResolver $resolver, Container $container, protected JpegMetadata $metadata, protected DreamstimeCsv $csv)
     {
@@ -139,68 +135,6 @@ class DreamstimeDelivery extends FtpDelivery
 
         foreach ($listings as $listing) {
             $listing->update(['metadata' => AssetListing::snapshot($listing->asset, $marketplace)]);
-        }
-    }
-
-    /**
-     * The work's image as an RGB JPEG with its metadata inside.
-     *
-     * @throws DeliveryFailed file, when the file cannot be read or converted
-     */
-    protected function jpeg(AssetListing $listing, ?AssetFile $file, string $path): string
-    {
-        $this->download($file, $path);
-
-        try {
-            if ($file->mime !== 'image/jpeg' || $this->needsRgb($path)) {
-                $this->convert($path);
-            }
-
-            ['title' => $title, 'description' => $description, 'keywords' => $keywords] = $this->texts($listing);
-            $this->metadata->embed($path, $title, $description, $keywords);
-        } catch (Throwable $e) {
-            throw new DeliveryFailed(AssetListing::ERROR_FILE, $e);
-        }
-
-        return $path;
-    }
-
-    protected function needsRgb(string $path): bool
-    {
-        $info = @getimagesize($path);
-
-        // channels: 3 for RGB (and YCbCr), 4 for CMYK, 1 for greyscale, which marketplaces take as it is
-        return ($info['channels'] ?? 3) === 4;
-    }
-
-    /**
-     * Replaces the file with an sRGB JPEG of its first page, upright and on white where it was transparent.
-     * Its EXIF, IPTC and XMP stay.
-     */
-    protected function convert(string $path): void
-    {
-        $image = new Imagick;
-
-        try {
-            $image->readImage($path.'[0]');
-            $image->autoOrient();
-
-            if ($image->getImageColorspace() !== Imagick::COLORSPACE_SRGB) {
-                $image->transformImageColorspace(Imagick::COLORSPACE_SRGB);
-                // The CMYK profile no longer describes the pixels; without one, sRGB is assumed.
-                $image->profileImage('icc', null);
-            }
-
-            if ($image->getImageAlphaChannel()) {
-                $image->setImageBackgroundColor(new ImagickPixel('white'));
-                $image->setImageAlphaChannel(Imagick::ALPHACHANNEL_REMOVE);
-            }
-
-            $image->setImageFormat('jpeg');
-            $image->setImageCompressionQuality(self::JPEG_QUALITY);
-            $image->writeImage('jpeg:'.$path);
-        } finally {
-            $image->clear();
         }
     }
 }
