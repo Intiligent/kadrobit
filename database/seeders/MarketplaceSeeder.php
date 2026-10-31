@@ -291,14 +291,19 @@ class MarketplaceSeeder extends Seeder
                 'logo' => 'marketplaces/123rf.svg',
                 'contributor_url' => 'https://www.123rf.com/sellimages/',
                 'is_active' => true,
-                'supported_types' => $all,
-                'upload_protocol' => UploadProtocol::Ftp,
+                // Video and audio go to separate FTP servers, not delivered yet.
+                'supported_types' => [MediaType::Photo, MediaType::Illustration, MediaType::Vector],
+                // The help page says FTP, but the server answers AUTH TLS with 234: FTPS keeps the password off the wire.
+                // The login is the 123RF username, not the email; files go to the root.
+                'upload_protocol' => UploadProtocol::Ftps,
                 'upload_defaults' => [
                     'host' => 'ftp.123rf.com',
+                    'port' => 21,
                     'quota_gb' => 4,
-                    // Video and audio use separate FTP servers.
                     'separate_hosts_for' => ['video', 'audio'],
                 ],
+                // 123RF reads the caption (IPTC description) and keywords from the JPEG; empty fields stay empty
+                // (blog.123rf.com/how-to-upload-photos-or-illustrations).
                 'metadata_delivery' => MetadataDelivery::Iptc,
                 'metadata_rules' => [
                     // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
@@ -306,10 +311,25 @@ class MarketplaceSeeder extends Seeder
                     'text_fields' => [
                         ['field' => 'description', 'name' => 'Description', 'max' => null],
                     ],
+                    // One text field, Description: the work's title is not sent.
+                    'required' => ['description'],
+                    // "Enter a minimum of 7 keywords"; 30–50 recommended, no maximum (123RF keywording guide).
+                    'keywords_min' => 7,
+                    // No categories: neither the help pages nor the CSV (oldfilename, 123rf_filename, description,
+                    // keywords, country) have them (checked 31.10.2026).
                     'csv_max_size_mb' => 2,
+                    // Upload Content → Upload Via FTP and accepting the terms on the website, then the drafts are submitted there.
                     'submit' => 'web',
                 ],
-                'file_rules' => [],
+                // blog.123rf.com/how-to-upload-photos-or-illustrations: JPEG from 6 MP, up to 30 MB, quality from 80 %. PNG and
+                // TIFF are taken here because Rf123Delivery sends them as a JPEG copy; the 30 MB limit is not checked, since it
+                // applies to the JPEG that goes, not to the original. Vectors are EPS with a JPG of the same name, at least
+                // 1600 × 1600 (the JPG is not checked).
+                'file_rules' => [
+                    'photo' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 6],
+                    'illustration' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 6],
+                    'vector' => ['formats' => ['EPS'], 'formats_strict' => true],
+                ],
             ],
             [
                 'code' => 'pond5',
