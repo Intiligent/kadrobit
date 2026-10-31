@@ -208,7 +208,7 @@ class AssetGenerationTest extends TestCase
         $this->fakeModel();
         config(['metadata.monthly_limit' => 1]);
         $asset = $this->asset();
-        AssetGeneration::forceCreate(['user_id' => $this->user->id, 'trigger' => 'manual', 'model' => 'm', 'result' => [], 'created_at' => now()->subMonth()]);
+        AssetGeneration::forceCreate(['user_id' => $this->user->id, 'trigger' => 'manual', 'model' => 'm', 'result' => [], 'created_at' => now()->subMonthNoOverflow()]);
 
         $this->postJson("/api/assets/{$asset->ulid}/generations")->assertCreated()->assertJsonPath('meta.remaining', 0);
     }

@@ -172,7 +172,7 @@ return [
             'dreamstime' => 'The contributor ID is the User ID from the FTP upload page of your Dreamstime account (a number, not the email); the password is the account one. Model and property releases are sent as a separate file.',
             'alamy' => 'The login is your Alamy account email, the password is the account\'s. Alamy\'s server takes plain FTP only, without encryption. Alamy takes the caption and tags from the file; the description and the rest are filled in Image Manager.',
             'depositphotos' => 'The login and password are your Depositphotos account\'s. Depositphotos\' server takes plain FTP only, without encryption. Metadata and the submission for review are completed on the Depositphotos website once the files arrive.',
-            '123rf' => 'Video goes to a separate 123RF server. The FTP folder holds up to 4 GB at a time.',
+            '123rf' => 'The login is your 123RF username (not the email), the password is the account\'s; if you sign in to 123RF with Google, set a password on the Upload Content page first. After sending, open Upload Content → Upload Via FTP on 123RF and click Proceed: only then do the works become drafts. 123RF reads the description and keywords from the file. The FTP folder holds up to 4 GB at a time.',
             'magnific' => 'Find the FTP details in your Freepik contributor panel. Titles and keywords are embedded into the files.',
             'vecteezy' => 'Find the FTP details in your Vecteezy contributor dashboard. Metadata is sent as a CSV next to the files.',
         ],
