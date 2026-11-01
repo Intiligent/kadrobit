@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGE } from '../../../extension/src/core/messages.js';
-import { AUTO_RUN_INTERVAL_MS, dueForAutoRun, run } from '../../../extension/src/content/runner.js';
+import { AUTO_RUN_INTERVAL_MS, AWAITING_RUN_INTERVAL_MS, awaitingReview, dueForAutoRun, rememberAwaiting, run } from '../../../extension/src/content/runner.js';
 import { fakeChrome } from './helpers.js';
 
 const listing = (id, accountId) => ({ id, account_id: accountId, remote_filename: `${id}.jpg`, metadata_hash: `h${id}` });
@@ -94,13 +94,43 @@ describe('dueForAutoRun', () => {
         return { getItem: (k) => items[k] ?? null, setItem: (k, v) => { items[k] = v; } };
     };
 
-    it('runs once per interval and marketplace', () => {
+    it('runs once per interval and marketplace, in a visible tab', () => {
+        const store = storage();
+        const now = 1_000_000;
+        const at = (time, visible = true) => ({ storage: store, now: time, visible });
+
+        expect(dueForAutoRun('shutterstock', at(now))).toBe(true);
+        expect(dueForAutoRun('shutterstock', at(now + 1000))).toBe(false);
+        expect(dueForAutoRun('123rf', at(now + 1000))).toBe(true);
+        expect(dueForAutoRun('shutterstock', at(now + AUTO_RUN_INTERVAL_MS, false))).toBe(false);
+        expect(dueForAutoRun('shutterstock', at(now + AUTO_RUN_INTERVAL_MS))).toBe(true);
+    });
+
+    it('runs every minute, in a background tab too, while works wait to go to review', () => {
         const store = storage();
         const now = 1_000_000;
 
-        expect(dueForAutoRun('shutterstock', store, now)).toBe(true);
-        expect(dueForAutoRun('shutterstock', store, now + 1000)).toBe(false);
-        expect(dueForAutoRun('123rf', store, now + 1000)).toBe(true);
-        expect(dueForAutoRun('shutterstock', store, now + AUTO_RUN_INTERVAL_MS)).toBe(true);
+        dueForAutoRun('123rf', { storage: store, now });
+        rememberAwaiting('123rf', true, store);
+
+        expect(dueForAutoRun('123rf', { storage: store, now: now + AWAITING_RUN_INTERVAL_MS - 1, visible: false })).toBe(false);
+        expect(dueForAutoRun('123rf', { storage: store, now: now + AWAITING_RUN_INTERVAL_MS, visible: false })).toBe(true);
+
+        rememberAwaiting('123rf', false, store);
+
+        expect(dueForAutoRun('123rf', { storage: store, now: now + 2 * AWAITING_RUN_INTERVAL_MS })).toBe(false);
+    });
+});
+
+describe('awaitingReview', () => {
+    const now = Date.parse('2026-11-01T18:00:00Z');
+    const sent = (id, attributes = {}) => ({ id, account_id: 1, sent_at: '2026-11-01T17:40:00Z', moderation_status: null, ...attributes });
+
+    it('counts recent works of auto-submitting accounts with no review status yet', () => {
+        expect(awaitingReview([sent(1)], new Set([1]), [], now)).toBe(true);
+        expect(awaitingReview([sent(1)], new Set([1]), [{ id: 1, moderation_status: 'pending' }], now)).toBe(false);
+        expect(awaitingReview([sent(1, { moderation_status: 'pending' })], new Set([1]), [], now)).toBe(false);
+        expect(awaitingReview([sent(1)], new Set([2]), [], now)).toBe(false);
+        expect(awaitingReview([sent(1, { sent_at: '2026-10-30T10:00:00Z' })], new Set([1]), [], now)).toBe(false);
     });
 });
