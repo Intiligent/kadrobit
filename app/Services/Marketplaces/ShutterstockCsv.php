@@ -8,7 +8,7 @@ use App\Models\AssetListing;
 /**
  * Shutterstock's metadata CSV for files already on its server (metadata_rules.csv_fields): the only way to set
  * categories, and to update the metadata of a sent file without uploading it again (that would add a copy). It is
- * taken on the website only, not over FTPS; sending it in the contributor's browser is KB-54.
+ * taken on the website only, not over FTPS; sending it in the contributor's browser is KB-84.
  *
  * Rows use the work's current metadata; Filename is the name on the server (AssetListing::remote_filename).
  */

@@ -16,7 +16,7 @@ use Throwable;
  *
  * - JPEG: a copy with the description and keywords inside (IPTC and XMP, JpegMetadata). Shutterstock has one text
  *   field, so the description goes into the title fields too. Categories cannot be embedded: they are chosen on
- *   the website (KB-54) or sent by CSV (ShutterstockCsv).
+ *   the website (KB-84) or sent by CSV (ShutterstockCsv).
  * - Vector: the EPS and its JPEG (raster_companion) under the same name, the metadata in the JPEG.
  * - TIFF and video: the original as it is; their metadata goes by CSV or on the website.
  */
