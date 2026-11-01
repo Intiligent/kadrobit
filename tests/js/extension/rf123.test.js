@@ -27,16 +27,17 @@ const page = (data) => jsonResponse(200, { data, meta: { pagination: { total: da
  */
 function fakeSite({ ftp = [], drafts = [], review = {}, proceeded = [], processing = 0 } = {}) {
     const posts = [];
-    let left = processing;
+    // Checks of the drafts before the proceeded files show there.
+    let left = 0;
 
     vi.stubGlobal('fetch', vi.fn(async (url, { method = 'GET', body } = {}) => {
         if (method === 'POST') {
             posts.push({ url, body: body ? JSON.parse(body) : null });
 
-            // Proceed: the FTP files turn into drafts after a few checks of the processing list.
+            // Proceed: the FTP files turn into drafts a few checks later.
             if (url.includes('/prequeue')) {
                 ftp = [];
-                drafts = [...drafts, ...proceeded];
+                left = processing;
             }
 
             return jsonResponse(200, { data: {} });
@@ -44,9 +45,14 @@ function fakeSite({ ftp = [], drafts = [], review = {}, proceeded = [], processi
 
         const photo = !url.includes('content_type=vector');
 
-        if (url.includes('/process_images')) return left-- > 0 ? page([{ filename: 'IMG_3' }]) : { ok: true, status: 204 };
         if (url.startsWith('/apicore-contributors/ftp')) return jsonResponse(200, { status: true, data: ftp });
-        if (url.includes('/draft_items')) return page(photo ? drafts : []);
+        if (url.includes('/draft_items')) {
+            if (posts.some((p) => p.url.includes('/prequeue')) && photo && left-- <= 0) {
+                drafts = [...drafts, ...proceeded.splice(0)];
+            }
+
+            return page(photo ? drafts : []);
+        }
 
         const status = url.match(/status=(\w+)/)?.[1];
 
@@ -58,7 +64,9 @@ function fakeSite({ ftp = [], drafts = [], review = {}, proceeded = [], processi
     return posts;
 }
 
+// No pauses; a file that never turns into a draft stops the wait at once.
 PROCESSING.intervalMs = 0;
+PROCESSING.timeoutMs = 20;
 
 afterEach(() => vi.unstubAllGlobals());
 

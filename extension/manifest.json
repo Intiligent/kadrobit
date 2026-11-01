@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Kadrobit",
     "description": "Finishes publishing your Kadrobit works on stock sites: finds the files, fills in the fields and submits them to review.",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmsVAnSzkBA66uymH9uyU1VH8+8lrcIL/WuIRY+xZXgrpZUg5+o5Nr+sYoY9T/4d+9zbtPIHunkxu3ULUuwdc9bqazmT8/XmlbQmgo6r+PKExqtGHPCEqVn+fljV67wprKKE2Vpqy3eO+wtwZysbIhQfBXeEw0tl9s8S+pdAqoqWBtkzviZblEl8F8ANhqUA9s356DSVC8bIvqykRnk2qHKSZDWqiHLQ3MWXIjutDhM9qSesCYOpGXXhjPQe1eQ3lEnPn89wbHnNUJyfkYxv2HksixV+i0tZMno8bSrJlUoA4X55jNns0NP7OD1rwLeRLM/Rxz3e+3FOcbEv2LkNINwIDAQAB",
     "icons": {
         "16": "icons/icon-16.png",

@@ -23,8 +23,9 @@ const PER_PAGE = 100;
 const CONTENT_TYPES = ['photo', 'vector'];
 const REVIEW_STATUSES = ['pending', 'accepted', 'rejected'];
 
-// After Proceed the files become drafts within seconds: the pass waits for them that long at most.
-export const PROCESSING = { timeoutMs: 60_000, intervalMs: 3_000 };
+// After Proceed the files become drafts within seconds, a minute or two with many: the pass waits for them that
+// long at most, then the next pass picks up the rest.
+export const PROCESSING = { timeoutMs: 120_000, intervalMs: 3_000 };
 
 // The site submits a draft only with a description and at least this many keywords.
 export const MIN_KEYWORDS = 7;
@@ -105,14 +106,22 @@ export function matcher(listings) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const draftsOf = async (contentType) => allPages(`/draft_items?content_type=${contentType}`, DRAFT, 'draft_items');
+
 /**
- * Waits until 123RF has processed the files Proceed took: nothing left in processing (an empty list comes as 204).
+ * Waits until the files Proceed took are drafts. The processing list says nothing: 123RF queues the files first,
+ * and the list stays empty until they reach it.
+ *
+ * @param {Set<number>} expected Ids of the listings whose files Proceed took
  */
-async function processed() {
+async function draftsReady(expected, find) {
     for (const deadline = Date.now() + PROCESSING.timeoutMs; Date.now() < deadline;) {
         await sleep(PROCESSING.intervalMs);
 
-        if (!(await call('/process_images?page=1&limit=1&filetype=all_image'))?.data?.length) {
+        const drafts = (await Promise.all(CONTENT_TYPES.map(draftsOf))).flat();
+        const ready = new Set(drafts.map((draft) => find(draft.oldFilename, draft.createdAt)?.id));
+
+        if ([...expected].every((id) => ready.has(id))) {
             return;
         }
     }
@@ -159,12 +168,12 @@ export default {
 
         if (ftp.some(shouldSubmit)) {
             await call('/process_images/prequeue?upload_method=ftp&allow_conversion=0&license_type=commercial&media_type=image', { method: 'POST' });
-            await processed();
+            await draftsReady(new Set(ftp.map((listing) => listing.id)), find);
         }
 
         // Drafts: the description and keywords came from the file; those of auto-submitting accounts go to review.
         for (const contentType of CONTENT_TYPES) {
-            const drafts = (await allPages(`/draft_items?content_type=${contentType}`, DRAFT, 'draft_items'))
+            const drafts = (await draftsOf(contentType))
                 .map((draft) => ({ draft, listing: find(draft.oldFilename, draft.createdAt) }))
                 .filter(({ listing }) => listing);
 
