@@ -7,6 +7,11 @@ import * as kadrobit from './kadrobit.js';
  * The background worker: the only place that holds the Kadrobit token and talks to Kadrobit. The popup and the
  * content scripts on stock sites ask it through messages (core/messages.js).
  */
+// Passes running now, by marketplace code: two tabs of one site must not submit the same works twice. A pass ends
+// with its action; one that never reports (a closed tab) stops blocking after PASS_TIMEOUT_MS.
+const running = new Map();
+const PASS_TIMEOUT_MS = 3 * 60_000;
+
 const handlers = {
     // The popup: sign-in, the account with its counts, the last action on each marketplace. A token Kadrobit no
     // longer accepts shows the sign-in again, with the reason; Kadrobit out of reach keeps the extension signed in
@@ -57,9 +62,24 @@ const handlers = {
         return null;
     },
 
-    // A content script: the sent works on its marketplace, and the accounts there with their auto submit.
+    // A content script starting a pass: the sent works on its marketplace and the accounts there with their auto
+    // submit, or { busy: true } while another tab runs a pass on the same marketplace.
     async [MESSAGE.LISTINGS]({ marketplace }) {
-        const [me, listings] = await Promise.all([kadrobit.me(), kadrobit.listings(marketplace)]);
+        if (Date.now() - (running.get(marketplace) ?? 0) < PASS_TIMEOUT_MS) {
+            return { busy: true };
+        }
+
+        running.set(marketplace, Date.now());
+
+        let me;
+        let listings;
+
+        try {
+            [me, listings] = await Promise.all([kadrobit.me(), kadrobit.listings(marketplace)]);
+        } catch (error) {
+            running.delete(marketplace);
+            throw error;
+        }
 
         return {
             accounts: me.accounts.filter((account) => account.marketplace.code === marketplace),
@@ -72,6 +92,7 @@ const handlers = {
     },
 
     async [MESSAGE.ACTION]({ marketplace, action }) {
+        running.delete(marketplace);
         await actions.record(marketplace, action);
 
         return null;

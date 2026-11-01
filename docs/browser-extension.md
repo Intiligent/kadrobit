@@ -131,8 +131,8 @@
 | `manifest.json` | Манифест; `version` — версия расширения, `key` закрепляет ID. `@kadrobit` и `@marketplaces` сборка заменяет адресом Kadrobit и сайтами стоков |
 | `src/marketplaces.js` | Стоки расширения (как `config/extension.php`): код, название, адреса сайтов |
 | `src/background/` | Фоновый воркер — единственный, кто хранит токен и ходит в Kadrobit: вход (`auth.js`), API (`kadrobit.js`), последнее действие на каждом стоке (`actions.js`), сообщения (`index.js`) |
-| `src/content/` | Скрипт на сайтах стоков: запускает адаптер стока при открытии страницы (не чаще раза в 5 минут на вкладку) и по «Check now» из попапа (`runner.js`) |
-| `src/adapters/index.js` | Список адаптеров и их интерфейс. Адаптеры появятся в KB-84, KB-80, KB-81 |
+| `src/content/` | Скрипт на сайтах стоков: запускает адаптер стока при открытии страницы и затем раз в 5 минут, пока вкладка открыта и видна (стоки показывают новые файлы через несколько минут), и сразу по «Check now» из попапа (`runner.js`). Пока идёт проход по стоку, второй (из другой вкладки) не начинается: фоновый воркер отвечает `busy` |
+| `src/adapters/` | Список адаптеров и их интерфейс (`index.js`); Shutterstock — `shutterstock.js` ([`marketplaces/shutterstock`](marketplaces/shutterstock/README.md)), 123RF и Adobe Stock — KB-80, KB-81 |
 | `src/core/` | PKCE, проверка формы ответов сайта стока (`shape.js`), сообщения между частями расширения |
 | `src/popup/` | Попап на Vue и Element Plus (тема та же, что у Kadrobit) |
 | `public/icons/` | Иконки из знака логотипа (`icon.svg`, PNG собраны `rsvg-convert`) |
