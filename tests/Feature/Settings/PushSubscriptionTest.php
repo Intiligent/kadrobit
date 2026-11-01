@@ -30,11 +30,11 @@ class PushSubscriptionTest extends TestCase
         Passport::actingAs($this->user);
     }
 
-    protected function subscribe(): TestResponse
+    protected function subscribe(string $auth = 'AuthSecret'): TestResponse
     {
         return $this->postJson('/api/push-subscriptions', [
             'endpoint' => self::ENDPOINT,
-            'keys' => ['p256dh' => 'BPublicKey', 'auth' => 'AuthSecret'],
+            'keys' => ['p256dh' => 'BPublicKey', 'auth' => $auth],
             'content_encoding' => 'aes128gcm',
         ]);
     }
@@ -59,6 +59,16 @@ class PushSubscriptionTest extends TestCase
 
         $this->assertSame(1, PushSubscription::count());
         $this->assertTrue($other->pushSubscriptions()->exists());
+    }
+
+    public function test_an_endpoint_alone_does_not_take_another_users_subscription(): void
+    {
+        $this->subscribe();
+        Passport::actingAs(User::factory()->create());
+
+        $this->subscribe('GuessedSecret')->assertForbidden();
+
+        $this->assertTrue($this->user->pushSubscriptions()->exists());
     }
 
     public function test_a_browser_turns_them_off(): void
@@ -87,13 +97,15 @@ class PushSubscriptionTest extends TestCase
         Notification::assertSentToTimes($this->user, ReviewSubmittedNotification::class, 1);
     }
 
-    public function test_the_page_has_the_vapid_public_key_and_the_event_switches(): void
+    public function test_the_page_has_the_vapid_public_key_the_users_browsers_and_the_event_switches(): void
     {
         config(['webpush.vapid.public_key' => 'BPublic']);
+        $this->subscribe();
 
         $this->actingAs($this->user, 'web')->get('/settings/notifications')->assertInertia(fn (Assert $page) => $page
             ->component('settings/notifications/index')
             ->where('vapidPublicKey', 'BPublic')
+            ->where('endpoints', [self::ENDPOINT])
             ->where('settings.notifications.browser.review_submitted', true));
     }
 

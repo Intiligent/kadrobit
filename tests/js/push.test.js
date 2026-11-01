@@ -7,6 +7,6 @@ describe('push', () => {
     });
 
     it('says a browser without service workers or the Push API cannot have notifications', async () => {
-        expect(await pushState()).toBe('unsupported');
+        expect(await pushState(['https://fcm.googleapis.com/fcm/send/abc'])).toBe('unsupported');
     });
 });

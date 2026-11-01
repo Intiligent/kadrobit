@@ -307,6 +307,33 @@ class ExtensionApiTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_a_pass_with_nothing_found_settles_a_send_that_ended_otherwise(): void
+    {
+        $this->notifiable();
+        $account = $this->account();
+        $reached = $this->sent($account);
+        $queued = $this->sent($account, ['status' => ListingStatus::Queued, 'sent_at' => null]);
+
+        $this->reportReview($reached);
+        Notification::assertNothingSent();
+
+        $queued->update(['status' => ListingStatus::Failed]);
+        $this->postJson('/api/extension/listings/report', ['listings' => []])->assertOk();
+
+        Notification::assertSentTo($this->user, ReviewSubmittedNotification::class, fn ($notification) => $notification->count === 1);
+    }
+
+    public function test_a_work_of_a_turned_off_account_does_not_hold_the_notification_back(): void
+    {
+        $this->notifiable();
+        $listing = $this->sent($this->account());
+        $this->sent($this->account('123rf', ['status' => MarketplaceAccountStatus::Disabled]));
+
+        $this->reportReview($listing);
+
+        Notification::assertSentToTimes($this->user, ReviewSubmittedNotification::class, 1);
+    }
+
     public function test_no_notification_when_the_event_is_off_or_no_browser_has_them_on(): void
     {
         $this->notifiable();
@@ -320,14 +347,19 @@ class ExtensionApiTest extends TestCase
         Notification::assertNothingSent();
     }
 
-    public function test_review_submitted_notification_reads_in_the_users_language(): void
+    public function test_review_submitted_notification_goes_in_the_users_language(): void
     {
+        $this->notifiable();
         $this->user->setSetting(UserSettingKey::GeneralLocale, 'ru');
+
+        $this->reportReview($this->sent($this->account()));
+
+        Notification::assertSentTo($this->user, ReviewSubmittedNotification::class, fn ($notification, $channels, $notifiable, $locale) => $locale === 'ru');
+
+        // What the queue worker renders in that locale.
+        app()->setLocale('ru');
         $notification = new ReviewSubmittedNotification(5);
-
-        app()->setLocale($this->user->preferredLocale());
         $message = $notification->toWebPush($this->user, $notification)->toArray();
-
         $this->assertSame('Отправлено на проверку', $message['title']);
         $this->assertSame('5 работ на проверке на стоках', $message['body']);
         $this->assertSame(route('library'), $message['data']['url']);

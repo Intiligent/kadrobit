@@ -96,7 +96,7 @@ const subline = (account) => [
 
             <div class="min-w-0">
                 <p class="flex items-center gap-1.5 whitespace-nowrap font-medium" :class="TEXT[state(account, checking)]">
-                    <span class="size-1.5 flex-none rounded-full" :class="DOT[state(account, checking)]" />
+                    <span class="size-2 flex-none rounded-full" :class="DOT[state(account, checking)]" />
                     {{ $t(`settings.marketplaces.status.${state(account, checking)}`) }}
                 </p>
                 <p class="flex min-w-0 gap-2 whitespace-nowrap text-xs leading-[18px] text-[var(--el-text-color-secondary)]">

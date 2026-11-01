@@ -65,13 +65,14 @@ class SettingsController extends Controller
     }
 
     /**
-     * Notifications: browser notifications per event. Whether this browser has them on is known only in the browser
-     * (its push subscription); the event switches come from the shared `settings` prop.
+     * Notifications: browser notifications per event. This browser has them on when its push subscription is one of
+     * the user's `endpoints`; the event switches come from the shared `settings` prop.
      */
-    public function notifications(): Response
+    public function notifications(Request $request): Response
     {
         return Inertia::render('settings/notifications/index', [
             'vapidPublicKey' => config('webpush.vapid.public_key'),
+            'endpoints' => $request->user()->pushSubscriptions()->pluck('endpoint'),
         ]);
     }
 

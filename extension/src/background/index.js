@@ -88,7 +88,7 @@ const handlers = {
     },
 
     async [MESSAGE.REPORT]({ reports }) {
-        return reports.length ? kadrobit.report(reports) : 0;
+        return kadrobit.report(reports);
     },
 
     async [MESSAGE.ACTION]({ marketplace, action }) {

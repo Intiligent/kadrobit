@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Cache;
  * "Works sent to review" browser notification. The works of one send reach review over several passes of the
  * extension (marketplaces show the files minutes apart), so they add up, and one notification goes out once nothing
  * is on its way any more: the moment the publish button in the library stops spinning (AssetListing::awaitsReview(),
- * a work never shown on the marketplace stops waiting after extension.await_review_hours).
+ * a work never shown on the marketplace stops waiting after extension.await_review_hours). Every pass of the extension
+ * reports, even with nothing found, so a send that ends otherwise (failed, cancelled, never shown) is settled too.
  */
 class ReviewSubmittedNotifier
 {
@@ -35,9 +36,10 @@ class ReviewSubmittedNotifier
             return;
         }
 
+        // Two reports at once may both get here: only the one that takes the count notifies.
         $count = (int) Cache::pull($key);
 
-        if ($user->setting(UserSettingKey::NotifyReviewSubmitted) && $user->pushSubscriptions()->exists()) {
+        if ($count > 0 && $user->setting(UserSettingKey::NotifyReviewSubmitted) && $user->pushSubscriptions()->exists()) {
             $user->notify(new ReviewSubmittedNotification($count));
         }
     }
@@ -53,12 +55,18 @@ class ReviewSubmittedNotifier
             return true;
         }
 
+        // Nothing waits for an extension that is not connected.
+        if (! ExtensionTokens::connected($user->getKey())) {
+            return false;
+        }
+
+        // The query narrows down; awaitsReview() decides on the account's own settings. One is enough.
         return $listings
             ->with('account.marketplace')
             ->where('status', ListingStatus::Sent)
             ->whereNull('moderation_status')
             ->where('sent_at', '>', now()->subHours(config('extension.await_review_hours')))
-            ->get()
+            ->lazyById(100)
             ->contains(fn (AssetListing $listing) => $listing->awaitsReview());
     }
 }

@@ -33,10 +33,13 @@ self.addEventListener('notificationclick', (event) => {
         const tabs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         const tab = tabs.find((client) => new URL(client.url).origin === self.location.origin);
 
+        // navigate() works only in a tab this worker controls (not one opened with a hard reload): then a new one.
         if (tab) {
-            await tab.focus();
+            const opened = await tab.navigate(url).catch(() => null);
 
-            return tab.navigate(url).catch(() => null);
+            if (opened) {
+                return opened.focus();
+            }
         }
 
         return self.clients.openWindow(url);

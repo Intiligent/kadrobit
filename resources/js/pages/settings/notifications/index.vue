@@ -15,7 +15,11 @@ defineOptions({ layout: [AppLayout, SettingsLayout] });
 const props = defineProps({
     // The server's VAPID public key; null when browser notifications are not set up (docs/notifications.md).
     vapidPublicKey: { type: String, default: null },
+    // Endpoints of the user's subscriptions: whether this browser's one is theirs.
+    endpoints: { type: Array, default: () => [] },
 });
+
+const endpoints = ref([...props.endpoints]);
 
 const page = usePage();
 
@@ -24,7 +28,7 @@ const state = ref(null);
 const busy = ref(false);
 
 onMounted(async () => {
-    state.value = await pushState();
+    state.value = await pushState(endpoints.value);
 });
 
 const hint = computed(() => {
@@ -43,7 +47,13 @@ async function setBrowser(on) {
     busy.value = true;
 
     try {
-        state.value = on ? await turnOn(props.vapidPublicKey) : await turnOff();
+        if (on) {
+            const result = await turnOn(props.vapidPublicKey);
+            state.value = result.state;
+            endpoints.value = result.endpoint ? [...endpoints.value, result.endpoint] : endpoints.value;
+        } else {
+            state.value = await turnOff();
+        }
 
         if (state.value === 'on' || state.value === 'off') {
             notify.success({ message: trans(`settings.notifications.toasts.browser_${state.value}`), duration: 3000 });
@@ -54,7 +64,7 @@ async function setBrowser(on) {
             notify.error({ message: trans('settings.notifications.toasts.browser_failed') });
         }
 
-        state.value = await pushState();
+        state.value = await pushState(endpoints.value);
     } finally {
         busy.value = false;
     }

@@ -7,6 +7,7 @@ use App\Http\Requests\Settings\StorePushSubscriptionRequest;
 use App\Notifications\Push\ReviewSubmittedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use NotificationChannels\WebPush\PushSubscription;
 
 /**
  * Browser notifications of the current browser: turned on (its push subscription is kept), turned off, and an
@@ -15,10 +16,19 @@ use Illuminate\Http\Response;
 class PushSubscriptionController extends Controller
 {
     /**
-     * Keeps the browser's subscription; the same endpoint signed in as another user moves to this one.
+     * Keeps the browser's subscription. The same browser signed in as another user moves to this one, but only with
+     * the subscription's own keys: knowing an endpoint alone does not take another user's notifications away.
      */
     public function store(StorePushSubscriptionRequest $request): Response
     {
+        $existing = PushSubscription::findByEndpoint($request->validated('endpoint'));
+
+        abort_if(
+            $existing && ! $request->user()->ownsPushSubscription($existing)
+                && ! hash_equals((string) $existing->auth_token, $request->validated('keys.auth')),
+            403,
+        );
+
         $request->user()->updatePushSubscription(
             $request->validated('endpoint'),
             $request->validated('keys.p256dh'),

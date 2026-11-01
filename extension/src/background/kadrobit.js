@@ -72,12 +72,13 @@ export async function listings(marketplace) {
 }
 
 /**
- * What the adapter found out, in chunks the API accepts. Answers how many works were updated.
+ * What the adapter found out, in chunks the API accepts. Answers how many works were updated. Nothing found is
+ * reported too, as an empty list: Kadrobit settles its "sent to review" notification on every pass.
  */
 export async function report(reports) {
     let updated = 0;
 
-    for (let start = 0; start < reports.length; start += REPORT_CHUNK) {
+    for (let start = 0; start === 0 || start < reports.length; start += REPORT_CHUNK) {
         const data = await request('/api/extension/listings/report', {
             method: 'POST',
             body: { listings: reports.slice(start, start + REPORT_CHUNK) },

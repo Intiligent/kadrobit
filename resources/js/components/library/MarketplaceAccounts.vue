@@ -29,7 +29,7 @@ const DOT = {
         </p>
 
         <div v-for="account in accounts" :key="account.id" class="flex h-[26px] items-center gap-2.5 text-[13px]">
-            <span class="size-1.5 flex-none rounded-full" :class="DOT[account.status]" />
+            <span class="size-2 flex-none rounded-full" :class="DOT[account.status]" />
             <span class="min-w-0 flex-1 truncate">{{ account.label || account.marketplace.name }}</span>
             <span
                 :class="account.status === 'invalid_credentials'
