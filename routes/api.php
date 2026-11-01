@@ -8,6 +8,7 @@ use App\Http\Controllers\FolderController;
 use App\Http\Controllers\ListingController;
 use App\Http\Controllers\Settings\ExtensionTokenController;
 use App\Http\Controllers\Settings\MarketplaceAccountController;
+use App\Http\Controllers\Settings\PushSubscriptionController;
 use App\Http\Controllers\Settings\UserSettingController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
@@ -31,6 +32,13 @@ Route::as('api.')->middleware(['auth:api', 'not-extension'])->group(function () 
     Route::controller(UserSettingController::class)->prefix('settings')->name('settings.')->group(function () {
         Route::get('/', 'show')->name('show');
         Route::patch('/', 'update')->name('update');
+    });
+
+    // Browser notifications of the current browser (Settings → Notifications).
+    Route::controller(PushSubscriptionController::class)->prefix('push-subscriptions')->name('push-subscriptions.')->group(function () {
+        Route::post('/', 'store')->name('store');
+        Route::delete('/', 'destroy')->name('destroy');
+        Route::post('example', 'example')->middleware('throttle:6,1')->name('example');
     });
 
     // Fresh versions of some works (?ids[]=…), e.g. after a real-time notice: browsing, so no confirmed email needed.

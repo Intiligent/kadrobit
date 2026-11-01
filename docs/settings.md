@@ -8,6 +8,7 @@
 |---|---|---|
 | `/settings` | Перенаправляет на первый готовый раздел (General) | `Settings\SettingsController@index` |
 | `/settings/general` | General: язык интерфейса | `Settings\SettingsController@general` |
+| `/settings/notifications` | Notifications: уведомления в браузере по событиям ([notifications.md](notifications.md)) | `Settings\SettingsController@notifications` |
 | `/settings/marketplaces` | Подключённые маркетплейсы и каталог | `Settings\SettingsController@marketplaces` |
 | `/settings/metadata` | Metadata defaults: автозаполнение метаданных при загрузке | `Settings\SettingsController@metadata` |
 | `/settings/extension` | Browser extension: скачать, установка, подключённые расширения, персональный токен ([browser-extension.md](browser-extension.md#settings--extension)) | `Settings\SettingsController@extension` |
@@ -26,6 +27,7 @@
 |---|---|
 | `pages/settings/general/index.vue` | Выбор языка; после сохранения страница перезагружается с новыми переводами |
 | `pages/settings/marketplaces/index.vue` | Страница: список, каталог, проверка, вкл/выкл, удаление |
+| `pages/settings/notifications/index.vue` | Уведомления в браузере: включить или выключить в этом браузере, переключатели событий и «Показать пример» — настоящее уведомление события |
 | `pages/settings/metadata/index.vue` | Переключатель «Fill in metadata on upload», сохраняется сразу |
 | `components/settings/CredentialsNotice.vue` | Плашка о хранении паролей с раскрывающимися подробностями |
 | `components/settings/MarketplaceConnectionList.vue` | Подключённые аккаунты: статус, «Check now», переключатель, «Edit», удаление |
@@ -55,6 +57,7 @@
 |---|---|---|
 | `general.locale` | `en` | Язык интерфейса и писем: `en`, `ru` ([KB-48](https://github.com/Intiligent/kadrobit/issues/48)) |
 | `metadata.autofill_on_upload` | `true` | Генерировать метаданные работы после обработки загрузки ([KB-38](https://github.com/Intiligent/kadrobit/issues/38)) |
+| `notifications.browser.review_submitted` | `true` | Уведомление в браузере «Работы отправлены на проверку» ([KB-94](https://github.com/Intiligent/kadrobit/issues/94), [notifications.md](notifications.md)) |
 
 ## Язык интерфейса
 

@@ -40,6 +40,37 @@ return [
         ],
     ],
 
+    'notifications' => [
+        'title' => 'Notifications',
+        'intro' => 'What Kadrobit tells you about, and where.',
+        'browser' => [
+            'title' => 'Browser notifications',
+            'text' => 'Arrive even when Kadrobit is closed, while the browser is running. Turned on for each browser separately.',
+            'on' => 'On in this browser',
+            'turn_on' => 'Turn on in this browser',
+            'turn_off' => 'Turn off',
+            'unsupported' => 'This browser does not support notifications from websites.',
+            'unavailable' => 'Browser notifications are not set up on this server yet.',
+            'blocked' => 'Notifications from Kadrobit are blocked in this browser. Allow them in the site settings (the icon to the left of the address), then reload the page.',
+        ],
+        'events' => [
+            'title' => 'Events',
+            'review_submitted' => [
+                'title' => 'Works sent to review',
+                'text' => 'When the works you sent have all reached review on the marketplaces. The Kadrobit extension submits them.',
+            ],
+            'example' => 'Show an example',
+            'example_hint' => 'Turn on notifications in this browser to see an example',
+        ],
+        'toasts' => [
+            'browser_on' => 'Notifications are on in this browser',
+            'browser_off' => 'Notifications are off in this browser',
+            'browser_failed' => 'Could not turn on notifications in this browser',
+            'event_on' => 'You will be notified: :event',
+            'event_off' => 'You won\'t be notified: :event',
+        ],
+    ],
+
     'metadata' => [
         'title' => 'Metadata defaults',
         'intro' => 'How Kadrobit fills in the title, description, keywords and categories of your works.',
@@ -113,6 +144,8 @@ return [
         'turn_on' => 'Turn on',
         'turn_off' => 'Turn off',
         'auto_submit' => 'Auto submit from the extension',
+        'auto_submit_needs' => 'Auto submit to review on :name works in Chrome with the Kadrobit extension installed and signed in, and the auto submit box ticked here. Install and sign in on Settings → Browser extension.',
+        'auto_submit_short' => 'Auto submit',
         'auto_submit_hint' => 'The Kadrobit extension sends works to review on the :name website by itself, accepting the site\'s terms where that takes it. Turned off, it only finds the files and you submit them yourself.',
         'empty_title' => 'No marketplaces connected',
         'empty' => 'Add one to start publishing your works.',

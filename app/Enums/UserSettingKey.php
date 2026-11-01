@@ -18,11 +18,15 @@ enum UserSettingKey: string
     /** Generate title, keywords and categories for a work once its upload is processed. */
     case MetadataAutofillOnUpload = 'metadata.autofill_on_upload';
 
+    /** Browser notification when the works on their way have all reached review on the marketplaces. */
+    case NotifyReviewSubmitted = 'notifications.browser.review_submitted';
+
     public function default(): mixed
     {
         return match ($this) {
             self::GeneralLocale => Locale::default()->value,
             self::MetadataAutofillOnUpload => true,
+            self::NotifyReviewSubmitted => true,
         };
     }
 
@@ -33,7 +37,7 @@ enum UserSettingKey: string
     {
         return match ($this) {
             self::GeneralLocale => ['string', Rule::enum(Locale::class)],
-            self::MetadataAutofillOnUpload => ['boolean'],
+            self::MetadataAutofillOnUpload, self::NotifyReviewSubmitted => ['boolean'],
         };
     }
 
@@ -44,7 +48,7 @@ enum UserSettingKey: string
     {
         return match ($this) {
             self::GeneralLocale => (string) $value,
-            self::MetadataAutofillOnUpload => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+            self::MetadataAutofillOnUpload, self::NotifyReviewSubmitted => filter_var($value, FILTER_VALIDATE_BOOLEAN),
         };
     }
 

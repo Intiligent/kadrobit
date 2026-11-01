@@ -113,7 +113,11 @@ class UserSettingTest extends TestCase
 
         $this->getJson('/api/settings')
             ->assertOk()
-            ->assertExactJson(['data' => ['general' => ['locale' => 'en'], 'metadata' => ['autofill_on_upload' => true]]]);
+            ->assertExactJson(['data' => [
+                'general' => ['locale' => 'en'],
+                'metadata' => ['autofill_on_upload' => true],
+                'notifications' => ['browser' => ['review_submitted' => true]],
+            ]]);
     }
 
     public function test_api_changes_a_setting(): void

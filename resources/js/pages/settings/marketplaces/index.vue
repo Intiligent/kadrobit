@@ -20,6 +20,8 @@ const props = defineProps({
     accounts: { type: Array, required: true },
     // MarketplaceCatalogResource[]: every marketplace, connectable or not
     catalog: { type: Array, required: true },
+    // A signed-in browser extension: the auto submit switch shows only with one
+    extensionConnected: { type: Boolean, default: false },
 });
 
 // Local working copy: every change answers with the account, which replaces the local one.
@@ -156,6 +158,7 @@ async function remove(account) {
             <MarketplaceConnectionList
                 v-if="accounts.length"
                 :accounts="accounts"
+                :extension-connected="extensionConnected"
                 :checking="checking"
                 @check="check"
                 @toggle="toggle"

@@ -17,11 +17,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 
 class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail, OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasSettings, HasUlids, Notifiable;
+    use HasApiTokens, HasFactory, HasPushSubscriptions, HasSettings, HasUlids, Notifiable;
 
     /**
      * The attributes that are mass assignable.

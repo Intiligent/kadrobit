@@ -104,7 +104,7 @@
 |---|---|---|
 | `GET` | `/api/extension/me` | Аккаунт Kadrobit, общие счётчики и аккаунты стоков, которые поддерживает расширение: `auto_submit` и счётчики по каждому |
 | `GET` | `/api/extension/listings?marketplace=<code>` | Работы на сервере стока (`status = sent`) по всем аккаунтам пользователя на этом стоке, страницами по 200 (cursor). Имя файла, ID и ссылка, статус модерации, текущие метаданные с названиями категорий, `outdated` и `metadata_hash` |
-| `POST` | `/api/extension/listings/report` | Что расширение нашло на сайте, до 500 работ за раз: `external_id`, `external_url`, `moderation_status` (время сверки ставится само), `metadata_hash` — метаданные записаны на сток |
+| `POST` | `/api/extension/listings/report` | Что расширение нашло на сайте, до 500 работ за раз: `external_id`, `external_url`, `moderation_status` (время сверки ставится само), `metadata_hash` — метаданные записаны на сток. Отчёт идёт после каждого прохода, при пустом результате — пустой список (по нему сервер решает, пора ли уведомление «Отправлено на проверку», [notifications.md](notifications.md)) |
 | `POST` | `/api/extension/logout` | «Выйти»: отзывает токен запроса и его refresh-токен |
 
 - **Счётчики** (`ExtensionStats`): `sent` — работ на серверах стоков, `pending`, `accepted`, `rejected` — по последней сверке, `checked_at` — время последней сверки. Считаются только по аккаунтам из списка `accounts`, поэтому общий счётчик — их сумма.

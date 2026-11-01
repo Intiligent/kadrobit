@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Globe, LayoutGrid, LogOut, Send, SlidersHorizontal } from 'lucide-vue-next';
 import { LIBRARY_URL, LOGOUT_URL, SETTINGS_MARKETPLACES_URL, SETTINGS_URL } from '@/config/constant';
+import { turnOff } from '@/utils/push';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -27,7 +28,11 @@ const settings = { label: 'library.nav.settings', href: SETTINGS_URL, active: SE
 
 const isActive = (item) => Boolean(item.active) && page.url.startsWith(item.active);
 
-const logout = () => router.post(LOGOUT_URL);
+// This browser stops getting the user's notifications first: the next one signing in here must not see them.
+const logout = async () => {
+    await turnOff().catch(() => null);
+    router.post(LOGOUT_URL);
+};
 </script>
 
 <template>

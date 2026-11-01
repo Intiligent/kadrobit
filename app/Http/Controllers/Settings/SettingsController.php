@@ -34,12 +34,17 @@ class SettingsController extends Controller
         ]);
     }
 
+    /**
+     * Marketplaces. `extensionConnected`: the user has a signed-in browser extension (a live token), so the auto submit
+     * switch does something; without one the page says what auto submit needs instead.
+     */
     public function marketplaces(Request $request): Response
     {
         $accounts = $request->user()->marketplaceAccounts()->with('marketplace')->oldest()->get();
 
         return Inertia::render('settings/marketplaces/index', [
             'accounts' => MarketplaceConnectionResource::collection($accounts)->resolve(),
+            'extensionConnected' => ExtensionTokens::connected($request->user()->getKey()),
             'catalog' => MarketplaceCatalogResource::collection(Marketplace::query()->orderBy('name')->get())->resolve(),
         ]);
     }
@@ -61,6 +66,18 @@ class SettingsController extends Controller
             ] : null,
             'extensionId' => config('extension.id'),
             'connections' => ExtensionConnectionResource::collection($tokens->connections($request->user()))->resolve(),
+        ]);
+    }
+
+    /**
+     * Notifications: browser notifications per event. This browser has them on when its push subscription is one of
+     * the user's `endpoints`; the event switches come from the shared `settings` prop.
+     */
+    public function notifications(Request $request): Response
+    {
+        return Inertia::render('settings/notifications/index', [
+            'vapidPublicKey' => config('webpush.vapid.public_key'),
+            'endpoints' => $request->user()->pushSubscriptions()->pluck('endpoint'),
         ]);
     }
 

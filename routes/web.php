@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('general', 'general')->name('general');
         Route::get('marketplaces', 'marketplaces')->name('marketplaces');
+        Route::get('notifications', 'notifications')->name('notifications');
         Route::get('metadata', 'metadata')->name('metadata');
         Route::get('extension', 'extension')->name('extension');
     });

@@ -8,7 +8,8 @@ use Illuminate\Validation\Rule;
 
 /**
  * What the browser extension found out on a marketplace's site, for several sent works at once. Only the sent
- * fields change; works of other users and works not on the marketplace yet are skipped, not reported.
+ * fields change; works of other users and works not on the marketplace yet are skipped, not reported. A pass that
+ * found nothing reports an empty list: it still settles the "sent to review" notification (ReviewSubmittedNotifier).
  */
 class ReportListingsRequest extends FormRequest
 {
@@ -20,7 +21,7 @@ class ReportListingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'listings' => ['required', 'array', 'min:1', 'max:'.self::LISTINGS_MAX],
+            'listings' => ['present', 'array', 'max:'.self::LISTINGS_MAX],
             'listings.*.id' => ['required', 'integer', 'distinct'],
             // A field the extension did not find on the site is left out, never sent as null: nothing is erased.
             'listings.*.external_id' => ['sometimes', 'string', 'max:64'],

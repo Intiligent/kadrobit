@@ -26,6 +26,9 @@ const expandable = computed(() => item.value.accounts.length > 0 || props.row.pr
 
 const item = computed(() => props.row.item);
 
+// An unticked work fades out, but not while its delivery is on its way: the spinner says it is being sent.
+const dimmed = computed(() => !props.row.chosen && !props.row.busy);
+
 // Title first; the file name moves to the line below. A work without a title shows its file name only once.
 const meta = computed(() => [
     item.value.title ? item.value.original_filename : null,
@@ -83,13 +86,13 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
             <!-- A member of the works' el-checkbox-group in PublishPanel.vue. -->
             <el-checkbox :value="item.asset" :disabled="!row.selectable" />
 
-            <div class="publish-row__thumb" :class="{ 'opacity-45': !row.chosen }">
+            <div class="publish-row__thumb" :class="{ 'opacity-45': dimmed }">
                 <el-image v-if="item.thumbnail_url" :src="item.thumbnail_url" fit="cover" class="size-full" />
                 <component :is="item.type === 'video' ? Film : Image" v-else :size="16" :stroke-width="1.75" class="text-[var(--el-text-color-placeholder)]" />
                 <span v-if="item.type === 'video' && item.duration_ms" class="publish-row__duration">{{ formatDuration(item.duration_ms) }}</span>
             </div>
 
-            <div class="min-w-0 flex-1" :class="{ 'opacity-45': !row.chosen }">
+            <div class="min-w-0 flex-1" :class="{ 'opacity-45': dimmed }">
                 <p class="flex min-w-0 items-center gap-1.5 text-[14px] font-semibold">
                     <el-tooltip v-if="row.busy" :content="$t('library.publishing.popover.delivering_hint')" placement="top">
                         <LoaderCircle :size="14" :stroke-width="2.25" class="flex-none animate-spin text-[var(--el-color-primary)]" />
@@ -109,7 +112,7 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
             <button
                 type="button"
                 class="publish-row__summary"
-                :class="{ 'opacity-45': !row.chosen }"
+                :class="{ 'opacity-45': dimmed }"
                 :disabled="!expandable"
                 :aria-expanded="expanded"
                 @click="emit('expand')"
