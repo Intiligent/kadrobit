@@ -34,12 +34,17 @@ class SettingsController extends Controller
         ]);
     }
 
+    /**
+     * Marketplaces. `extensionConnected`: the user has a signed-in browser extension (a live token), so the auto submit
+     * switch does something; without one the page says what auto submit needs instead.
+     */
     public function marketplaces(Request $request): Response
     {
         $accounts = $request->user()->marketplaceAccounts()->with('marketplace')->oldest()->get();
 
         return Inertia::render('settings/marketplaces/index', [
             'accounts' => MarketplaceConnectionResource::collection($accounts)->resolve(),
+            'extensionConnected' => ExtensionTokens::connected($request->user()->getKey()),
             'catalog' => MarketplaceCatalogResource::collection(Marketplace::query()->orderBy('name')->get())->resolve(),
         ]);
     }

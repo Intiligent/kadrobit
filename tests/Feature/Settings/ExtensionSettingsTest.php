@@ -11,6 +11,7 @@ use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Once;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Passport\Passport;
@@ -139,6 +140,18 @@ class ExtensionSettingsTest extends TestCase
 
         $this->actingAs($this->user, 'web')->get('/settings/marketplaces')
             ->assertInertia(fn (Assert $page) => $page->where('accounts.0.auto_submit', null));
+    }
+
+    public function test_the_marketplaces_page_knows_whether_an_extension_is_signed_in(): void
+    {
+        $page = fn () => $this->actingAs($this->user, 'web')->get('/settings/marketplaces');
+
+        $page()->assertInertia(fn (Assert $page) => $page->where('extensionConnected', false));
+
+        Once::flush();
+        app(ExtensionTokens::class)->issue($this->user);
+
+        $page()->assertInertia(fn (Assert $page) => $page->where('extensionConnected', true));
     }
 
     public function test_consent_page_for_the_extension_client(): void

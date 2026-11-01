@@ -289,7 +289,7 @@ class MarketplaceSeeder extends Seeder
                 'code' => '123rf',
                 'name' => '123RF',
                 'logo' => 'marketplaces/123rf.svg',
-                'contributor_url' => 'https://www.123rf.com/sellimages/',
+                'contributor_url' => 'https://www.123rf.com/contributor/manage-content',
                 'is_active' => true,
                 // Video and audio go to separate FTP servers, not delivered yet.
                 'supported_types' => [MediaType::Photo, MediaType::Illustration, MediaType::Vector],

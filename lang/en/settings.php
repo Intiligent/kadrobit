@@ -144,6 +144,8 @@ return [
         'turn_on' => 'Turn on',
         'turn_off' => 'Turn off',
         'auto_submit' => 'Auto submit from the extension',
+        'auto_submit_needs' => 'Auto submit to review on :name works in Chrome with the Kadrobit extension installed and signed in, and the auto submit box ticked here. Install and sign in on Settings → Browser extension.',
+        'auto_submit_short' => 'Auto submit',
         'auto_submit_hint' => 'The Kadrobit extension sends works to review on the :name website by itself, accepting the site\'s terms where that takes it. Turned off, it only finds the files and you submit them yourself.',
         'empty_title' => 'No marketplaces connected',
         'empty' => 'Add one to start publishing your works.',

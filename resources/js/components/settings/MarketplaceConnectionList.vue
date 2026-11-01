@@ -1,12 +1,14 @@
 <script setup>
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
-import { ExternalLink, Trash2 } from 'lucide-vue-next';
+import { ExternalLink, Info, Trash2 } from 'lucide-vue-next';
 import MarketplaceLogo from '@/components/settings/MarketplaceLogo.vue';
 import { connectionState as state } from '@/utils/marketplaceConnection';
 import { formatRelative } from '@/utils/relativeTime';
 
 defineProps({
     accounts: { type: Array, required: true },
+    // A signed-in browser extension (Settings → Extension): without one, what auto submit needs instead of the switch
+    extensionConnected: { type: Boolean, default: false },
     // Ids of accounts with a check in progress
     checking: { type: Object, default: () => new Set() },
 });
@@ -82,7 +84,23 @@ const subline = (account) => [
                 </div>
                 <p class="truncate text-xs leading-[18px] text-[var(--el-text-color-secondary)]">{{ subline(account) }}</p>
                 <!-- Only marketplaces the browser extension supports have auto submit (null elsewhere). -->
-                <el-tooltip v-if="account.auto_submit !== null" :content="$t('settings.marketplaces.auto_submit_hint', { name: account.marketplace.name })" placement="bottom-start">
+                <el-tooltip
+                    v-if="account.auto_submit !== null && !extensionConnected"
+                    :content="$t('settings.marketplaces.auto_submit_needs', { name: account.marketplace.name })"
+                    placement="bottom-start"
+                    popper-class="auto-submit-tooltip"
+                >
+                    <span class="inline-flex w-fit cursor-help items-center gap-1 text-xs leading-[18px] text-[var(--el-text-color-secondary)]">
+                        {{ $t('settings.marketplaces.auto_submit_short') }}
+                        <Info :size="12" :stroke-width="2" />
+                    </span>
+                </el-tooltip>
+                <el-tooltip
+                    v-else-if="account.auto_submit !== null"
+                    :content="$t('settings.marketplaces.auto_submit_hint', { name: account.marketplace.name })"
+                    placement="bottom-start"
+                    popper-class="auto-submit-tooltip"
+                >
                     <el-checkbox
                         :model-value="account.auto_submit"
                         size="small"
@@ -147,5 +165,13 @@ const subline = (account) => [
         color: var(--el-color-danger);
         background: var(--el-color-danger-light-9);
     }
+}
+</style>
+
+<style lang="scss">
+// The popper is teleported to <body>: unscoped, keyed by popper-class. The hint is a paragraph, not a label.
+.el-popper.auto-submit-tooltip {
+    max-width: 320px;
+    line-height: 18px;
 }
 </style>
