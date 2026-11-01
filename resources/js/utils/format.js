@@ -15,6 +15,16 @@ export function formatDuration(ms) {
     return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
 }
 
+/**
+ * A total of files: megabytes below a gigabyte, gigabytes from there, one decimal ("740.3 MB", "2.4 GB").
+ */
+export function formatTotalSize(bytes, locale) {
+    const gigabytes = bytes / 1024 ** 3;
+    const [value, unit] = gigabytes >= 1 ? [gigabytes, 'gigabyte'] : [bytes / 1024 ** 2, 'megabyte'];
+
+    return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short', maximumFractionDigits: 1 }).format(value);
+}
+
 export function formatBytes(bytes, locale) {
     if (!bytes && bytes !== 0) {
         return '';

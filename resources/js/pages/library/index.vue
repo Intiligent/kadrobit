@@ -141,6 +141,9 @@ const visible = computed(() => {
         .sort(SORTERS[sort.value]);
 });
 
+// The files of the works the list shows, with the tab, filters and search applied.
+const visibleBytes = computed(() => visible.value.reduce((total, asset) => total + (asset.size_bytes ?? 0), 0));
+
 const empty = computed(() => {
     if (query.value.trim()) {
         return { title: trans('library.grid.empty_search', { query: query.value.trim() }), text: '' };
@@ -679,6 +682,7 @@ function addFiles(files) {
             :tags="tags"
             :filter-counts="counts"
             :shown="visible.length"
+            :shown-bytes="visibleBytes"
         >
             <template #actions>
                 <PublishPopover :count="ready" :accounts="accounts" :assets="assets" :disabled="readonly" @published="onPublished" />

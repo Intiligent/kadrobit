@@ -32,6 +32,7 @@ return [
     ],
 
     'toolbar' => [
+        'total_size' => 'Files: :size',
         'works' => '{0} No works|{1} :count work|[2,*] :count works',
         'search' => 'Search title, keywords, description',
         'size_large' => 'Large tiles',

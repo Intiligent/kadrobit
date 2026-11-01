@@ -32,6 +32,7 @@ return [
     ],
 
     'toolbar' => [
+        'total_size' => 'Файлы: :size',
         'works' => ':count работа|:count работы|:count работ|{0} Нет работ',
         'search' => 'Поиск по работам',
         'size_large' => 'Крупные плитки',

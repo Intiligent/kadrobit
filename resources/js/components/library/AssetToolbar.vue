@@ -1,7 +1,9 @@
 <script setup>
+import { getActiveLanguage } from 'laravel-vue-i18n';
 import { Grid3x3, LayoutGrid, Search } from 'lucide-vue-next';
 import LibraryFilters from '@/components/library/LibraryFilters.vue';
 import { emptyFilters } from '@/utils/libraryFilters';
+import { formatTotalSize } from '@/utils/format';
 
 defineProps({
     title: { type: String, required: true },
@@ -20,7 +22,11 @@ defineProps({
     filterCounts: { type: Object, default: () => ({ types: {}, marketplaces: {}, tags: {} }) },
     // Works shown with the current filters
     shown: { type: Number, default: 0 },
+    // Size of their files together, in bytes
+    shownBytes: { type: Number, default: 0 },
 });
+
+const locale = getActiveLanguage();
 
 const query = defineModel('query', { type: String, default: '' });
 const sort = defineModel('sort', { type: String, default: 'newest' });
@@ -86,6 +92,9 @@ const SIZES = [
                     </template>
                 </el-tab-pane>
             </el-tabs>
+            <span class="ml-auto flex-none pl-4 text-[13px] text-[var(--el-text-color-secondary)]">
+                {{ $t('library.toolbar.total_size', { size: formatTotalSize(shownBytes, locale) }) }}
+            </span>
         </div>
     </header>
 </template>
