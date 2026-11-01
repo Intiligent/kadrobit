@@ -1,3 +1,4 @@
+import rf123 from './rf123.js';
 import shutterstock from './shutterstock.js';
 
 /**
@@ -41,7 +42,7 @@ import shutterstock from './shutterstock.js';
  */
 
 /** @type {Adapter[]} */
-export const ADAPTERS = [shutterstock];
+export const ADAPTERS = [shutterstock, rf123];
 
 export function adapterFor(code) {
     return ADAPTERS.find((adapter) => adapter.code === code) ?? null;

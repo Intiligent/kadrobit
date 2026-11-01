@@ -120,13 +120,13 @@
 
 ### 123RF
 
-`Rf123Delivery` — `ftp.123rf.com:21`, явный TLS (в справке написано FTP, но сервер принимает `AUTH TLS`); логин — имя пользователя 123RF, не email, пароль — от аккаунта. Файлы лежат на FTP, пока автор не откроет в кабинете Upload Content → Upload Via FTP и не примет соглашение; после этого они в Draft, на проверку их отправляет автор. Требования и шаги — [`docs/marketplaces/123rf/`](marketplaces/123rf/README.md).
+`Rf123Delivery` — `ftp.123rf.com:21`, явный TLS (в справке написано FTP, но сервер принимает `AUTH TLS`); логин — имя пользователя 123RF, не email, пароль — от аккаунта. Файлы лежат на FTP, пока автор не откроет в кабинете Upload Content → Upload Via FTP и не примет соглашение; после этого они в Draft, откуда их отправляют на проверку. При включённой автоотправке оба шага делает расширение Chrome ([KB-80](https://github.com/Intiligent/kadrobit/issues/80)), без неё — автор. Требования и шаги — [`docs/marketplaces/123rf/`](marketplaces/123rf/README.md).
 
 - **Фото и иллюстрации** — JPEG в корень с метаданными внутри (`JpegMetadata`). У 123RF одно текстовое поле, Description, поэтому описание работы пишется и в поля заголовка, как у Shutterstock. PNG, TIFF и CMYK уходят копией в sRGB JPEG (`MakesJpegCopies`), имя — с `.jpg`.
 - **Вектор** — EPS и его JPEG (`raster_companion`) с одним именем в корень, метаданные — в JPEG. Имя публикации — EPS. SVG и AI не уходят (`file_rules.vector.formats_strict`).
 - **Видео и аудио** у 123RF на отдельных серверах, Kadrobit их не отправляет (`supported_types`).
 - **Категорий** у 123RF нет.
-- **Проверено на настоящем аккаунте 31.10.2026:** FTPS, файл в корне, описание и ключевые слова из IPTC появились в 123RF после Proceed. Proceed и отправку на проверку можно сделать через внутренний API кабинета только в браузере пользователя (вход закрыт reCAPTCHA) — см. [`docs/marketplaces/123rf/`](marketplaces/123rf/README.md).
+- **Проверено на настоящем аккаунте 31.10.2026:** FTPS, файл в корне, описание и ключевые слова из IPTC появились в 123RF после Proceed. Proceed и отправка на проверку идут через внутренний API кабинета, только в браузере пользователя (вход закрыт reCAPTCHA): это делает расширение, см. [`docs/marketplaces/123rf/`](marketplaces/123rf/README.md).
 
 ### Vecteezy
 
