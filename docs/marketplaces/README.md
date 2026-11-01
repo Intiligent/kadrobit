@@ -29,7 +29,7 @@
 | [123RF](123rf/README.md) | ✅ Работает, Proceed и отправка — расширением | 100 % | 100 % | FTPS `ftp.123rf.com` (в справке FTP, но сервер принимает `AUTH TLS`), логин — имя пользователя; фото, иллюстрации, векторы EPS; видео и аудио — на других серверах, не отправляются | IPTC в JPEG: описание и ключевые слова; после загрузки Proceed и отправку на проверку делает расширение ([KB-80](https://github.com/Intiligent/kadrobit/issues/80)) | Нет: ни в справке, ни в CSV (31.10.2026) — этап засчитан с текстом | 31.10.2026: FTPS, файл, описание и ключевые слова ([KB-76](https://github.com/Intiligent/kadrobit/issues/76)); 01.11.2026: Proceed и отправка на проверку расширением ([KB-80](https://github.com/Intiligent/kadrobit/issues/80)) |
 | Magnific (Freepik) | 🔵 Только подключение | 30 % | 100 % | FTP, сервер не указан | IPTC в JPEG или CSV | Не изучено | Нет |
 | [Alamy](alamy/README.md) | 🟡 Работает, не проверено | 80 % | 80 % | FTP `upload.alamy.com` (без TLS: сервер не умеет), логин — email | IPTC в JPEG: подпись и теги; описание — в Image Manager | В справочнике (25), только вручную в Image Manager: ни в файле, ни CSV не передаются | Нет: доставка [KB-74](https://github.com/Intiligent/kadrobit/issues/74), ждёт проверки |
-| [Pond5](pond5/README.md) | 🟡 Работает, не проверено | 60 % | 60 % | FTPS `ftp.pond5.com` (в справке FTP, но сервер принимает `AUTH TLS`), логин — имя пользователя, пароль — отдельный пароль FTP-загрузчика; фото и видео; имена — только буквы, цифры и `_` | Вручную на сайте после обработки; IPTC в JPEG пишется на случай, если Pond5 его прочитает | Не изучено | 02.11.2026: вход по FTPS ([KB-96](https://github.com/Intiligent/kadrobit/issues/96)) |
+| [Pond5](pond5/README.md) | 🟡 Работает, Usage, тип и отправка — на сайте | 80 % | 100 % | FTPS `ftp.pond5.com` (в справке FTP, но сервер принимает `AUTH TLS`), логин — имя пользователя, пароль — отдельный пароль FTP-загрузчика; фото и видео; имена — только буквы, цифры и `_` | IPTC в JPEG: название, описание, ключевые слова; USAGE (Editorial, по умолчанию отмечен) и TYPE OF IMAGE — на сайте | В форме фото нет | 02.11.2026: FTPS, фото с метаданными из IPTC ([KB-96](https://github.com/Intiligent/kadrobit/issues/96)) |
 | Depositphotos | 🔵 Только подключение | 40 % | ? | FTP `ftp.depositphotos.com` (без TLS: `AUTH TLS` сервер объявляет, но отвечает «not implemented»), логин и пароль — от аккаунта | CSV через сайт (по стороннему гайду); читает ли IPTC — не изучено | Не изучено | Нет |
 | iStock | ⚫ Нельзя автоматизировать | — | — | Только веб-портал ESP | Вручную | — | — |
 | Getty Images | ⚫ Нельзя автоматизировать | — | — | Только веб-портал ESP (FTP — у одобренных партнёров) | Вручную | — | — |
@@ -44,14 +44,14 @@
 ## Что уже можно подключить
 
 - **Пользуемся:** Dreamstime, Shutterstock и 123RF — работы отправляются из Kadrobit. На Shutterstock и 123RF работы доводит до проверки расширение Chrome: категории и отправку на Shutterstock, Proceed и отправку черновиков на 123RF; без расширения это делает автор на сайте.
-- **Отправка готова, ждёт проверки на аккаунте:** Alamy — фото и векторы EPS ([KB-74](https://github.com/Intiligent/kadrobit/issues/74)); Vecteezy — фото и векторы EPS по SFTP с CSV ([KB-82](https://github.com/Intiligent/kadrobit/issues/82)); Pond5 — фото и видео по FTPS, метаданные — на сайте ([KB-96](https://github.com/Intiligent/kadrobit/issues/96)).
+- **Отправка готова, ждёт проверки на аккаунте:** Alamy — фото и векторы EPS ([KB-74](https://github.com/Intiligent/kadrobit/issues/74)); Vecteezy — фото и векторы EPS по SFTP с CSV ([KB-82](https://github.com/Intiligent/kadrobit/issues/82)); Pond5 — фото и видео по FTPS, название, описание и ключевые слова из IPTC; USAGE, тип изображения и отправка — на сайте ([KB-96](https://github.com/Intiligent/kadrobit/issues/96)).
 - **Можно подключить аккаунт, но работы не уйдут:** Adobe Stock, Magnific, Depositphotos. Вход проверяется, доставка — [KB-33](https://github.com/Intiligent/kadrobit/issues/33).
 
 Предлагаемый порядок для KB-33, от простого к сложному:
 
 1. **Magnific** — IPTC в JPEG, как у Shutterstock и 123RF ([KB-76](https://github.com/Intiligent/kadrobit/issues/76)); надо выяснить, есть ли категории.
 2. **Adobe Stock** — SFTP есть не у всех аккаунтов, CSV грузится только через сайт: категории и CSV — из расширения Chrome ([KB-81](https://github.com/Intiligent/kadrobit/issues/81)).
-3. ~~**Pond5**~~ — сделан в [KB-96](https://github.com/Intiligent/kadrobit/issues/96): фото и видео, метаданные вводятся на сайте. Alamy сделан в KB-74: IPTC он читает, Vecteezy — в KB-82.
+3. ~~**Pond5**~~ — сделан в [KB-96](https://github.com/Intiligent/kadrobit/issues/96): фото и видео, метаданные из IPTC; USAGE и тип — на сайте. Alamy сделан в KB-74: IPTC он читает, Vecteezy — в KB-82.
 4. **Depositphotos** — сервер известен (обычный FTP), осталось выяснить, читает ли он IPTC и есть ли категории.
 
 ## Отправка на модерацию

@@ -345,8 +345,9 @@ class MarketplaceSeeder extends Seeder
                     // FTP uses a separate password, not the account password.
                     'separate_password' => true,
                 ],
-                // Metadata is added in the portal after files are processed.
-                'metadata_delivery' => MetadataDelivery::Manual,
+                // Title, description and keywords are read from the IPTC of a JPEG (checked 02.11.2026); usage
+                // (editorial) and the type of image are set on the website, where works are submitted too.
+                'metadata_delivery' => MetadataDelivery::Iptc,
                 'metadata_rules' => [
                     // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
                     // Title up to 80 characters, Description up to 500 (contributor.pond5.com, "Preparing your files").
