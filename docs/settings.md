@@ -10,13 +10,14 @@
 | `/settings/general` | General: язык интерфейса | `Settings\SettingsController@general` |
 | `/settings/marketplaces` | Подключённые маркетплейсы и каталог | `Settings\SettingsController@marketplaces` |
 | `/settings/metadata` | Metadata defaults: автозаполнение метаданных при загрузке | `Settings\SettingsController@metadata` |
+| `/settings/extension` | Browser extension: скачать, установка, подключённые расширения, персональный токен ([browser-extension.md](browser-extension.md#settings--extension)) | `Settings\SettingsController@extension` |
 
 Страница настроек использует вложенные layout'ы: `defineOptions({ layout: [AppLayout, SettingsLayout] })`. `SettingsLayout` — навигация по разделам (`components/settings/SettingsNav.vue`) и область контента. Разделы без страницы показаны неактивными с подсказкой «Coming soon».
 
 Разделы:
 
 - **Account:** Profile, General, Security, Notifications, Data & privacy;
-- **Workspace:** Marketplaces, Metadata defaults, Publishing;
+- **Workspace:** Marketplaces, Metadata defaults, Browser extension, Publishing;
 - **Billing:** Plan & billing.
 
 ## Компоненты

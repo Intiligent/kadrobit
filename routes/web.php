@@ -61,6 +61,7 @@ Route::middleware('auth')->group(function () {
         Route::get('general', 'general')->name('general');
         Route::get('marketplaces', 'marketplaces')->name('marketplaces');
         Route::get('metadata', 'metadata')->name('metadata');
+        Route::get('extension', 'extension')->name('extension');
     });
 
     Route::prefix('verify-email')->name('verification.')->controller(VerifyEmailController::class)->group(function () {

@@ -7,6 +7,7 @@
 - Вход в приложение — обычная сессия Laravel (guard `web`).
 - Для `/api/*` — guard `api` (драйвер `passport`). Токен — personal access token Passport, живёт столько же, сколько сессия.
 - Токен для API выдаётся при входе и передаётся в HttpOnly cookie `api_token` (подробнее — «Вход, регистрация, токен в cookie»).
+- Расширение браузера входит через OAuth с PKCE и получает токены со скоупом `extension`, которые открывают только его API ([browser-extension.md](browser-extension.md#вход-расширения)).
 
 ## Вход, регистрация, токен в cookie
 

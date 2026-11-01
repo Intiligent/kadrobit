@@ -39,8 +39,11 @@ export const SETTINGS_URL = '/settings';
 export const SETTINGS_GENERAL_URL = '/settings/general';
 export const SETTINGS_MARKETPLACES_URL = '/settings/marketplaces';
 export const SETTINGS_METADATA_URL = '/settings/metadata';
+export const SETTINGS_EXTENSION_URL = '/settings/extension';
 export const USER_SETTINGS_API_URL = '/api/settings';
 export const MARKETPLACE_ACCOUNTS_API_URL = '/api/marketplace-accounts';
+export const EXTENSION_TOKENS_API_URL = '/api/extension-tokens';
+export const OAUTH_AUTHORIZE_URL = '/oauth/authorize';
 
 // Real-time notices (core/realtime.js): channel authorization; the poll that replaces them without a connection,
 // and the rarer one that catches a lost notice while connected (ms)

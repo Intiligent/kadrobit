@@ -3,15 +3,28 @@
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetGenerationController;
 use App\Http\Controllers\AssetUploadController;
+use App\Http\Controllers\Extension\ExtensionController;
 use App\Http\Controllers\FolderController;
 use App\Http\Controllers\ListingController;
+use App\Http\Controllers\Settings\ExtensionTokenController;
 use App\Http\Controllers\Settings\MarketplaceAccountController;
 use App\Http\Controllers\Settings\UserSettingController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::as('api.')->middleware('auth:api')->group(function () {
+// The browser extension (docs/browser-extension.md): its tokens carry the extension scope and open only this group.
+Route::prefix('extension')->as('api.extension.')->middleware(['auth:api', 'scopes:'.config('extension.scope')])
+    ->controller(ExtensionController::class)
+    ->group(function () {
+        Route::get('me', 'me')->name('me');
+        Route::get('listings', 'listings')->name('listings');
+        Route::post('listings/report', 'report')->name('listings.report');
+        Route::post('logout', 'logout')->name('logout');
+    });
+
+// Everything else: the extension's tokens are turned away (RejectExtensionTokens).
+Route::as('api.')->middleware(['auth:api', 'not-extension'])->group(function () {
     Route::get('user', fn (Request $request) => new UserResource($request->user()))->name('user');
 
     // The user's own settings: no confirmed email needed, they change only the user's own experience.
@@ -57,6 +70,12 @@ Route::as('api.')->middleware('auth:api')->group(function () {
             Route::post('/', 'store')->name('store');
             Route::patch('{folder}', 'update')->whereUlid('folder')->name('update');
             Route::delete('{folder}', 'destroy')->whereUlid('folder')->name('destroy');
+        });
+
+        // Settings → Extension: a personal token for the extension, disconnecting one.
+        Route::controller(ExtensionTokenController::class)->prefix('extension-tokens')->name('extension-tokens.')->group(function () {
+            Route::post('/', 'store')->name('store');
+            Route::delete('{token}', 'destroy')->name('destroy');
         });
 
         // Settings → Marketplaces. Sign-ins to marketplace servers are throttled in the controller.

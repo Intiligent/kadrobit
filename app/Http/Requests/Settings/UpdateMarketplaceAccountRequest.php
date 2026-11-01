@@ -10,7 +10,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * Partial update. Changing the server, login or password signs in again before saving;
- * the name, contributor ID and on/off switch do not. Where the contributor ID is the login
+ * the name, contributor ID, on/off switch and auto submit do not. Where the contributor ID is the login
  * (Adobe Stock), changing it signs in again and the login follows it.
  */
 class UpdateMarketplaceAccountRequest extends FormRequest
@@ -47,6 +47,8 @@ class UpdateMarketplaceAccountRequest extends FormRequest
             'password' => ['sometimes', 'required', 'string', 'max:190'],
             // invalid_credentials is set by checks only.
             'status' => ['sometimes', Rule::in([MarketplaceAccountStatus::Active->value, MarketplaceAccountStatus::Disabled->value])],
+            // The browser extension's auto submit: only marketplaces it supports have it.
+            'auto_submit' => $account->marketplace->supportsExtension() ? ['sometimes', 'boolean'] : ['prohibited'],
         ];
     }
 

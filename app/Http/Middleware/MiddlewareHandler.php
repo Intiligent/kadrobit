@@ -8,6 +8,7 @@ use Illuminate\Foundation\Configuration\Middleware as BaseMiddleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
+use Laravel\Passport\Http\Middleware\CheckToken;
 
 class MiddlewareHandler
 {
@@ -40,6 +41,8 @@ class MiddlewareHandler
 
         $middleware->alias([
             'local.only' => EnsureLocalEnvironment::class,
+            'not-extension' => RejectExtensionTokens::class,
+            'scopes' => CheckToken::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
