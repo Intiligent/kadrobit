@@ -49,11 +49,11 @@ return [
     |
     | Marketplaces the extension has an adapter for (marketplaces.code): only
     | their accounts get the auto submit switch and appear in the extension API.
-    | A marketplace is added with its adapter: 123RF (KB-80), Adobe Stock (KB-81).
+    | A marketplace is added with its adapter: Adobe Stock (KB-81).
     |
     */
 
-    'marketplaces' => ['shutterstock'],
+    'marketplaces' => ['shutterstock', '123rf'],
 
     /*
     | A sent work waits for the extension to submit it to review (the library
