@@ -12,6 +12,7 @@ use App\Models\MarketplaceAccount;
 use App\Models\MarketplaceCategory;
 use App\Services\Extension\ExtensionStats;
 use App\Services\Extension\ExtensionTokens;
+use App\Support\Realtime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -133,6 +134,11 @@ class ExtensionController extends Controller
             }
 
             $listing->save();
+
+            // The library stops showing the work as being sent once its review status is known.
+            if ($listing->wasChanged()) {
+                Realtime::changed($request->user(), 'asset', $listing->asset->ulid, 'listing');
+            }
         }
 
         return response()->json(['data' => ['updated' => $listings->count()]]);

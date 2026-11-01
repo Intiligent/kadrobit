@@ -116,7 +116,8 @@
 ### Данные
 
 - `asset_listings`: `external_url` после `external_id`, `moderation_status` (`App\Enums\ModerationStatus`: `pending`, `accepted`, `rejected`, null — неизвестно) после `status`, `moderation_checked_at` после `sent_at`. Таблица пересобрана миграцией `2026_11_01_000001_add_moderation_to_asset_listings_table.php`.
-- **Автоматическая отправка** — `marketplace_accounts.settings.auto_submit`, по умолчанию включена (`MarketplaceAccount::autoSubmits()`). Меняется через `PATCH /api/marketplace-accounts/{id}` (`auto_submit`), только у стоков из `config/extension.php` (`marketplaces`), у остальных — 422. В Settings → Marketplaces это флажок под названием аккаунта.
+- **Автоматическая отправка** — `marketplace_accounts.settings.auto_submit`, по умолчанию включена (`MarketplaceAccount::autoSubmits()`). Меняется через `PATCH /api/marketplace-accounts/{id}` (`auto_submit`), только у стоков из `config/extension.php` (`marketplaces`: стоки с готовым адаптером, сейчас Shutterstock; 123RF и Adobe Stock добавятся в KB-80, KB-81), у остальных — 422. В Settings → Marketplaces это флажок под названием аккаунта.
+- **Ожидание отправки на проверку** (`AssetListing::awaitsReview()`, `awaiting_review` в `AssetListingResource`): работа отправлена, сток с адаптером, у аккаунта автоотправка, расширение подключено, статуса проверки ещё нет — и прошло не больше `EXTENSION_AWAIT_REVIEW_HOURS` (24) часов. Библиотека показывает такую работу как «отправляется на проверку» с лоадером (`docs/publishing.md`, «Интерфейс»). Отчёт расширения, изменивший публикацию, шлёт уведомление `EntityChanged`, и библиотека перечитывает работу.
 
 ### Settings → Extension
 
@@ -131,8 +132,8 @@
 | `manifest.json` | Манифест; `version` — версия расширения, `key` закрепляет ID. `@kadrobit` и `@marketplaces` сборка заменяет адресом Kadrobit и сайтами стоков |
 | `src/marketplaces.js` | Стоки расширения (как `config/extension.php`): код, название, адреса сайтов |
 | `src/background/` | Фоновый воркер — единственный, кто хранит токен и ходит в Kadrobit: вход (`auth.js`), API (`kadrobit.js`), последнее действие на каждом стоке (`actions.js`), сообщения (`index.js`) |
-| `src/content/` | Скрипт на сайтах стоков: запускает адаптер стока при открытии страницы (не чаще раза в 5 минут на вкладку) и по «Check now» из попапа (`runner.js`) |
-| `src/adapters/index.js` | Список адаптеров и их интерфейс. Адаптеры появятся в KB-84, KB-80, KB-81 |
+| `src/content/` | Скрипт на сайтах стоков: запускает адаптер стока при открытии страницы и затем раз в 5 минут, пока вкладка открыта и видна (стоки показывают новые файлы через несколько минут), и сразу по «Check now» из попапа (`runner.js`). Пока идёт проход по стоку, второй (из другой вкладки) не начинается: фоновый воркер отвечает `busy` |
+| `src/adapters/` | Список адаптеров и их интерфейс (`index.js`); Shutterstock — `shutterstock.js` ([`marketplaces/shutterstock`](marketplaces/shutterstock/README.md)), 123RF и Adobe Stock — KB-80, KB-81 |
 | `src/core/` | PKCE, проверка формы ответов сайта стока (`shape.js`), сообщения между частями расширения |
 | `src/popup/` | Попап на Vue и Element Plus (тема та же, что у Kadrobit) |
 | `public/icons/` | Иконки из знака логотипа (`icon.svg`, PNG собраны `rsvg-convert`) |

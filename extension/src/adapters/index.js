@@ -1,3 +1,5 @@
+import shutterstock from './shutterstock.js';
+
 /**
  * Adapters of stock sites. Each marketplace has its own way to find the files Kadrobit delivered, to finish them
  * (categories, Proceed, the upload itself) and to read the review status; the adapter hides it behind one shape.
@@ -39,7 +41,7 @@
  */
 
 /** @type {Adapter[]} */
-export const ADAPTERS = [];
+export const ADAPTERS = [shutterstock];
 
 export function adapterFor(code) {
     return ADAPTERS.find((adapter) => adapter.code === code) ?? null;

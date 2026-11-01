@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
+import { publishingBusy } from '@/utils/publishing';
 import PublishButton from '@/components/library/PublishButton.vue';
 import PublishPanel from '@/components/library/PublishPanel.vue';
 
@@ -9,6 +10,8 @@ const props = defineProps({
     // Connected marketplace accounts (MarketplaceAccountResource)
     accounts: { type: Array, default: () => [] },
     disabled: { type: Boolean, default: false },
+    // The library's works, kept fresh with their listings: deliveries on their way show in the button and the list.
+    assets: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['published']);
@@ -17,7 +20,9 @@ const open = ref(false);
 // A send on its way keeps the popover open: closing it would hide the outcome.
 const busy = ref(false);
 
-const off = computed(() => props.disabled || !props.count || !props.accounts.length);
+const delivering = computed(() => publishingBusy(props.assets));
+
+const off = computed(() => props.disabled || (!props.count && !delivering.value) || !props.accounts.length);
 
 const visible = computed({
     get: () => open.value,
@@ -53,11 +58,11 @@ function onPublished(data) {
     >
         <template #reference>
             <span class="inline-flex">
-                <PublishButton :count="count" :accounts="accounts.length" :disabled="disabled" :active="open" />
+                <PublishButton :count="count" :accounts="accounts.length" :disabled="disabled" :delivering="delivering" :active="open" />
             </span>
         </template>
 
-        <PublishPanel v-if="open" :accounts="accounts" @busy="busy = $event" @published="onPublished" @close="visible = false" />
+        <PublishPanel v-if="open" :accounts="accounts" :assets="assets" @busy="busy = $event" @published="onPublished" @close="visible = false" />
     </el-popover>
 </template>
 

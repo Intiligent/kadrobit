@@ -10,6 +10,13 @@ export const PENDING_STATUSES = ['queued', 'sending'];
 export const isPending = (listing) => PENDING_STATUSES.includes(listing.status);
 
 /**
+ * Still on its way to review: in the queue, being uploaded, or on the marketplace's server waiting for the browser
+ * extension to submit it (`awaiting_review`, docs/browser-extension.md). It is over once the marketplace has the work
+ * in review, or once it is sent where nothing submits it automatically.
+ */
+export const isInProgress = (listing) => isPending(listing) || Boolean(listing.awaiting_review);
+
+/**
  * Works of the next batch: the publish button counts them, the same works the popover lists with pairs. A ready work
  * counts while some connected account does not have it queued, on its way or sent already, even one turned off or
  * signed out for now. A work the marketplace will reject (type, file limits, account off) still counts: the popover
@@ -25,15 +32,29 @@ function inBatch(asset, account) {
     return !listing || ['failed', 'cancelled'].includes(listing.status);
 }
 
-export const hasPendingListings = (asset) => (asset.listings ?? []).some(isPending);
+export const hasPendingListings = (asset) => (asset.listings ?? []).some(isInProgress);
+
+/** Some work is on its way to a marketplace: the publish button shows a spinner. */
+export const publishingBusy = (assets) => assets.some(hasPendingListings);
+
+const REVIEW_STATES = { pending: 'in_review', accepted: 'accepted', rejected: 'rejected' };
 
 /**
  * How a listing is shown: `state` names the translation (library.publishing.status.*) and the colour.
- * A sent work edited afterwards is "outdated": the marketplace still has the old metadata.
+ * A sent work waiting for the extension is "submitting"; one edited afterwards is "outdated" (the marketplace still
+ * has the old metadata); then the review status the extension read on the marketplace.
  */
 export function listingState(listing) {
+    if (listing.awaiting_review) {
+        return 'submitting';
+    }
+
     if (listing.status === 'sent' && listing.outdated) {
         return 'outdated';
+    }
+
+    if (listing.status === 'sent' && REVIEW_STATES[listing.moderation_status]) {
+        return REVIEW_STATES[listing.moderation_status];
     }
 
     return listing.status;
@@ -48,6 +69,36 @@ export const canRetry = (listing, asset) => ['failed', 'cancelled'].includes(lis
  * The listing of a work on one account, or null when the work was never queued there.
  */
 export const listingFor = (asset, accountId) => (asset.listings ?? []).find((listing) => listing.account_id === accountId) ?? null;
+
+/**
+ * A work on its way, as a row of the publish popover: the same fields as a batch item (GET /api/listings/batch), no
+ * pairs to send. Works that are not ready (sent everywhere) show this way while their deliveries finish.
+ */
+export function progressItem(asset) {
+    return {
+        asset: asset.id,
+        title: asset.title,
+        original_filename: asset.original_filename,
+        type: asset.type,
+        width: asset.width,
+        height: asset.height,
+        duration_ms: asset.duration_ms,
+        size_bytes: asset.size_bytes,
+        keywords: (asset.keywords ?? []).length,
+        thumbnail_url: asset.thumbnail_url,
+        accounts: [],
+    };
+}
+
+/**
+ * The deliveries of a work the popover follows: those in progress now, and those that were while it is open
+ * (`followed`, account ids), so a finished one stays with its outcome instead of vanishing. `busy` spins the loader.
+ */
+export function progressPairs(asset, followed = new Set()) {
+    return (asset.listings ?? [])
+        .filter((listing) => isInProgress(listing) || followed.has(listing.account_id))
+        .map((listing) => ({ account: listing.account_id, state: listingState(listing), busy: isInProgress(listing) }));
+}
 
 /* Publish popover. Its data is the batch summary (GET /api/listings/batch): `accounts` per connected account,
    `items` per ready work with the checks of every pair the batch can still send. */
@@ -100,16 +151,20 @@ export function pairState(pair, skipped) {
 }
 
 /**
- * Rows of the work list: each ready work with its pairs on the picked accounts.
- * `sending` of `total` is what the row's summary shows.
+ * Rows of the work list: each ready work with its pairs on the picked accounts, and its deliveries on their way
+ * (`progress`, from progressPairs(); a row is `busy` while one of them is). `sending` of `total` is what the row's
+ * summary shows.
  *
  * @param {object} summary
  * @param {number[]} accounts Ids of the accounts whose pairs show: the picked ones and those turned off or signed out
  * @param {Set<string>} works Ulids of the ticked works
  * @param {Set<string>} skipped pairKey()s the user unticked
+ * @param {Map<string, object[]>} progress progressPairs() by work ulid
  */
-export function workRows(summary, accounts, works, skipped) {
+export function workRows(summary, accounts, works, skipped, progress = new Map()) {
     return summary.items.map((item) => {
+        const delivering = progress.get(item.asset) ?? [];
+
         const pairs = item.accounts
             .filter((pair) => accounts.includes(pair.account))
             .map((pair) => ({ ...pair, state: pairState(pair, skipped.has(pairKey(item.asset, pair.account))) }));
@@ -117,6 +172,8 @@ export function workRows(summary, accounts, works, skipped) {
         return {
             item,
             pairs,
+            progress: delivering,
+            busy: delivering.some((pair) => pair.busy),
             chosen: works.has(item.asset),
             // A work the batch has nothing left for (all sent) cannot be ticked.
             selectable: item.accounts.length > 0,

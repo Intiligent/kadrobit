@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { getActiveLanguage, trans } from 'laravel-vue-i18n';
-import { ChevronDown, CircleCheck, CircleX, FileText, Film, Image, TriangleAlert } from 'lucide-vue-next';
+import { ChevronDown, CircleCheck, CircleX, FileText, Film, Image, LoaderCircle, TriangleAlert } from 'lucide-vue-next';
 import MarketplaceLogo from '@/components/settings/MarketplaceLogo.vue';
 import { formatBytes, formatDuration, formatNumberParams } from '@/utils/format';
 
@@ -18,6 +18,12 @@ const emit = defineEmits(['expand', 'pair']);
 
 const TAG = { ok: 'success', warning: 'warning', error: 'danger', skipped: 'info' };
 
+// Tags of deliveries on their way and their outcomes (listingState(), library.publishing.status.*).
+const PROGRESS_TAG = { queued: 'primary', sending: 'primary', submitting: 'primary', sent: 'success', in_review: 'success', accepted: 'success', rejected: 'danger', failed: 'danger', outdated: 'warning', cancelled: 'info' };
+
+// Something to unfold: pairs to send or deliveries to follow.
+const expandable = computed(() => item.value.accounts.length > 0 || props.row.progress.length > 0);
+
 const item = computed(() => props.row.item);
 
 // Title first; the file name moves to the line below. A work without a title shows its file name only once.
@@ -31,6 +37,10 @@ const summary = computed(() => {
     const { sending, total } = props.row;
 
     if (!total) {
+        if (props.row.busy) {
+            return trans('library.publishing.popover.delivering');
+        }
+
         return item.value.accounts.length ? '—' : trans('library.publishing.popover.already_sent');
     }
 
@@ -80,7 +90,12 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
             </div>
 
             <div class="min-w-0 flex-1" :class="{ 'opacity-45': !row.chosen }">
-                <p class="truncate text-[14px] font-semibold">{{ item.title || item.original_filename }}</p>
+                <p class="flex min-w-0 items-center gap-1.5 text-[14px] font-semibold">
+                    <el-tooltip v-if="row.busy" :content="$t('library.publishing.popover.delivering_hint')" placement="top">
+                        <LoaderCircle :size="14" :stroke-width="2.25" class="flex-none animate-spin text-[var(--el-color-primary)]" />
+                    </el-tooltip>
+                    <span class="truncate">{{ item.title || item.original_filename }}</span>
+                </p>
                 <p class="mt-[3px] flex min-w-0 gap-[7px] whitespace-nowrap text-xs leading-[18px] text-[var(--el-text-color-secondary)]">
                     <template v-for="(part, index) in meta" :key="index">
                         <span v-if="index" class="flex-none text-[var(--el-text-color-placeholder)]">·</span>
@@ -95,19 +110,38 @@ const checkText = (check, translate) => translate(`library.checks.${check.key}`,
                 type="button"
                 class="publish-row__summary"
                 :class="{ 'opacity-45': !row.chosen }"
-                :disabled="!item.accounts.length"
+                :disabled="!expandable"
                 :aria-expanded="expanded"
                 @click="emit('expand')"
             >
                 <span :class="{ 'text-[var(--el-text-color-secondary)]': summary }">
                     {{ summary ?? $tChoice('library.publishing.popover.marketplaces', row.total, { count: row.total }) }}
                 </span>
-                <ChevronDown v-if="item.accounts.length" :size="14" :stroke-width="2" class="text-[var(--el-text-color-secondary)] transition-transform" :class="{ 'rotate-180': expanded }" />
+                <ChevronDown v-if="expandable" :size="14" :stroke-width="2" class="text-[var(--el-text-color-secondary)] transition-transform" :class="{ 'rotate-180': expanded }" />
             </button>
         </div>
 
         <el-checkbox-group v-if="expanded" :model-value="goingOut" :disabled="disabled" class="publish-row__pairs flex flex-col gap-1.5 pb-3 pl-[90px] pr-5" @update:model-value="togglePair">
-            <p v-if="!row.pairs.length" class="text-xs text-[var(--el-text-color-secondary)]">{{ $t('library.publishing.popover.pick_marketplace') }}</p>
+            <p v-if="!row.pairs.length && !row.progress.length" class="text-xs text-[var(--el-text-color-secondary)]">{{ $t('library.publishing.popover.pick_marketplace') }}</p>
+
+            <!-- Deliveries already on their way: no tick, their state with a spinner until the marketplace has the work in review. -->
+            <div v-for="pair in row.progress" :key="`progress-${pair.account}`" class="publish-row__pair">
+                <div v-if="connections[pair.account]" class="flex items-center gap-2">
+                    <MarketplaceLogo :name="connections[pair.account].marketplace.name" :logo-url="connections[pair.account].marketplace.logo_url" :size="20" />
+                    <span class="truncate font-semibold">{{ connections[pair.account].label || connections[pair.account].marketplace.name }}</span>
+                    <span class="flex-none text-[11px] text-[var(--el-text-color-placeholder)]">{{ connections[pair.account].marketplace.upload_protocol?.toUpperCase() }}</span>
+                    <span class="flex-1" />
+                    <el-tag :type="PROGRESS_TAG[pair.state] ?? 'info'" size="small" round disable-transitions>
+                        <span class="inline-flex items-center gap-1">
+                            <LoaderCircle v-if="pair.busy" :size="11" :stroke-width="2.5" class="animate-spin" />
+                            {{ $t(`library.publishing.status.${pair.state}`) }}
+                        </span>
+                    </el-tag>
+                </div>
+                <p v-if="pair.state === 'submitting'" class="pl-7 text-xs leading-[18px] text-[var(--el-text-color-secondary)]">
+                    {{ $t('library.publishing.popover.submitting_hint', { name: connections[pair.account]?.marketplace.name }) }}
+                </p>
+            </div>
 
             <div v-for="pair in row.pairs" :key="pair.account" class="publish-row__pair">
                 <div class="flex items-center gap-2">

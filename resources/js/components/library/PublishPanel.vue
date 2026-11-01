@@ -1,5 +1,5 @@
 <script setup>
-import { computed, h, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, h, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { trans, transChoice } from 'laravel-vue-i18n';
 import { ChevronDown, X } from 'lucide-vue-next';
@@ -7,11 +7,13 @@ import PublishWorkRow from '@/components/library/PublishWorkRow.vue';
 import api from '@/core/api';
 import notify from '@/core/notify';
 import { LISTINGS_BATCH_API_URL, SETTINGS_MARKETPLACES_URL } from '@/config/constant';
-import { batchAccounts, defaultAccounts, firstWorks, nextSteps, pairKey, publishTotals, workRows } from '@/utils/publishing';
+import { batchAccounts, defaultAccounts, firstWorks, hasPendingListings, nextSteps, pairKey, progressItem, progressPairs, publishTotals, workRows } from '@/utils/publishing';
 
 const props = defineProps({
     // Connected marketplace accounts (MarketplaceAccountResource)
     accounts: { type: Array, default: () => [] },
+    // The library's works with fresh listings (usePendingAssets): the deliveries on their way, live.
+    assets: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['published', 'close', 'busy']);
@@ -32,7 +34,38 @@ const accountRows = computed(() => (summary.value ? batchAccounts(summary.value,
 const pickedConnected = computed(() => picked.value.filter((id) => connections.value[id]));
 // Cards show on the picked accounts and on those turned off or signed out: those say why the work waits.
 const shownAccounts = computed(() => [...pickedConnected.value, ...accountRows.value.filter((row) => row.blocked).map((row) => row.account)]);
-const rows = computed(() => (summary.value ? workRows(summary.value, shownAccounts.value, new Set(works.value), skipped.value) : []));
+// Deliveries on their way while the popover is open, by work ulid → account ids: a finished one stays in the list with
+// its outcome, and a work sent everywhere (no longer in the batch) keeps its row.
+const followed = ref(new Map());
+
+watch(() => props.assets.filter(hasPendingListings), (delivering) => {
+    const next = new Map(followed.value);
+
+    for (const asset of delivering) {
+        const accounts = new Set(next.get(asset.id));
+        progressPairs(asset).forEach((pair) => accounts.add(pair.account));
+        next.set(asset.id, accounts);
+    }
+
+    followed.value = next;
+}, { immediate: true });
+
+const assetsById = computed(() => new Map(props.assets.map((asset) => [asset.id, asset])));
+const progress = computed(() => new Map([...followed.value].map(([id, accounts]) => [id, assetsById.value.has(id) ? progressPairs(assetsById.value.get(id), accounts) : []])));
+
+// Followed works the batch does not list (sent everywhere): shown first, without pairs to send.
+const items = computed(() => {
+    if (!summary.value) {
+        return [];
+    }
+
+    const listed = new Set(summary.value.items.map((item) => item.asset));
+    const extra = [...followed.value.keys()].filter((id) => !listed.has(id) && assetsById.value.has(id)).map((id) => progressItem(assetsById.value.get(id)));
+
+    return [...extra, ...summary.value.items];
+});
+
+const rows = computed(() => (summary.value ? workRows({ ...summary.value, items: items.value }, shownAccounts.value, new Set(works.value), skipped.value, progress.value) : []));
 const totals = computed(() => publishTotals(rows.value));
 
 const selectable = computed(() => rows.value.filter((row) => row.selectable));
@@ -103,7 +136,7 @@ onMounted(async () => {
         picked.value = defaultAccounts(batchAccounts(data, props.accounts));
         works.value = [...firstWorks(data, picked.value)];
         // The first work opens, so the per-marketplace breakdown is seen at once.
-        expanded.value = new Set(data.items.slice(0, 1).map((item) => item.asset));
+        expanded.value = new Set(items.value.slice(0, 1).map((item) => item.asset));
         stage.value = 'ready';
     } catch {
         // Reported by the API client.

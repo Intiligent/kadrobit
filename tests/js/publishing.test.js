@@ -6,12 +6,16 @@ import {
     defaultAccounts,
     firstWorks,
     hasPendingListings,
+    isInProgress,
     listingFor,
     listingState,
     nextSteps,
     pairKey,
     pairState,
+    progressItem,
+    progressPairs,
     publishTotals,
+    publishingBusy,
     readyCount,
     workRows,
 } from '../../resources/js/utils/publishing';
@@ -164,5 +168,54 @@ describe('publish popover', () => {
         expect(nextSteps(rows, { 1: 3, 2: 0 })).toEqual([{ account: 1, name: 'shutterstock', csv: true, submit: true, autoSubmit: false }]);
         expect(nextSteps(rows, { 2: 1 })).toEqual([{ account: 2, name: 'vecteezy', csv: false, submit: false, autoSubmit: true }]);
         expect(nextSteps(rows, {})).toEqual([]);
+    });
+});
+
+describe('deliveries on their way', () => {
+    const listing = (account, attributes) => ({ id: account, account_id: account, status: 'sent', outdated: false, awaiting_review: false, moderation_status: null, ...attributes });
+
+    it('lasts until the marketplace has the work in review', () => {
+        expect(isInProgress(listing(1, { status: 'queued' }))).toBe(true);
+        expect(isInProgress(listing(1, { status: 'sending' }))).toBe(true);
+        expect(isInProgress(listing(1, { awaiting_review: true }))).toBe(true);
+        expect(isInProgress(listing(1, { moderation_status: 'pending' }))).toBe(false);
+        expect(isInProgress(listing(1))).toBe(false);
+    });
+
+    it('names the states up to the review outcome', () => {
+        expect(listingState(listing(1, { awaiting_review: true, outdated: true }))).toBe('submitting');
+        expect(listingState(listing(1, { moderation_status: 'pending' }))).toBe('in_review');
+        expect(listingState(listing(1, { moderation_status: 'accepted' }))).toBe('accepted');
+        expect(listingState(listing(1, { moderation_status: 'rejected' }))).toBe('rejected');
+        expect(listingState(listing(1, { moderation_status: 'pending', outdated: true }))).toBe('outdated');
+    });
+
+    it('spins the publish button while some work is on its way', () => {
+        const waiting = { id: 'a', listings: [listing(1, { awaiting_review: true })] };
+        const done = { id: 'b', listings: [listing(1, { moderation_status: 'pending' })] };
+
+        expect(publishingBusy([done, waiting])).toBe(true);
+        expect(publishingBusy([done])).toBe(false);
+        expect(hasPendingListings(waiting)).toBe(true);
+    });
+
+    it('keeps a followed delivery with its outcome once it is over', () => {
+        const asset = { id: 'a', listings: [listing(1, { moderation_status: 'pending' }), listing(2, { status: 'sending' }), listing(3)] };
+
+        expect(progressPairs(asset)).toEqual([{ account: 2, state: 'sending', busy: true }]);
+        expect(progressPairs(asset, new Set([1, 2]))).toEqual([
+            { account: 1, state: 'in_review', busy: false },
+            { account: 2, state: 'sending', busy: true },
+        ]);
+    });
+
+    it('bubbles up from a delivery to its row', () => {
+        const asset = { id: 'a', title: 'Lagoon', original_filename: 'IMG_1.jpg', type: 'photo', keywords: ['ice'], listings: [listing(1, { awaiting_review: true })] };
+        const summary = { limit: 10, accounts: [], items: [progressItem(asset)] };
+
+        const [row] = workRows(summary, [1], new Set(), new Set(), new Map([['a', progressPairs(asset)]]));
+
+        expect(row).toMatchObject({ busy: true, selectable: false, total: 0, progress: [{ account: 1, state: 'submitting', busy: true }] });
+        expect(row.item).toMatchObject({ asset: 'a', keywords: 1, accounts: [] });
     });
 });

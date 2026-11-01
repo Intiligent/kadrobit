@@ -28,6 +28,8 @@ class ExtensionSettingsTest extends TestCase
         parent::setUp();
 
         $this->seed([OauthSeeder::class, MarketplaceSeeder::class]);
+        // The mechanism for several marketplaces, as once their adapters are there (config/extension.php).
+        config(['extension.marketplaces' => ['shutterstock', '123rf', 'adobe_stock']]);
         $this->user = User::factory()->create();
         Passport::actingAs($this->user);
     }

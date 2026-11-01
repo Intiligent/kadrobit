@@ -49,10 +49,19 @@ return [
     |
     | Marketplaces the extension has an adapter for (marketplaces.code): only
     | their accounts get the auto submit switch and appear in the extension API.
+    | A marketplace is added with its adapter: 123RF (KB-80), Adobe Stock (KB-81).
     |
     */
 
-    'marketplaces' => ['shutterstock', '123rf', 'adobe_stock'],
+    'marketplaces' => ['shutterstock'],
+
+    /*
+    | A sent work waits for the extension to submit it to review (the library
+    | shows it as being sent) at most this many hours: marketplaces show new
+    | files within minutes, and a file never shown does not spin forever.
+    */
+
+    'await_review_hours' => (int) env('EXTENSION_AWAIT_REVIEW_HOURS', 24),
 
     /*
     |--------------------------------------------------------------------------

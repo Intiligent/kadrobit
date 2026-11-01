@@ -15,7 +15,13 @@ export async function run(adapter, marketplace) {
             return record({ error: `Sign in to ${marketplace.name} in this browser.` });
         }
 
-        const { accounts, listings } = await send(MESSAGE.LISTINGS, { marketplace: adapter.code });
+        const { busy, accounts, listings } = await send(MESSAGE.LISTINGS, { marketplace: adapter.code });
+
+        // Another tab is on it: its action will be the one the popup shows.
+        if (busy) {
+            return null;
+        }
+
         const autoSubmit = new Set(accounts.filter((account) => account.auto_submit).map((account) => account.id));
 
         const result = await adapter.sync(listings, { shouldSubmit: (listing) => autoSubmit.has(listing.account_id) });

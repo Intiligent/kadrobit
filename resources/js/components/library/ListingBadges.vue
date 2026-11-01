@@ -54,12 +54,19 @@ const badges = computed(() => props.listings
     }
 
     &.is-queued,
-    &.is-sending {
+    &.is-sending,
+    &.is-submitting {
         border-color: var(--el-color-primary-light-3);
     }
 
-    &.is-sent {
+    &.is-sent,
+    &.is-in_review,
+    &.is-accepted {
         border-color: var(--el-color-success);
+    }
+
+    &.is-rejected {
+        border-color: var(--el-color-danger);
     }
 
     &.is-outdated {

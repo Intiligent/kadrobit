@@ -68,6 +68,25 @@ describe('run', () => {
     });
 });
 
+describe('run while another tab runs', () => {
+    it('leaves the marketplace alone and records nothing', async () => {
+        const messages = [];
+        fakeChrome({
+            onMessage: async (message) => {
+                messages.push(message);
+
+                return message.type === MESSAGE.LISTINGS ? { busy: true } : null;
+            },
+        });
+        const adapter = { code: 'shutterstock', isSignedIn: async () => true, sync: vi.fn() };
+
+        await run(adapter, { name: 'Shutterstock' });
+
+        expect(adapter.sync).not.toHaveBeenCalled();
+        expect(messages.map((m) => m.type)).toEqual([MESSAGE.LISTINGS]);
+    });
+});
+
 describe('dueForAutoRun', () => {
     const storage = () => {
         const items = {};

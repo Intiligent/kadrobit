@@ -681,7 +681,7 @@ function addFiles(files) {
             :shown="visible.length"
         >
             <template #actions>
-                <PublishPopover :count="ready" :accounts="accounts" :disabled="readonly" @published="onPublished" />
+                <PublishPopover :count="ready" :accounts="accounts" :assets="assets" :disabled="readonly" @published="onPublished" />
                 <UploadStatus
                     :items="uploader.items"
                     :summary="uploader.summary.value"

@@ -300,6 +300,7 @@ return [
             'publish' => '{1} Publish :count ready work|[2,*] Publish :count ready works',
             'none_ready' => 'Nothing to send: no works are ready, or they are sent already.',
             'no_accounts' => 'Connect a marketplace to publish',
+            'delivering' => 'Works are on their way to marketplaces: open to follow them',
         ],
         'too_many' => '{1} One send takes one work.|[2,*] One send takes up to :max works.',
         // Publish popover of the library toolbar (PublishPopover.vue, docs/publishing.md)
@@ -321,6 +322,9 @@ return [
             'marketplaces' => '{1} :count marketplace|[2,*] :count marketplaces',
             'partial' => ':sending of :total',
             'already_sent' => 'Already sent',
+            'delivering' => 'On its way',
+            'delivering_hint' => 'Being delivered: until the marketplace has the work in review',
+            'submitting_hint' => 'On the :name server. The Kadrobit extension submits it to review when :name is open in your browser.',
             'pick_marketplace' => 'Pick at least one marketplace under “To”.',
             'keywords' => '{1} :count keyword|[2,*] :count keywords',
             'pair' => [
@@ -355,6 +359,7 @@ return [
             'next_submit' => ':name: once the files appear in the upload area, submit them for review.',
             'next_auto_submit' => ':name: with Auto Submit on, the works go to review by themselves; without it, submit them from the Add Data page.',
         ],
+        'open_on_marketplace' => 'Open',
         'status' => [
             'queued' => 'In the queue',
             'sending' => 'Sending',
@@ -362,6 +367,10 @@ return [
             'outdated' => 'Sent, edited since',
             'failed' => 'Not sent',
             'cancelled' => 'Cancelled',
+            'submitting' => 'Submitting for review',
+            'in_review' => 'In review',
+            'accepted' => 'Accepted',
+            'rejected' => 'Rejected',
         ],
         'errors' => [
             'auth' => 'The marketplace rejected the login or password. Reconnect the account in settings.',
