@@ -9,7 +9,7 @@ Shared hosting ukraine.com.ua (панель adm.tools), аккаунт `ix569599
 - CloudLinux 8 (CageFS, лимиты LVE), x86_64, glibc 2.28, 32 ядра.
 - Системные пакеты ставить нельзя: нет root, нет `gcc`. Свои программы ставятся в домашнюю папку (`~/opt`), запускать их оттуда разрешено, исходящая сеть есть.
 - PHP 8.4: `/usr/local/php84/bin/php` (команда `php` в SSH — тоже 8.4). Не ниже 8.4.27: в ней исправлены критические RCE CVE-2026-109618 и CVE-2026-109619 (21.10.2026; для других веток — 8.5.12, 8.3.36, 8.2.35). Сайты работают через LiteSpeed (`lsphp`), версию сайта выбирают в панели; какая версия реально запущена, видно по процессам: `readlink /proc/$(pgrep -n lsphp)/exe`, а сайт — по `PHPRC` в `/proc/<pid>/environ` (`~/.system/php/<сайт>.ini`). Расширения: `imagick` (ImageMagick 7.1.2 с librsvg), `exif`, `fileinfo`, `gd`, `intl`, `pcntl`, `posix`, `pdo_pgsql`, `redis`, `zip`. `proc_open` не запрещён.
-- `composer` есть, `node`/`npm` нет: фронтенд собирается не на сервере (`npm run build` локально или в CI), на сервер едет `public/build`.
+- `composer` есть, `node`/`npm` нет: фронтенд собирается не на сервере (`npm run build` локально или в CI), на сервер едут `public/build` и `public/extension` (архив расширения Chrome для Settings → Extension, собирается для `APP_URL` из `.env`, см. `docs/browser-extension.md`).
 
 ## Программы для обработки загрузок
 

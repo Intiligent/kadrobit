@@ -1,0 +1,10 @@
+// Element Plus CSS variables come with the components' styles (base.scss, imported on demand with the theme,
+// see extension/vite.config.js); the popup only lays them out.
+body {
+    width: 340px;
+    margin: 0;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: var(--el-text-color-primary);
+    background: var(--el-bg-color);
+}
