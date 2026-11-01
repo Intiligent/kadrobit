@@ -106,6 +106,8 @@ Boost replaces these bootstrap instructions with guidelines tailored to the appl
 - Every new or changed string goes into all languages at once (`lang/en`, `lang/ru`): the languages never differ
   in keys or `:placeholders` (`tests/Unit/TranslationsTest.php`). Russian plurals have three forms, see `docs/frontend.md`.
 - Error codes live in `App\Enums\ErrorCode` and `ERROR_CODE` in `resources/js/config/constant.js`; change both together.
+- The Chrome extension (`extension/`, `docs/browser-extension.md`) is a separate app: English texts only, no `lang/`
+  translations, and its own `fetch` client with a bearer token in the background worker instead of `api.js`.
 
 ## Local processes
 

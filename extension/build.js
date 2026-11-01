@@ -24,8 +24,10 @@ const appUrl = (env.EXTENSION_APP_URL || env.APP_URL || '').replace(/\/$/, '');
 // The same default as config/extension.php: the client OauthSeeder creates.
 const clientId = env.EXTENSION_CLIENT_ID || '01a1972a-6ffd-7284-9536-5f5987dec9bd';
 
+// Without a Kadrobit to talk to (a checkout without .env) only the app is built.
 if (!/^https?:\/\//.test(appUrl)) {
-    throw new Error('Set APP_URL or EXTENSION_APP_URL to the Kadrobit the extension works with.');
+    console.warn('Extension not built: set APP_URL or EXTENSION_APP_URL to the Kadrobit it works with.');
+    process.exit(0);
 }
 
 await build(extensionConfig({ appUrl, clientId }));

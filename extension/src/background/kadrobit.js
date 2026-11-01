@@ -1,5 +1,5 @@
 import { APP_URL } from '../config.js';
-import { SignedOutError, accessToken, clear } from './auth.js';
+import { SignedOutError, accessToken, clear, load } from './auth.js';
 
 /**
  * The extension API of Kadrobit (docs/browser-extension.md, «API расширения»).
@@ -20,14 +20,18 @@ export async function request(path, { method = 'GET', body, raw = false } = {}, 
         body: body ? JSON.stringify(body) : undefined,
     });
 
-    // An expired access token is refreshed once; a revoked one (disconnected in Kadrobit) signs the extension out.
-    if (response.status === 401 && !retried) {
+    // An expired OAuth access token is refreshed once; a revoked token (disconnected in Kadrobit) or a personal one
+    // Kadrobit does not accept signs the extension out.
+    if (response.status === 401 && !retried && (await load())?.kind === 'oauth') {
         return request(path, { method, body, raw }, true);
     }
 
     if (response.status === 401 || response.status === 403) {
+        const personal = (await load())?.kind === 'personal';
         await clear();
-        throw new SignedOutError('The extension was disconnected from Kadrobit. Sign in again.');
+        throw new SignedOutError(personal
+            ? 'Kadrobit does not accept this token. Create a new one in Settings → Extension.'
+            : 'The extension was disconnected from Kadrobit. Sign in again.');
     }
 
     if (!response.ok) {

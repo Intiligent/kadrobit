@@ -65,7 +65,13 @@ const signOut = () => attempt(async () => {
 });
 
 const checkNow = () => attempt(async () => {
-    await chrome.tabs.sendMessage(tab.value.id, { type: MESSAGE.RUN });
+    // A tab opened before the extension was installed or updated has no content script to answer.
+    const answer = await chrome.tabs.sendMessage(tab.value.id, { type: MESSAGE.RUN }).catch(() => null);
+
+    if (!answer?.ok) {
+        throw new Error(`Reload the ${current.value.name} page and try again.`);
+    }
+
     await refresh();
 });
 
@@ -148,6 +154,12 @@ onMounted(async () => {
                 </p>
             </section>
         </template>
+
+        <!-- Signed in, but Kadrobit did not answer: the reason is in the alert above. -->
+        <section v-else-if="state?.signedIn" class="popup__block">
+            <el-button :loading="busy" class="popup__wide" @click="attempt(refresh)">Try again</el-button>
+            <el-button text :loading="busy" class="popup__wide" @click="signOut">Sign out</el-button>
+        </section>
     </main>
 </template>
 

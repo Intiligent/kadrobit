@@ -57,6 +57,13 @@ describe('signIn', () => {
         expect(fetch).not.toHaveBeenCalled();
     });
 
+    it('shows why Kadrobit refused the code instead of calling the sign-in expired', async () => {
+        store = fakeChrome({ authRedirect: (url) => `https://x.chromiumapp.org/?code=c&state=${url.searchParams.get('state')}` });
+        vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(400, { error: 'invalid_grant', error_description: 'Authorization code has been revoked' })));
+
+        await expect(auth.signIn()).rejects.toThrow('Kadrobit refused the sign-in (400: Authorization code has been revoked).');
+    });
+
     it('tells a denied request apart', async () => {
         fakeChrome({ authRedirect: (url) => `https://x.chromiumapp.org/?error=access_denied&state=${url.searchParams.get('state')}` });
 
@@ -127,6 +134,17 @@ describe('kadrobit API', () => {
 
         expect(await kadrobit.report(reports)).toBe(1201);
         expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('does not try to refresh a personal token Kadrobit refuses', async () => {
+        store = fakeChrome();
+        store.auth = { kind: 'personal', accessToken: 'mistyped' };
+        const fetch = vi.fn(async () => jsonResponse(401, {}));
+        vi.stubGlobal('fetch', fetch);
+
+        await expect(kadrobit.me()).rejects.toThrow('Kadrobit does not accept this token.');
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(store.auth).toBeUndefined();
     });
 
     it('forgets a token Kadrobit no longer accepts', async () => {

@@ -129,13 +129,14 @@ async function requestTokens(body) {
         body: JSON.stringify(body),
     });
 
-    if (response.status === 400 || response.status === 401) {
+    if ((response.status === 400 || response.status === 401) && body.grant_type === 'refresh_token') {
         await clear();
         throw new SignedOutError('The Kadrobit sign-in has expired. Sign in again.');
     }
 
     if (!response.ok) {
-        throw new Error(`Kadrobit did not answer the sign-in (${response.status})`);
+        const reason = await response.json().then((json) => json.error_description ?? json.error).catch(() => null);
+        throw new Error(`Kadrobit refused the sign-in (${response.status}${reason ? `: ${reason}` : ''}).`);
     }
 
     const json = await response.json();

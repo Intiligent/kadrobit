@@ -12,7 +12,13 @@ export async function all() {
 
 export async function record(marketplace, action) {
     const actions = await all();
-    actions[marketplace] = { found: 0, submitted: 0, errors: [], error: null, ...action, at: new Date().toISOString() };
+    actions[marketplace] = {
+        found: action.found ?? 0,
+        submitted: action.submitted ?? 0,
+        errors: action.errors ?? [],
+        error: action.error ?? null,
+        at: new Date().toISOString(),
+    };
     await chrome.storage.local.set({ [KEY]: actions });
 }
 

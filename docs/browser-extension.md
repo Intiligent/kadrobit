@@ -137,7 +137,7 @@
 | `src/popup/` | Попап на Vue и Element Plus (тема та же, что у Kadrobit) |
 | `public/icons/` | Иконки из знака логотипа (`icon.svg`, PNG собраны `rsvg-convert`) |
 
-- **Вход.** «Sign in to Kadrobit» открывает `chrome.identity.launchWebAuthFlow` на `/oauth/authorize` с PKCE (S256) и `state`; код меняется на токены в `/oauth/token`. Токены лежат в `chrome.storage.local`. Access-токен обновляется за минуту до истечения, раз в 12 часов — фоном (`chrome.alarms`), чтобы не истёк refresh-токен. Отклонённое обновление или 401/403 от API — выход с сообщением «войдите снова». Запасной путь — «Use a personal token instead».
+- **Вход.** «Sign in to Kadrobit» открывает `chrome.identity.launchWebAuthFlow` на `/oauth/authorize` с PKCE (S256) и `state`; код меняется на токены в `/oauth/token`. Токены лежат в `chrome.storage.local`. Access-токен обновляется за минуту до истечения, раз в 12 часов — фоном (`chrome.alarms`), чтобы не истёк refresh-токен. Отклонённое обновление или 401/403 от API — выход с сообщением «войдите снова». Запасной путь — «Use a personal token instead»: токен сохраняется, только если Kadrobit его принял, и не обновляется (401 — сразу выход). Если Kadrobit недоступен, расширение остаётся подключённым, попап показывает причину, «Try again» и «Sign out».
 - **Проход адаптера** (`content/runner.js`): автор вошёл на сток → работы стока из Kadrobit и аккаунты с их `auto_submit` → `adapter.sync()` → `report` в Kadrobit → запись действия для попапа. Ошибка любого шага, в том числе изменившийся API сайта (`ShapeError`), записывается как действие и показывается в попапе.
 - **Адаптер** знает только свой сайт: находит работы по `remote_filename`, заполняет поля, отправляет на проверку те, что разрешает `shouldSubmit()` (автоотправка аккаунта), читает статус проверки и отвечает отчётом по каждой работе. Ответы внутреннего API сайта проверяет `expectShape()`.
 
@@ -149,7 +149,7 @@ npm run build:extension                                         # только �
 EXTENSION_APP_URL=https://kadrobit.loc npm run build:extension  # для локального Kadrobit
 ```
 
-`extension/build.js` собирает попап и фоновый воркер (ES-модули) и отдельно скрипт стоков (один файл: Chrome не грузит модули в content scripts) в `extension/dist`, пишет манифест, упаковывает `public/extension/kadrobit-extension-<версия>.zip` и `release.json` для Settings → Extension. Обе папки в `.gitignore`. Код не минифицируется: так его проще проверять. Новая версия — поднять `version` в `manifest.json`.
+`extension/build.js` собирает попап и фоновый воркер (ES-модули) и отдельно скрипт стоков (один файл: Chrome не грузит модули в content scripts) в `extension/dist`, пишет манифест, упаковывает `public/extension/kadrobit-extension-<версия>.zip` и `release.json` для Settings → Extension. Обе папки в `.gitignore`. Без `APP_URL` (и `EXTENSION_APP_URL`) расширение не собирается — с предупреждением, сборка приложения при этом не падает. Код не минифицируется: так его проще проверять. Новая версия — поднять `version` в `manifest.json`.
 
 Для разработки: `chrome://extensions` → Developer mode → Load unpacked → `extension/dist`; после пересборки — кнопка перезагрузки расширения. ID у распакованного расширения тот же, что у собранного, благодаря `key`.
 
