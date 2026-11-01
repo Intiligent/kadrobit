@@ -38,12 +38,12 @@ class ExtensionListingResource extends JsonResource
             'moderation_checked_at' => $this->moderation_checked_at?->toIso8601String(),
             'sent_at' => $this->sent_at?->toIso8601String(),
             // The marketplace still has older metadata: the extension fills in these.
-            'outdated' => $this->isOutdated(),
+            'outdated' => $this->metadata !== null && $this->metadata != $metadata,
             'metadata' => [
                 ...$metadata,
                 'categories' => array_map(fn (string $id) => ['id' => $id, 'name' => $this->categoryNames[$id] ?? $id], $metadata['categories']),
             ],
-            // Sent back with metadata_synced, so metadata edited meanwhile is not marked as on the marketplace.
+            // Sent back in the report once written to the marketplace; metadata edited meanwhile has another hash.
             'metadata_hash' => self::hash($metadata),
         ];
     }

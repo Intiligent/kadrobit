@@ -22,9 +22,10 @@ class ReportListingsRequest extends FormRequest
         return [
             'listings' => ['required', 'array', 'min:1', 'max:'.self::LISTINGS_MAX],
             'listings.*.id' => ['required', 'integer', 'distinct'],
-            'listings.*.external_id' => ['sometimes', 'nullable', 'string', 'max:64'],
-            'listings.*.external_url' => ['sometimes', 'nullable', 'string', 'max:512', 'url:https'],
-            'listings.*.moderation_status' => ['sometimes', 'nullable', Rule::enum(ModerationStatus::class)],
+            // A field the extension did not find on the site is left out, never sent as null: nothing is erased.
+            'listings.*.external_id' => ['sometimes', 'string', 'max:64'],
+            'listings.*.external_url' => ['sometimes', 'string', 'max:512', 'url:https'],
+            'listings.*.moderation_status' => ['sometimes', Rule::enum(ModerationStatus::class)],
             // The extension wrote the metadata with this metadata_hash to the marketplace.
             'listings.*.metadata_hash' => ['sometimes', 'string', 'size:64'],
         ];

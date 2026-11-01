@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Extension\ExtensionTokens;
 use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -105,6 +106,15 @@ class ExtensionSettingsTest extends TestCase
 
         $this->assertFalse(Token::find($foreign->accessTokenId)->revoked);
         $this->assertFalse(Token::find($web->accessTokenId)->revoked);
+    }
+
+    public function test_password_reset_disconnects_the_extension(): void
+    {
+        $result = app(ExtensionTokens::class)->issue($this->user);
+
+        event(new PasswordReset($this->user));
+
+        $this->assertTrue(Token::find($result->accessTokenId)->revoked);
     }
 
     public function test_auto_submit_is_on_by_default_and_switched_per_account(): void

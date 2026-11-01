@@ -18,6 +18,7 @@ use App\Services\Extension\ExtensionTokens;
 use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
 use Laravel\Passport\Token;
 use Tests\TestCase;
@@ -145,6 +146,39 @@ class ExtensionApiTest extends TestCase
             ->assertJsonPath('data.0.metadata_hash', ExtensionListingResource::hash($sent->metadata));
     }
 
+    public function test_counts_leave_out_marketplaces_the_extension_does_not_support(): void
+    {
+        $this->sent($this->account('shutterstock'));
+        $this->sent($this->account('alamy'));
+
+        $this->getJson('/api/extension/me')
+            ->assertJsonPath('data.stats.sent', 1)
+            ->assertJsonCount(1, 'data.accounts');
+    }
+
+    public function test_turned_off_accounts_are_left_alone(): void
+    {
+        $listing = $this->sent($this->account('shutterstock', ['status' => MarketplaceAccountStatus::Disabled]));
+
+        $this->getJson('/api/extension/listings?marketplace=shutterstock')->assertJsonCount(0, 'data');
+        $this->postJson('/api/extension/listings/report', ['listings' => [['id' => $listing->id, 'external_id' => 'X1']]])
+            ->assertJsonPath('data.updated', 0);
+
+        $this->assertNull($listing->fresh()->external_id);
+    }
+
+    public function test_report_never_erases_with_null(): void
+    {
+        $listing = $this->sent($this->account(), ['external_id' => 'U1']);
+
+        $this->postJson('/api/extension/listings/report', ['listings' => [['id' => $listing->id, 'external_id' => null]]])
+            ->assertUnprocessable();
+        $this->postJson('/api/extension/listings/report', ['listings' => [['id' => $listing->id, 'moderation_status' => null]]])
+            ->assertUnprocessable();
+
+        $this->assertSame('U1', $listing->fresh()->external_id);
+    }
+
     public function test_listings_need_a_supported_marketplace(): void
     {
         $this->getJson('/api/extension/listings?marketplace=alamy')->assertUnprocessable();
@@ -206,6 +240,14 @@ class ExtensionApiTest extends TestCase
     {
         $this->getJson('/api/settings')->assertForbidden();
         $this->getJson('/api/user')->assertForbidden();
+    }
+
+    public function test_a_token_of_the_extension_client_without_the_scope_opens_no_api(): void
+    {
+        Passport::actingAs($this->user, [], 'api', Client::findOrFail(config('extension.client_id')));
+
+        $this->getJson('/api/settings')->assertForbidden();
+        $this->getJson('/api/extension/me')->assertForbidden();
     }
 
     public function test_other_tokens_cannot_use_the_extension_api(): void

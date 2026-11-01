@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Extension;
 
 use App\Enums\ListingStatus;
+use App\Enums\MarketplaceAccountStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Extension\ReportListingsRequest;
 use App\Http\Resources\Extension\ExtensionListingResource;
@@ -29,27 +30,30 @@ class ExtensionController extends Controller
     public function __construct(protected ExtensionStats $stats) {}
 
     /**
-     * The popup: the Kadrobit account, overall counts and the accounts on marketplaces the extension supports.
+     * The popup: the Kadrobit account, the accounts on marketplaces the extension supports and their counts.
      */
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $stats = $this->stats->byAccount($user);
 
         $accounts = $user->marketplaceAccounts()->with('marketplace')->oldest()->orderBy('id')->get()
             ->filter(fn (MarketplaceAccount $account) => $account->marketplace->supportsExtension())
-            ->values()
-            ->map(fn (MarketplaceAccount $account) => [
-                'id' => $account->id,
-                'label' => $account->label,
-                'status' => $account->status->value,
-                'auto_submit' => $account->autoSubmits(),
-                'marketplace' => [
-                    'code' => $account->marketplace->code,
-                    'name' => $account->marketplace->name,
-                ],
-                'stats' => $stats[$account->id] ?? ExtensionStats::empty(),
-            ]);
+            ->values();
+
+        // Counted over the listed accounts only, so the total is their sum.
+        $stats = $this->stats->byAccount($accounts->modelKeys());
+
+        $accounts = $accounts->map(fn (MarketplaceAccount $account) => [
+            'id' => $account->id,
+            'label' => $account->label,
+            'status' => $account->status->value,
+            'auto_submit' => $account->autoSubmits(),
+            'marketplace' => [
+                'code' => $account->marketplace->code,
+                'name' => $account->marketplace->name,
+            ],
+            'stats' => $stats[$account->id] ?? ExtensionStats::empty(),
+        ]);
 
         return response()->json(['data' => [
             'user' => [
@@ -63,8 +67,9 @@ class ExtensionController extends Controller
     }
 
     /**
-     * Works on the servers of one marketplace (?marketplace=<code>), across the user's accounts there: the extension
-     * cannot tell which account the open site belongs to, the file names can. Page by page, oldest first.
+     * Works on the servers of one marketplace (?marketplace=<code>), across the user's accounts there that are not
+     * turned off: the extension cannot tell which account the open site belongs to, the file names can. Page by page,
+     * oldest first.
      */
     public function listings(Request $request): AnonymousResourceCollection
     {
@@ -76,6 +81,7 @@ class ExtensionController extends Controller
             ->with(['asset', 'account.marketplace'])
             ->whereHas('account', fn ($query) => $query
                 ->where('user_id', $request->user()->getKey())
+                ->where('status', '!=', MarketplaceAccountStatus::Disabled)
                 ->whereHas('marketplace', fn ($marketplace) => $marketplace->where('code', $request->input('marketplace'))))
             ->where('status', ListingStatus::Sent)
             ->orderBy('id')
@@ -95,7 +101,7 @@ class ExtensionController extends Controller
     /**
      * Saves what the extension found: the work's ID and page on the marketplace, its review status, and that the
      * metadata on the marketplace is now the work's (metadata_hash from listings(); a work edited meanwhile stays
-     * outdated). Answers how many works were updated.
+     * outdated). Works of turned-off accounts are skipped. Answers how many works were updated.
      */
     public function report(ReportListingsRequest $request): JsonResponse
     {
@@ -104,7 +110,9 @@ class ExtensionController extends Controller
         $listings = AssetListing::query()
             ->with(['asset', 'account.marketplace'])
             ->whereKey($reports->keys())
-            ->whereHas('account', fn ($query) => $query->where('user_id', $request->user()->getKey()))
+            ->whereHas('account', fn ($query) => $query
+                ->where('user_id', $request->user()->getKey())
+                ->where('status', '!=', MarketplaceAccountStatus::Disabled))
             ->where('status', ListingStatus::Sent)
             ->get()
             ->filter(fn (AssetListing $listing) => $listing->account->marketplace->supportsExtension());

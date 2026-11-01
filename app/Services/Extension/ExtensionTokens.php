@@ -46,7 +46,9 @@ class ExtensionTokens
             ->with('client', 'refreshToken')
             ->where('user_id', $user->getKey())
             ->where('revoked', false)
-            ->where('scopes', 'like', '%"'.config('extension.scope').'"%')
+            ->where(fn ($query) => $query
+                ->where('client_id', config('extension.client_id'))
+                ->orWhere('scopes', 'like', '%"'.config('extension.scope').'"%'))
             ->where(fn ($query) => $query
                 ->where('expires_at', '>', now())
                 // An expired OAuth access token still connects the extension while its refresh token lives.
@@ -65,10 +67,20 @@ class ExtensionTokens
     }
 
     /**
-     * The token of the current request carries the extension scope.
+     * The token of the current request belongs to the extension: issued to its OAuth client (whatever scopes were
+     * asked for) or carrying the extension scope (a personal token).
      */
     public static function isExtensionToken(?ScopeAuthorizable $token): bool
     {
-        return $token !== null && $token->can(config('extension.scope'));
+        return $token !== null
+            && ($token->oauth_client_id === config('extension.client_id') || $token->can(config('extension.scope')));
+    }
+
+    /**
+     * Revokes all the user's extension tokens and their refresh tokens, e.g. after a password reset.
+     */
+    public function revokeAll(User $user): void
+    {
+        $this->connections($user)->each(fn (Token $token) => $this->revoke($token));
     }
 }

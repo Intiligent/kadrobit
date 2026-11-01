@@ -5,7 +5,6 @@ namespace App\Services\Extension;
 use App\Enums\ListingStatus;
 use App\Enums\ModerationStatus;
 use App\Models\AssetListing;
-use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -16,14 +15,15 @@ use Illuminate\Support\Collection;
 class ExtensionStats
 {
     /**
-     * By account id.
+     * By account id, for the given accounts.
      *
+     * @param  list<int>  $accountIds
      * @return Collection<int, array{sent: int, pending: int, accepted: int, rejected: int, checked_at: string|null}>
      */
-    public function byAccount(User $user): Collection
+    public function byAccount(array $accountIds): Collection
     {
         return AssetListing::query()
-            ->whereIn('marketplace_account_id', $user->marketplaceAccounts()->select('id'))
+            ->whereIn('marketplace_account_id', $accountIds)
             ->groupBy('marketplace_account_id')
             ->selectRaw('marketplace_account_id')
             ->selectRaw('count(*) filter (where status = ?) as sent', [ListingStatus::Sent->value])
