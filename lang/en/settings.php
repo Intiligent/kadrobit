@@ -254,7 +254,7 @@ return [
         'notes' => [
             'adobe_stock' => 'SFTP is available to qualified contributor accounts. Your contributor ID is the SFTP login. The SFTP password is issued by Adobe and differs from your Adobe ID password: find it under Upload → Learn More in the Adobe Stock Contributor portal.',
             'shutterstock' => 'Use your Shutterstock contributor login. Categories and the final submit for review are done on the Shutterstock website after the files arrive.',
-            'pond5' => 'Pond5 uses a separate FTP password. Set it in your Pond5 account settings; your account password won\'t work here.',
+            'pond5' => 'The login is your Pond5 username; the password is a separate FTP password: set it in your Pond5 account settings, your account password won\'t work here. After sending, the works show under Uploads on Pond5 within minutes: fill in the details there and submit them for review.',
             'dreamstime' => 'The contributor ID is the User ID from the FTP upload page of your Dreamstime account (a number, not the email); the password is the account one. Model and property releases are sent as a separate file.',
             'alamy' => 'The login is your Alamy account email, the password is the account\'s. Alamy\'s server takes plain FTP only, without encryption. Alamy takes the caption and tags from the file; the description and the rest are filled in Image Manager.',
             'depositphotos' => 'The login and password are your Depositphotos account\'s. Depositphotos\' server takes plain FTP only, without encryption. Metadata and the submission for review are completed on the Depositphotos website once the files arrive.',

@@ -3,6 +3,7 @@
 namespace App\Services\Marketplaces\Delivery;
 
 use App\Models\AssetListing;
+use Closure;
 use Illuminate\Support\Str;
 
 /**
@@ -19,15 +20,20 @@ class RemoteFilename
      * @param  string|null  $extension  Another extension than the original's, for a marketplace that gets a copy in
      *                                  another format (the JPEG of a vector): taken into account before the check
      *                                  for a name already in use
+     * @param  (Closure(string): string)|null  $clean  A marketplace's own stricter rule for names (Pond5): applied
+     *                                                 before the check, and to the name with its suffix
      */
-    public static function for(AssetListing $listing, ?string $extension = null): string
+    public static function for(AssetListing $listing, ?string $extension = null, ?Closure $clean = null): string
     {
         $asset = $listing->asset;
+        $clean ??= fn (string $name) => $name;
         $name = self::safe($asset->original_filename, $asset->ulid);
 
         if ($extension !== null) {
             $name = self::withExtension($name, $extension);
         }
+
+        $name = $clean($name);
 
         $taken = AssetListing::query()
             ->where('marketplace_account_id', $listing->marketplace_account_id)
@@ -35,7 +41,7 @@ class RemoteFilename
             ->whereRaw('lower(remote_filename) = ?', [Str::lower($name)])
             ->exists();
 
-        return $taken ? self::withSuffix($name, Str::lower(substr($asset->ulid, -4))) : $name;
+        return $taken ? $clean(self::withSuffix($name, Str::lower(substr($asset->ulid, -4)))) : $name;
     }
 
     /**

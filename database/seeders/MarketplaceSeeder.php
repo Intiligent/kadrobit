@@ -338,7 +338,8 @@ class MarketplaceSeeder extends Seeder
                 'contributor_url' => 'https://contributor.pond5.com/',
                 'is_active' => true,
                 'supported_types' => [MediaType::Video, MediaType::Photo],
-                'upload_protocol' => UploadProtocol::Ftp,
+                // The help page says FTP, but the server takes AUTH TLS (checked 02.11.2026 without signing in).
+                'upload_protocol' => UploadProtocol::Ftps,
                 'upload_defaults' => [
                     'host' => 'ftp.pond5.com',
                     // FTP uses a separate password, not the account password.
@@ -355,7 +356,12 @@ class MarketplaceSeeder extends Seeder
                     ],
                     'submit' => 'web',
                 ],
-                'file_rules' => [],
+                // contributor.pond5.com, "Preparing your files": photos JPG, TIFF, PNG from 2 to 170 MP (at least
+                // 1200×1200), sRGB or Adobe RGB, no CMYK; footage MOV or MP4. The FTP server takes files under 5 GB.
+                'file_rules' => [
+                    'photo' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 2, 'max_megapixels' => 170],
+                    'video' => ['formats' => ['MOV', 'MP4'], 'formats_strict' => true, 'max_file_mb' => 5 * 1024],
+                ],
             ],
             [
                 'code' => 'magnific',
