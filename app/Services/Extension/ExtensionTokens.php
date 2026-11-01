@@ -3,6 +3,7 @@
 namespace App\Services\Extension;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Laravel\Passport\Contracts\ScopeAuthorizable;
 use Laravel\Passport\Passport;
@@ -42,9 +43,24 @@ class ExtensionTokens
      */
     public function connections(User $user): Collection
     {
+        return self::live($user->getKey())->with('client', 'refreshToken')->latest()->get();
+    }
+
+    /**
+     * The user has an extension connected, memoized for the request: the library asks it for every listing.
+     */
+    public static function connected(int $userId): bool
+    {
+        return once(fn () => self::live($userId)->exists());
+    }
+
+    /**
+     * The user's live extension tokens.
+     */
+    protected static function live(int $userId): Builder
+    {
         return Passport::token()->newQuery()
-            ->with('client', 'refreshToken')
-            ->where('user_id', $user->getKey())
+            ->where('user_id', $userId)
             ->where('revoked', false)
             ->where(fn ($query) => $query
                 ->where('client_id', config('extension.client_id'))
@@ -52,9 +68,7 @@ class ExtensionTokens
             ->where(fn ($query) => $query
                 ->where('expires_at', '>', now())
                 // An expired OAuth access token still connects the extension while its refresh token lives.
-                ->orWhereHas('refreshToken', fn ($refresh) => $refresh->where('revoked', false)->where('expires_at', '>', now())))
-            ->latest()
-            ->get();
+                ->orWhereHas('refreshToken', fn ($refresh) => $refresh->where('revoked', false)->where('expires_at', '>', now())));
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Enums\AssetStatus;
 use App\Enums\ListingStatus;
 use App\Enums\MarketplaceAccountStatus;
 use App\Enums\ModerationStatus;
+use App\Events\EntityChanged;
 use App\Http\Resources\Extension\ExtensionListingResource;
 use App\Models\Asset;
 use App\Models\AssetListing;
@@ -18,6 +19,8 @@ use App\Services\Extension\ExtensionTokens;
 use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Once;
 use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
 use Laravel\Passport\Token;
@@ -34,6 +37,8 @@ class ExtensionApiTest extends TestCase
         parent::setUp();
 
         $this->seed([OauthSeeder::class, MarketplaceSeeder::class]);
+        // The mechanism for several marketplaces, as once their adapters are there (config/extension.php).
+        config(['extension.marketplaces' => ['shutterstock', '123rf', 'adobe_stock']]);
         $this->user = User::factory()->create();
         Passport::actingAs($this->user, [config('extension.scope')]);
     }
@@ -207,6 +212,48 @@ class ExtensionApiTest extends TestCase
         $this->assertNotNull($listing->moderation_checked_at);
         $this->assertSame('Edited title', $listing->metadata['title']);
         $this->assertFalse($listing->isOutdated());
+    }
+
+    public function test_report_tells_the_library_the_work_changed(): void
+    {
+        Event::fake([EntityChanged::class]);
+        $listing = $this->sent($this->account());
+        $untouched = $this->sent($this->account('123rf'));
+
+        $this->postJson('/api/extension/listings/report', ['listings' => [
+            ['id' => $listing->id, 'moderation_status' => 'pending'],
+            ['id' => $untouched->id],
+        ]])->assertOk();
+
+        Event::assertDispatchedTimes(EntityChanged::class, 1);
+        Event::assertDispatched(EntityChanged::class, fn ($event) => $event->id === $listing->asset->ulid && $event->reason === 'listing');
+    }
+
+    public function test_a_sent_work_awaits_review_until_the_extension_reports_it(): void
+    {
+        app(ExtensionTokens::class)->issue($this->user);
+        $listing = $this->sent($this->account())->load('account.marketplace');
+
+        $this->assertTrue($listing->awaitsReview());
+
+        $listing->update(['moderation_status' => ModerationStatus::Pending]);
+        $this->assertFalse($listing->awaitsReview());
+    }
+
+    public function test_only_where_the_extension_would_submit_it(): void
+    {
+        $listing = fn (MarketplaceAccount $account, array $attributes = []) => $this->sent($account, $attributes)->load('account.marketplace');
+
+        // No extension connected yet.
+        $this->assertFalse($listing($this->account())->awaitsReview());
+
+        Once::flush();
+        app(ExtensionTokens::class)->issue($this->user);
+
+        $this->assertFalse($listing($this->account('shutterstock', ['label' => 'Off', 'settings' => ['auto_submit' => false]]))->awaitsReview());
+        $this->assertFalse($listing($this->account('alamy'))->awaitsReview());
+        $this->assertFalse($listing($this->account('shutterstock', ['label' => 'Old']), ['sent_at' => now()->subHours(25)])->awaitsReview());
+        $this->assertFalse($listing($this->account('shutterstock', ['label' => 'Queued']), ['status' => ListingStatus::Queued])->awaitsReview());
     }
 
     public function test_report_keeps_a_work_edited_meanwhile_outdated(): void

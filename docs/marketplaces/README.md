@@ -58,7 +58,7 @@
 
 У всех стоков, кроме Vecteezy с его настройкой Auto Submit, Submit делается на сайте, публичного API нет. Автоматизировать можно только из браузера автора, где он уже вошёл на сток (расширение Chrome, [KB-54](https://github.com/Intiligent/kadrobit/issues/54)); с сервера — нельзя, это потребовало бы хранить вход автора в веб-кабинет.
 
-Основа расширения готова ([KB-79](https://github.com/Intiligent/kadrobit/issues/79)): API для него, ID работы на стоке, ссылка и статус проверки в `asset_listings`, флажок «Автоотправка из расширения» у аккаунтов Shutterstock, 123RF и Adobe Stock. Адаптеры: Shutterstock — готов ([KB-84](https://github.com/Intiligent/kadrobit/issues/84)), 123RF — [KB-80](https://github.com/Intiligent/kadrobit/issues/80), Adobe Stock — [KB-81](https://github.com/Intiligent/kadrobit/issues/81).
+Основа расширения готова ([KB-79](https://github.com/Intiligent/kadrobit/issues/79)): API для него, ID работы на стоке, ссылка и статус проверки в `asset_listings`, флажок «Автоотправка из расширения» у аккаунтов стоков с готовым адаптером. Адаптеры: Shutterstock — готов ([KB-84](https://github.com/Intiligent/kadrobit/issues/84)), 123RF — [KB-80](https://github.com/Intiligent/kadrobit/issues/80), Adobe Stock — [KB-81](https://github.com/Intiligent/kadrobit/issues/81).
 
 | Сток | Куда попадают файлы | Что остаётся автору |
 | --- | --- | --- |

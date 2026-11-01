@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ListingStatus;
 use App\Enums\ModerationStatus;
+use App\Services\Extension\ExtensionTokens;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -119,6 +120,20 @@ class AssetListing extends Model
         return $this->status === ListingStatus::Sent
             && $this->metadata !== null
             && $this->metadata != self::snapshot($this->asset, $this->account->marketplace);
+    }
+
+    /**
+     * Sent, and waiting for the browser extension to submit it to review: the marketplace works with the extension,
+     * the account has auto submit, an extension is connected and has not reported a review status yet. Only for
+     * extension.await_review_hours after sending. Needs account.marketplace.
+     */
+    public function awaitsReview(): bool
+    {
+        return $this->status === ListingStatus::Sent
+            && $this->moderation_status === null
+            && $this->sent_at?->greaterThan(now()->subHours(config('extension.await_review_hours')))
+            && $this->account->autoSubmits()
+            && ExtensionTokens::connected($this->account->user_id);
     }
 
     public function scopePending(Builder $query): void

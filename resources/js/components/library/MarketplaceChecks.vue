@@ -22,11 +22,18 @@ const emit = defineEmits(['cancel', 'retry']);
 const STATE = {
     queued: { icon: Clock, class: 'text-[var(--el-text-color-secondary)]' },
     sending: { icon: LoaderCircle, class: 'text-[var(--el-color-primary)]', spin: true },
+    submitting: { icon: LoaderCircle, class: 'text-[var(--el-color-primary)]', spin: true },
     sent: { icon: Send, class: 'text-[var(--el-color-success-dark-2)]' },
+    in_review: { icon: Clock, class: 'text-[var(--el-color-success-dark-2)]' },
+    accepted: { icon: CircleCheck, class: 'text-[var(--el-color-success-dark-2)]' },
+    rejected: { icon: CircleX, class: 'text-[var(--el-color-danger)]' },
     outdated: { icon: TriangleAlert, class: 'text-[var(--el-color-warning-dark-2)]' },
     failed: { icon: CircleX, class: 'text-[var(--el-color-danger)]' },
     cancelled: { icon: CircleMinus, class: 'text-[var(--el-text-color-secondary)]' },
 };
+
+// States of a work on the marketplace's server: shown with the date it was sent.
+const SENT_STATES = ['sent', 'outdated', 'in_review', 'accepted', 'rejected'];
 
 const LEVEL = {
     ok: { icon: CircleCheck, class: 'text-[var(--el-color-success-dark-2)]' },
@@ -85,7 +92,9 @@ const initials = (name) => name.split(/\s+/).map((word) => word[0]).join('').sli
                         <span class="flex min-w-0 flex-1 items-start gap-1.5 text-[13px] leading-[18px]" :class="STATE[state].class">
                             <component :is="STATE[state].icon" :size="14" :stroke-width="1.75" class="mt-0.5 flex-none" :class="{ 'animate-spin': STATE[state].spin }" />
                             <span class="min-w-0">
-                                {{ $t(`library.publishing.status.${state}`) }}<template v-if="listing.sent_at && (state === 'sent' || state === 'outdated')">, {{ formatDateTime(listing.sent_at, getActiveLanguage()) }}</template>
+                                {{ $t(`library.publishing.status.${state}`) }}<template v-if="listing.sent_at && SENT_STATES.includes(state)">, {{ formatDateTime(listing.sent_at, getActiveLanguage()) }}</template>
+                                <a v-if="state === 'accepted' && listing.external_url" :href="listing.external_url" target="_blank" rel="noopener noreferrer" class="ml-1 text-[var(--el-color-primary)] hover:underline">{{ $t('library.publishing.open_on_marketplace') }}</a>
+                                <span v-if="state === 'submitting'" class="block text-[var(--el-text-color-secondary)]">{{ $t('library.publishing.popover.submitting_hint', { name: account.marketplace.name }) }}</span>
                                 <span v-if="state === 'failed' && listing.error" class="block text-[var(--el-text-color-secondary)]">{{ $t(`library.publishing.errors.${listing.error}`) }}</span>
                                 <span v-else-if="state === 'outdated'" class="block text-[var(--el-text-color-secondary)]">{{ $t('library.publishing.outdated_hint') }}</span>
                             </span>

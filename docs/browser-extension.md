@@ -116,7 +116,8 @@
 ### Данные
 
 - `asset_listings`: `external_url` после `external_id`, `moderation_status` (`App\Enums\ModerationStatus`: `pending`, `accepted`, `rejected`, null — неизвестно) после `status`, `moderation_checked_at` после `sent_at`. Таблица пересобрана миграцией `2026_11_01_000001_add_moderation_to_asset_listings_table.php`.
-- **Автоматическая отправка** — `marketplace_accounts.settings.auto_submit`, по умолчанию включена (`MarketplaceAccount::autoSubmits()`). Меняется через `PATCH /api/marketplace-accounts/{id}` (`auto_submit`), только у стоков из `config/extension.php` (`marketplaces`), у остальных — 422. В Settings → Marketplaces это флажок под названием аккаунта.
+- **Автоматическая отправка** — `marketplace_accounts.settings.auto_submit`, по умолчанию включена (`MarketplaceAccount::autoSubmits()`). Меняется через `PATCH /api/marketplace-accounts/{id}` (`auto_submit`), только у стоков из `config/extension.php` (`marketplaces`: стоки с готовым адаптером, сейчас Shutterstock; 123RF и Adobe Stock добавятся в KB-80, KB-81), у остальных — 422. В Settings → Marketplaces это флажок под названием аккаунта.
+- **Ожидание отправки на проверку** (`AssetListing::awaitsReview()`, `awaiting_review` в `AssetListingResource`): работа отправлена, сток с адаптером, у аккаунта автоотправка, расширение подключено, статуса проверки ещё нет — и прошло не больше `EXTENSION_AWAIT_REVIEW_HOURS` (24) часов. Библиотека показывает такую работу как «отправляется на проверку» с лоадером (`docs/publishing.md`, «Интерфейс»). Отчёт расширения, изменивший публикацию, шлёт уведомление `EntityChanged`, и библиотека перечитывает работу.
 
 ### Settings → Extension
 
