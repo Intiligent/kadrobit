@@ -16,6 +16,8 @@
 /auth.json
 /node_modules
 /public/build
+/public/extension
+/extension/dist
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
