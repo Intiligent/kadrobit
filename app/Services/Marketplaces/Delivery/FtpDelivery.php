@@ -9,13 +9,14 @@ use App\Models\AssetListing;
 use App\Models\MarketplaceAccount;
 use App\Services\Marketplaces\ConnectionResult;
 use App\Services\Marketplaces\Delivery\Ftp\FtpClient;
+use App\Services\Marketplaces\Delivery\Ftp\SftpClient;
 use App\Support\HostResolver;
 use Illuminate\Contracts\Container\Container;
 use Throwable;
 
 /**
- * Delivery over FTP or FTPS (the marketplace's upload_protocol): one sign-in per session, files in binary mode,
- * passive mode with data connections to the address we signed in to. A marketplace adds what it sends for a
+ * Delivery over FTP, FTPS or SFTP (the marketplace's upload_protocol): one sign-in per session, files in binary mode;
+ * over FTP, passive mode with data connections to the address we signed in to. A marketplace adds what it sends for a
  * listing (package()): which files, their names, the metadata inside.
  *
  * Like ConnectionTester, the host is resolved first and the connection goes to the resolved address, which must
@@ -35,8 +36,10 @@ abstract class FtpDelivery implements Delivery
             throw new DeliveryFailed(ConnectionResult::CONNECT);
         }
 
-        $client = $this->container->make(FtpClient::class);
-        $client->connect($address, $account->port ?? 21, $marketplace->upload_protocol === UploadProtocol::Ftps);
+        $protocol = $marketplace->upload_protocol;
+        $client = $this->container->make($protocol === UploadProtocol::Sftp ? SftpClient::class : FtpClient::class);
+        $port = $account->port ?? $marketplace->upload_defaults['port'] ?? ($protocol === UploadProtocol::Sftp ? 22 : 21);
+        $client->connect($address, $port, $protocol === UploadProtocol::Ftps);
 
         try {
             $client->login((string) $account->login, $account->credentials['password'] ?? '');
@@ -50,7 +53,8 @@ abstract class FtpDelivery implements Delivery
     }
 
     /**
-     * The files to upload for a listing, the work's own file first: its name is what the listing records.
+     * The files to upload for a listing, the work's own file first: its name is what the listing records. Files sent
+     * ahead (UploadFile::$ahead) may be anywhere in the list.
      * Files are written to $directory, which the session removes afterwards.
      *
      * @return list<UploadFile>

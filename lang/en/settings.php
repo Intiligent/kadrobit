@@ -174,7 +174,7 @@ return [
             'depositphotos' => 'The login and password are your Depositphotos account\'s. Depositphotos\' server takes plain FTP only, without encryption. Metadata and the submission for review are completed on the Depositphotos website once the files arrive.',
             '123rf' => 'The login is your 123RF username (not the email), the password is the account\'s; if you sign in to 123RF with Google, set a password on the Upload Content page first. After sending, open Upload Content → Upload Via FTP on 123RF and click Proceed: only then do the works become drafts. 123RF reads the description and keywords from the file. The FTP folder holds up to 4 GB at a time.',
             'magnific' => 'Find the FTP details in your Freepik contributor panel. Titles and keywords are embedded into the files.',
-            'vecteezy' => 'Find the FTP details in your Vecteezy contributor dashboard. Metadata is sent as a CSV next to the files.',
+            'vecteezy' => 'The SFTP login and password are on the Upload page of your Vecteezy account. The title, description, keywords and license (Pro, Editorial for editorial works) go as a CSV with each work. To have the works go to review right away, turn on Auto Submit in Upload Settings and turn off Magic Metadata: it replaces your metadata with Vecteezy\'s own. Vecteezy takes the category and releases on the website only.',
         ],
     ],
 ];

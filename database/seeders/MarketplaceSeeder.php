@@ -385,23 +385,43 @@ class MarketplaceSeeder extends Seeder
                 'logo' => 'marketplaces/vecteezy.svg',
                 'contributor_url' => 'https://contributors.vecteezy.com/',
                 'is_active' => true,
-                'supported_types' => $all,
-                'upload_protocol' => UploadProtocol::Ftp,
-                'upload_defaults' => [],
+                // Video goes over SFTP too, not delivered yet.
+                'supported_types' => [MediaType::Photo, MediaType::Illustration, MediaType::Vector],
+                // SFTP only since May 2022 (eezycontributors.zendesk.com, "SFTP Upload Process"); the server, login and
+                // password are shown on the Upload page. The server answers SFTP on 22 (AWS Transfer), not FTP on 21
+                // (checked 31.10.2026).
+                'upload_protocol' => UploadProtocol::Sftp,
+                'upload_defaults' => [
+                    'host' => 'content-ftp.eezy.com',
+                    'port' => 22,
+                ],
+                // A CSV uploaded with the files comes before the metadata embedded in them ("Upload Settings").
                 'metadata_delivery' => MetadataDelivery::Csv,
                 'metadata_rules' => [
                     // Text fields: which work field goes where, and the length the marketplace takes (null: not known).
-                    // Title under 100 characters; Description optional, no limit found (eezycontributors.zendesk.com).
+                    // Title from 3 words, up to 200 characters; Description optional, no limit found ("Contributor Guide: Add Data").
                     'text_fields' => [
-                        ['field' => 'title', 'name' => 'Title', 'max' => 99],
+                        ['field' => 'title', 'name' => 'Title', 'max' => 200],
                         ['field' => 'description', 'name' => 'Description', 'max' => null],
                     ],
-                    'csv_fields' => ['Filename', 'Title', 'Description', 'Keywords'],
-                    // CSV can be uploaded over FTP together with the files.
-                    'csv_upload' => 'ftp',
-                    'submit' => 'web',
+                    'keywords_min' => 5,
+                    'keywords_max' => 50,
+                    // Categories are picked on the Add Data page only; neither the CSV nor the file carries them.
+                    // License: pro, or editorial for editorial works (VecteezyCsv).
+                    'csv_fields' => ['Filename', 'Title', 'Description', 'Keywords', 'License'],
+                    // One CSV per work, sent over SFTP ahead of its files (VecteezyDelivery).
+                    'csv_upload' => 'sftp',
+                    // With the contributor's Auto Submit setting valid works go to review on arrival; otherwise from Add Data.
+                    'submit' => 'auto_submit',
                 ],
-                'file_rules' => [],
+                // "Content Guidelines - Photo": sRGB JPEG, 4 to 50 MP, up to 50 MB. PNG and TIFF are taken because
+                // VecteezyDelivery sends them as a JPEG copy; the 50 MB limit is not checked, since it applies to the JPEG
+                // that goes, not to the original. Vectors: EPS with a JPG of the same name ("FTP Upload Process").
+                'file_rules' => [
+                    'photo' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 4, 'max_megapixels' => 50],
+                    'illustration' => ['formats' => ['JPEG', 'PNG', 'TIFF'], 'min_megapixels' => 4, 'max_megapixels' => 50],
+                    'vector' => ['formats' => ['EPS'], 'formats_strict' => true],
+                ],
             ],
             [
                 'code' => 'canva',

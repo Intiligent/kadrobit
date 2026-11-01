@@ -25,7 +25,7 @@
 | [Dreamstime](dreamstime/README.md) | ✅ Работает | 100 % | 100 % | FTPS `upload.dreamstime.com`, логин — User ID | IPTC/XMP в JPEG + CSV по FTP сразу после файлов | ✅ через CSV, 182 категории | 27.10.2026: файлы, метаданные, категории ([KB-64](https://github.com/Intiligent/kadrobit/issues/64)) |
 | Shutterstock | 🟡 Работает без категорий | 80 % | 100 % | FTPS `ftps.shutterstock.com` | IPTC/XMP в JPEG | ❌ CSV только через сайт — [KB-54](https://github.com/Intiligent/kadrobit/issues/54) | 26.10.2026: файлы, описание, ключевые слова ([KB-31](https://github.com/Intiligent/kadrobit/issues/31)) |
 | Adobe Stock | 🔵 Только подключение | 40 % | 100 % | SFTP `sftp.contributor.adobestock.com`, только для одобренных аккаунтов | CSV, только через сайт | В справочнике, не отправляются | Нет |
-| Vecteezy | 🔵 Только подключение | 30 % | 100 % | FTP, сервер не указан | CSV по FTP вместе с файлами | Не изучено | Нет |
+| [Vecteezy](vecteezy/README.md) | 🟡 Работает, не проверено | 80 % | 80 % | SFTP `content-ftp.eezy.com:22` (на 21 не отвечает), логин и пароль — со страницы Upload; фото, иллюстрации, векторы EPS; видео не отправляется | CSV по SFTP перед файлами работы (название, описание, ключевые слова, лицензия Pro / Editorial) + IPTC в JPEG; с Auto Submit работы сами уходят на проверку | Только на сайте (Add Data): ни в CSV, ни в файле не передаются | Нет: доставка [KB-82](https://github.com/Intiligent/kadrobit/issues/82), ждёт проверки |
 | [123RF](123rf/README.md) | 🟡 Работает, Proceed и отправка — на сайте | 100 % | 100 % | FTPS `ftp.123rf.com` (в справке FTP, но сервер принимает `AUTH TLS`), логин — имя пользователя; фото, иллюстрации, векторы EPS; видео и аудио — на других серверах, не отправляются | IPTC в JPEG: описание и ключевые слова; после загрузки — «Upload Via FTP» → Proceed в кабинете | Нет: ни в справке, ни в CSV (31.10.2026) — этап засчитан с текстом | 31.10.2026: FTPS, файл, описание и ключевые слова ([KB-76](https://github.com/Intiligent/kadrobit/issues/76)) |
 | Magnific (Freepik) | 🔵 Только подключение | 30 % | 100 % | FTP, сервер не указан | IPTC в JPEG или CSV | Не изучено | Нет |
 | [Alamy](alamy/README.md) | 🟡 Работает, не проверено | 80 % | 80 % | FTP `upload.alamy.com` (без TLS: сервер не умеет), логин — email | IPTC в JPEG: подпись и теги; описание — в Image Manager | В справочнике (25), только вручную в Image Manager: ни в файле, ни CSV не передаются | Нет: доставка [KB-74](https://github.com/Intiligent/kadrobit/issues/74), ждёт проверки |
@@ -44,20 +44,19 @@
 ## Что уже можно подключить
 
 - **Пользуемся:** Dreamstime, Shutterstock и 123RF — работы отправляются из Kadrobit. На Shutterstock после отправки остаётся выбрать категории на сайте, на 123RF — забрать файлы с FTP (Upload Via FTP → Proceed) и отправить черновики на проверку.
-- **Отправка готова, ждёт проверки на аккаунте:** Alamy — фото и векторы EPS ([KB-74](https://github.com/Intiligent/kadrobit/issues/74)).
-- **Можно подключить аккаунт, но работы не уйдут:** Adobe Stock, Vecteezy, Magnific, Pond5, Depositphotos. Вход проверяется, доставка — [KB-33](https://github.com/Intiligent/kadrobit/issues/33).
+- **Отправка готова, ждёт проверки на аккаунте:** Alamy — фото и векторы EPS ([KB-74](https://github.com/Intiligent/kadrobit/issues/74)); Vecteezy — фото и векторы EPS по SFTP с CSV ([KB-82](https://github.com/Intiligent/kadrobit/issues/82)).
+- **Можно подключить аккаунт, но работы не уйдут:** Adobe Stock, Magnific, Pond5, Depositphotos. Вход проверяется, доставка — [KB-33](https://github.com/Intiligent/kadrobit/issues/33).
 
 Предлагаемый порядок для KB-33, от простого к сложному:
 
-1. **Vecteezy** — CSV по FTP, как у Dreamstime: можно сразу довести до 100 %. Нужен адрес FTP-сервера.
-2. **Magnific** — IPTC в JPEG, как у Shutterstock и 123RF ([KB-76](https://github.com/Intiligent/kadrobit/issues/76)); надо выяснить, есть ли категории.
-3. **Adobe Stock** — SFTP есть не у всех аккаунтов, CSV грузится только через сайт: категории и CSV — тем же способом из браузера, что и в KB-54.
-4. **Pond5** — только файлы: метаданные вводятся вручную. Alamy сделан в KB-74: IPTC он читает.
-5. **Depositphotos** — сервер известен (обычный FTP), осталось выяснить, читает ли он IPTC и есть ли категории.
+1. **Magnific** — IPTC в JPEG, как у Shutterstock и 123RF ([KB-76](https://github.com/Intiligent/kadrobit/issues/76)); надо выяснить, есть ли категории.
+2. **Adobe Stock** — SFTP есть не у всех аккаунтов, CSV грузится только через сайт: категории и CSV — из расширения Chrome ([KB-81](https://github.com/Intiligent/kadrobit/issues/81)).
+3. **Pond5** — только файлы: метаданные вводятся вручную. Alamy сделан в KB-74: IPTC он читает, Vecteezy — в KB-82.
+4. **Depositphotos** — сервер известен (обычный FTP), осталось выяснить, читает ли он IPTC и есть ли категории.
 
 ## Отправка на модерацию
 
-У всех стоков Submit делается на сайте, публичного API нет. Автоматизировать можно только из браузера автора, где он уже вошёл на сток (как задумано для Shutterstock в KB-54); с сервера — нельзя, это потребовало бы хранить вход автора в веб-кабинет.
+У всех стоков, кроме Vecteezy с его настройкой Auto Submit, Submit делается на сайте, публичного API нет. Автоматизировать можно только из браузера автора, где он уже вошёл на сток (как задумано для Shutterstock в KB-54); с сервера — нельзя, это потребовало бы хранить вход автора в веб-кабинет.
 
 | Сток | Куда попадают файлы | Что остаётся автору |
 | --- | --- | --- |
