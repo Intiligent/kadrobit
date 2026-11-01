@@ -119,6 +119,8 @@ function onKeydown(event) {
     }
 }
 
+const nextStepKey = (step) => (step.csv ? 'next_csv' : step.autoSubmit ? 'next_auto_submit' : 'next_submit');
+
 async function send() {
     if (stage.value !== 'ready' || !totals.value.pairs.length) {
         return;
@@ -136,7 +138,7 @@ async function send() {
             title: transChoice('library.publishing.popover.queued', queued, { count: queued }),
             message: h('div', { class: 'flex flex-col gap-1' }, [
                 h('p', trans('library.publishing.popover.queued_hint')),
-                ...steps.map((step) => h('p', trans(step.csv ? 'library.publishing.popover.next_csv' : 'library.publishing.popover.next_submit', { name: step.name }))),
+                ...steps.map((step) => h('p', trans(`library.publishing.popover.${nextStepKey(step)}`, { name: step.name }))),
             ]),
             duration: 8000,
         });

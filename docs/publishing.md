@@ -78,13 +78,14 @@
 
 Маркетплейс без доставки получает `unsupported` у всех публикаций.
 
-### FTP и FTPS
+### FTP, FTPS и SFTP
 
-`FtpDelivery` — общая часть для стоков с FTP/FTPS (`upload_protocol`), её же используют Dreamstime, Alamy и 123RF, возьмут и остальные стоки из [KB-33](https://github.com/Intiligent/kadrobit/issues/33):
+`FtpDelivery` — общая часть для стоков с FTP/FTPS/SFTP (`upload_protocol`), её же используют Dreamstime, Alamy, 123RF и Vecteezy, возьмут и остальные стоки из [KB-33](https://github.com/Intiligent/kadrobit/issues/33):
 
 - **Адрес:** хост аккаунта (или `upload_defaults.host` маркетплейса) разрешается заранее, соединение идёт на этот адрес, и он должен быть публичным (`HostResolver::publicAddress()`, как при проверке в настройках). Иначе — `connect`, сервер не трогается.
-- **Вход:** один на сессию, FTPS — явный TLS (`ftp_ssl_connect`), пассивный режим, соединения данных — на адрес, куда вошли (`FTP_USEPASVADDRESS` выключен). Неудачное TLS-рукопожатие — `other`, отклонённый логин — `auth` (`ConnectionResult::fromFtpLoginWarning()`). Клиент — `Delivery\Ftp\FtpClient` (`NativeFtpClient` на расширении `ftp`; в тестах подменяется).
+- **Вход:** один на сессию, FTPS — явный TLS (`ftp_ssl_connect`), пассивный режим, соединения данных — на адрес, куда вошли (`FTP_USEPASVADDRESS` выключен). Неудачное TLS-рукопожатие — `other`, отклонённый логин — `auth` (`ConnectionResult::fromFtpLoginWarning()`). Клиент — `Delivery\Ftp\FtpClient` (`NativeFtpClient` на расширении `ftp`; в тестах подменяется). SFTP — `Delivery\Ftp\SftpClient` с теми же вызовами (`PhpseclibSftpClient` на phpseclib 4, как в `ConnectionTester`), порт по умолчанию 22; сбой соединения при входе — `connect`, отклонённый логин — `auth`.
 - **Загрузка:** файлы готовятся в `storage/app/private/publishing/<uuid>` (каталог удаляется после каждой работы), уходят в бинарном режиме, после загрузки сверяется размер на сервере (`SIZE`). Не совпал — файл отправляется ещё раз; снова нет — `connect`: сессия заканчивается, публикация ждёт следующей (`interrupted`, до `connect_tries`). Одна операция передачи ждёт до `PUBLISHING_TRANSFER_TIMEOUT` (120 с).
+- **Файлы вперёд** (`UploadFile::$ahead`): файл, который должен лежать на сервере раньше самой работы (CSV Vecteezy), загружается первым и никогда не становится именем публикации.
 - **Имя файла** (`RemoteFilename`): исходное, приведённое к безопасному для FTP и CSV виду (латиница, цифры, пробел, `._()-`; кириллица транслитерируется). Если другая работа уже отправлена на этот аккаунт под тем же именем — короткий суффикс из ULID работы (`lagoon-7f3a.jpg`). Та же работа всегда получает то же имя: повторная отправка заменяет файл на сервере, а не создаёт копию.
 
 ### Shutterstock
@@ -126,6 +127,17 @@
 - **Видео и аудио** у 123RF на отдельных серверах, Kadrobit их не отправляет (`supported_types`).
 - **Категорий** у 123RF нет.
 - **Проверено на настоящем аккаунте 31.10.2026:** FTPS, файл в корне, описание и ключевые слова из IPTC появились в 123RF после Proceed. Proceed и отправку на проверку можно сделать через внутренний API кабинета только в браузере пользователя (вход закрыт reCAPTCHA) — см. [`docs/marketplaces/123rf/`](marketplaces/123rf/README.md).
+
+### Vecteezy
+
+`VecteezyDelivery` — SFTP `content-ftp.eezy.com:22`; логин и пароль — свои у каждого автора, со страницы Upload в кабинете Vecteezy. Файлы обрабатываются сразу по прибытии: валидные работы попадают в Add Data, а при включённом у автора Auto Submit — сразу на проверку. Требования, лицензии и шаги — [`docs/marketplaces/vecteezy/`](marketplaces/vecteezy/README.md).
+
+- **CSV** (`VecteezyCsv`) — у каждой работы свой, в одну строку: `Filename` (имя на сервере без расширения), `Title`, `Description`, `Keywords`, `License`. Лицензия — `pro`, у редакционных работ — `editorial` (её нельзя потом сменить). CSV уходит раньше файлов работы (`UploadFile::$ahead`) под её именем с `.csv`: Vecteezy применяет CSV раньше встроенных метаданных, и к обработке файла он уже на сервере.
+- **Фото и иллюстрации** — sRGB JPEG в корень с теми же текстами внутри (`JpegMetadata`, на случай если CSV не прочитан); PNG, TIFF, CMYK — копией (`MakesJpegCopies`).
+- **Вектор** — EPS и его JPEG (`raster_companion`) с одним именем, имя публикации — EPS; SVG не уходит (`formats_strict`).
+- **Имя** — `RemoteFilename` с пробелами, заменёнными на `_`: Vecteezy не советует пробелы в именах.
+- **Категории и релизы** — только на сайте (Add Data). **Видео** пока не отправляется (`supported_types`).
+- **Не проверено на настоящем аккаунте** ([KB-82](https://github.com/Intiligent/kadrobit/issues/82)).
 
 ## Интерфейс
 

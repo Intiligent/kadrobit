@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Services\Marketplaces\Delivery\Ftp\FtpClient;
 use App\Services\Marketplaces\Delivery\Ftp\NativeFtpClient;
+use App\Services\Marketplaces\Delivery\Ftp\PhpseclibSftpClient;
+use App\Services\Marketplaces\Delivery\Ftp\SftpClient;
 use App\Services\Metadata\Contracts\MetadataGenerator;
 use App\Services\Metadata\MetadataGeneratorFactory;
 use App\Support\CredentialsEncrypter;
@@ -25,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
 
         // The provider configured in config/metadata.php (METADATA_DRIVER).
         $this->app->bind(FtpClient::class, NativeFtpClient::class);
+        $this->app->bind(SftpClient::class, PhpseclibSftpClient::class);
         $this->app->bind(MetadataGenerator::class, fn ($app) => $app->make(MetadataGeneratorFactory::class)->make());
     }
 

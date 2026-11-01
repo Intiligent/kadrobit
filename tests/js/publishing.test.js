@@ -20,7 +20,7 @@ const connection = (id, code, rules = {}) => ({ id, label: code, marketplace: { 
 
 const accounts = [
     connection(1, 'shutterstock', { csv_upload: 'web', submit: 'web' }),
-    connection(2, 'alamy'),
+    connection(2, 'vecteezy', { submit: 'auto_submit' }),
     connection(3, 'adobe_stock', { submit: 'web' }),
     connection(4, 'dreamstime'),
     connection(5, 'pond5'),
@@ -161,7 +161,8 @@ describe('publish popover', () => {
     });
 
     it('names what is left on each marketplace that got work', () => {
-        expect(nextSteps(rows, { 1: 3, 2: 0 })).toEqual([{ account: 1, name: 'shutterstock', csv: true, submit: true }]);
+        expect(nextSteps(rows, { 1: 3, 2: 0 })).toEqual([{ account: 1, name: 'shutterstock', csv: true, submit: true, autoSubmit: false }]);
+        expect(nextSteps(rows, { 2: 1 })).toEqual([{ account: 2, name: 'vecteezy', csv: false, submit: false, autoSubmit: true }]);
         expect(nextSteps(rows, {})).toEqual([]);
     });
 });

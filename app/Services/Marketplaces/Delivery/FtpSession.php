@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
- * A signed-in FTP or FTPS connection (FtpDelivery::open()). Each file is checked after the upload by its size on
+ * A signed-in FTP, FTPS or SFTP connection (FtpDelivery::open()). Each file is checked after the upload by its size on
  * the server and sent once more if it does not match; a second failure means the connection is lost.
  * The listings it uploaded are handed to FtpDelivery::finished() when it closes, before it signs out.
  */
@@ -27,14 +27,16 @@ class FtpSession implements DeliverySession
 
         try {
             $files = $this->delivery->package($listing, $directory);
+            $ahead = array_filter($files, fn (UploadFile $file) => $file->ahead);
+            $own = array_values(array_filter($files, fn (UploadFile $file) => ! $file->ahead));
 
-            foreach ($files as $file) {
+            foreach ([...$ahead, ...$own] as $file) {
                 $this->upload($file);
             }
 
             $this->sent[] = $listing;
 
-            return $files[0]->remote;
+            return $own[0]->remote;
         } finally {
             File::deleteDirectory($directory);
         }

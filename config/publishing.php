@@ -4,6 +4,7 @@ use App\Services\Marketplaces\Delivery\AlamyDelivery;
 use App\Services\Marketplaces\Delivery\DreamstimeDelivery;
 use App\Services\Marketplaces\Delivery\Rf123Delivery;
 use App\Services\Marketplaces\Delivery\ShutterstockDelivery;
+use App\Services\Marketplaces\Delivery\VecteezyDelivery;
 
 return [
 
@@ -82,6 +83,7 @@ return [
         'dreamstime' => DreamstimeDelivery::class,
         'alamy' => AlamyDelivery::class,
         '123rf' => Rf123Delivery::class,
+        'vecteezy' => VecteezyDelivery::class,
     ],
 
     /*

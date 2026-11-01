@@ -151,7 +151,8 @@ export function publishTotals(rows) {
 
 /**
  * What is left to do on each marketplace after sending: submit for review in its portal, and for Shutterstock
- * upload a CSV there too (its FTPS server does not take one). From marketplaces.metadata_rules.
+ * upload a CSV there too (its FTPS server does not take one). A marketplace whose own setting can submit on arrival
+ * (Vecteezy's Auto Submit) says so instead. From marketplaces.metadata_rules.
  */
 export function nextSteps(rows, queued) {
     return rows
@@ -159,6 +160,12 @@ export function nextSteps(rows, queued) {
         .map((row) => {
             const { name, metadata_rules: rules = {} } = row.connection.marketplace;
 
-            return { account: row.account, name, csv: rules.csv_upload === 'web', submit: rules.submit === 'web' };
+            return {
+                account: row.account,
+                name,
+                csv: rules.csv_upload === 'web',
+                submit: rules.submit === 'web',
+                autoSubmit: rules.submit === 'auto_submit',
+            };
         });
 }

@@ -353,6 +353,7 @@ return [
             'queued_hint' => 'Statuses update on the cards and in the Marketplaces tab of each work.',
             'next_csv' => ':name: the description and keywords are in the files; once they appear in the upload area, choose categories and submit them for review.',
             'next_submit' => ':name: once the files appear in the upload area, submit them for review.',
+            'next_auto_submit' => ':name: with Auto Submit on, the works go to review by themselves; without it, submit them from the Add Data page.',
         ],
         'status' => [
             'queued' => 'In the queue',
