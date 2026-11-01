@@ -11,7 +11,7 @@ defineProps({
     checking: { type: Object, default: () => new Set() },
 });
 
-const emit = defineEmits(['check', 'toggle', 'edit', 'remove']);
+const emit = defineEmits(['check', 'toggle', 'auto-submit', 'edit', 'remove']);
 
 const DOT = {
     active: 'bg-[var(--el-color-success)]',
@@ -81,6 +81,17 @@ const subline = (account) => [
                     </el-tooltip>
                 </div>
                 <p class="truncate text-xs leading-[18px] text-[var(--el-text-color-secondary)]">{{ subline(account) }}</p>
+                <!-- Only marketplaces the browser extension supports have auto submit (null elsewhere). -->
+                <el-tooltip v-if="account.auto_submit !== null" :content="$t('settings.marketplaces.auto_submit_hint', { name: account.marketplace.name })" placement="bottom-start">
+                    <el-checkbox
+                        :model-value="account.auto_submit"
+                        size="small"
+                        class="connection-list__auto-submit"
+                        @update:model-value="emit('auto-submit', account, $event)"
+                    >
+                        {{ $t('settings.marketplaces.auto_submit') }}
+                    </el-checkbox>
+                </el-tooltip>
             </div>
 
             <div class="min-w-0">
@@ -124,6 +135,11 @@ const subline = (account) => [
 </template>
 
 <style scoped lang="scss">
+.connection-list__auto-submit {
+    height: 20px;
+    margin-top: 2px;
+}
+
 .connection-list__remove {
     color: var(--el-text-color-secondary);
 

@@ -22,7 +22,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $port
  * @property string|null $login
  * @property array|null $credentials Secrets only (password, later an SFTP key), encrypted with CREDENTIALS_KEY
- * @property array $settings Per-account overrides of marketplaces.upload_defaults
+ * @property array $settings Per-account overrides of marketplaces.upload_defaults, and auto_submit (autoSubmits())
  * @property MarketplaceAccountStatus $status
  * @property Carbon|null $last_verified_at
  * @property string|null $last_error Reason of the last failed check: auth | connect | other
@@ -84,5 +84,14 @@ class MarketplaceAccount extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('status', MarketplaceAccountStatus::Active);
+    }
+
+    /**
+     * Whether the browser extension sends the account's works to review by itself (docs/browser-extension.md).
+     * On by default; only marketplaces the extension supports have it. Needs the marketplace.
+     */
+    public function autoSubmits(): bool
+    {
+        return $this->marketplace->supportsExtension() && ($this->settings['auto_submit'] ?? true);
     }
 }

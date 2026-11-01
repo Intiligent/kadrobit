@@ -60,5 +60,15 @@ return [
         'unverified_email' => 'Google has not confirmed this email address. Log in with your password instead.',
     ],
 
+    'authorize' => [
+        'title' => 'Allow access',
+        'subtitle' => ':client asks to connect to your Kadrobit account :email.',
+        'scopes' => [
+            'extension' => 'See your connected marketplaces and the works sent to them, and record their IDs and review status',
+        ],
+        'approve' => 'Allow',
+        'deny' => 'Cancel',
+    ],
+
     'logout' => 'Log out',
 ];

@@ -30,6 +30,8 @@ class MarketplaceConnectionResource extends JsonResource
             'last_error' => $this->last_error,
             'last_verified_at' => $this->last_verified_at?->toIso8601String(),
             'credentials_changed_at' => $this->credentials_changed_at?->toIso8601String(),
+            // Null where the browser extension does not support the marketplace.
+            'auto_submit' => $this->marketplace->supportsExtension() ? $this->autoSubmits() : null,
             'marketplace' => [
                 'code' => $this->marketplace->code,
                 'name' => $this->marketplace->name,

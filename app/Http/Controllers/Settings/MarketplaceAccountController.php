@@ -63,6 +63,10 @@ class MarketplaceAccountController extends Controller
         $rejected = $account->status === MarketplaceAccountStatus::InvalidCredentials || $account->last_error === ConnectionResult::AUTH;
         $account->fill($request->safe()->only(['label', 'contributor_id', 'status']));
 
+        if ($request->has('auto_submit')) {
+            $account->settings = [...$account->settings, 'auto_submit' => $request->boolean('auto_submit')];
+        }
+
         // Turning an account on does not lift a rejected sign-in: only working credentials do.
         if ($account->status === MarketplaceAccountStatus::Active && $rejected) {
             $account->status = MarketplaceAccountStatus::InvalidCredentials;

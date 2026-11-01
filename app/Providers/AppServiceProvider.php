@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Services\Marketplaces\Delivery\Ftp\FtpClient;
 use App\Services\Marketplaces\Delivery\Ftp\NativeFtpClient;
 use App\Services\Marketplaces\Delivery\Ftp\PhpseclibSftpClient;
@@ -13,7 +14,11 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Inertia\Inertia;
+use Inertia\Response;
+use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
+use Laravel\Passport\Scope;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -74,6 +79,9 @@ class AppServiceProvider extends ServiceProvider
      * API tokens are personal access tokens issued on login and kept in an HttpOnly cookie.
      * They live as long as the web session: renewed while the user is active, expired when the
      * session would be, so a forgotten browser does not keep API access after logout by timeout.
+     *
+     * The browser extension signs in through OAuth (docs/browser-extension.md): its access tokens live
+     * as long, and the refresh token keeps it connected for a month without use.
      */
     protected function configurePassport(): void
     {
@@ -85,6 +93,35 @@ class AppServiceProvider extends ServiceProvider
 
         Passport::personalAccessTokensExpireIn($lifetime);
         Passport::tokensExpireIn($lifetime);
-        Passport::refreshTokensExpireIn(now()->addDays(7));
+        Passport::refreshTokensExpireIn(now()->addDays(30));
+
+        Passport::tokensCan([
+            config('extension.scope') => 'Kadrobit browser extension',
+        ]);
+
+        Passport::authorizationView(fn (array $parameters) => $this->authorizationPage($parameters));
+    }
+
+    /**
+     * The consent page of GET /oauth/authorize. Approve and deny are plain form posts to Passport,
+     * which answers with a redirect to the client.
+     *
+     * @param  array{client: Client, user: User, scopes: list<Scope>, request: Request, authToken: string}  $parameters
+     */
+    protected function authorizationPage(array $parameters): Response
+    {
+        $request = $parameters['request'];
+
+        return Inertia::render('auth/authorize/index', [
+            'client' => [
+                'id' => $parameters['client']->getKey(),
+                'name' => $parameters['client']->name,
+            ],
+            'email' => $parameters['user']->email,
+            'scopes' => collect($parameters['scopes'])->map(fn (Scope $scope) => $scope->id)->values()->all(),
+            'state' => $request->input('state'),
+            'authToken' => $parameters['authToken'],
+            'csrfToken' => csrf_token(),
+        ]);
     }
 }

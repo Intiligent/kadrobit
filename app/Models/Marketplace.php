@@ -84,6 +84,14 @@ class Marketplace extends Model
         return (bool) ($this->upload_defaults['login_is_contributor_id'] ?? false);
     }
 
+    /**
+     * The browser extension has an adapter for the marketplace (config/extension.php).
+     */
+    public function supportsExtension(): bool
+    {
+        return in_array($this->code, config('extension.marketplaces'), true);
+    }
+
     public function supports(MediaType $type): bool
     {
         return $this->supported_types->contains($type);

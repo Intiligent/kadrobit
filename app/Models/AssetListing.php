@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ListingStatus;
+use App\Enums\ModerationStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,13 +16,16 @@ use Illuminate\Support\Carbon;
  * @property int $asset_id
  * @property int $marketplace_account_id
  * @property string|null $external_id The work's id on the marketplace, in its own format
+ * @property string|null $external_url The work's page on the marketplace
  * @property ListingStatus $status
+ * @property ModerationStatus|null $moderation_status Review on the marketplace, read by the browser extension
  * @property list<array{key: string, params: array<string, mixed>}> $warnings Checks that did not pass when it was queued
  * @property string|null $remote_filename Name of the file on the marketplace's server
  * @property array|null $metadata Metadata as sent, see snapshot()
  * @property string|null $error Reason of the last failure: auth | connect | other | account | unsupported | file
  * @property int $attempts
  * @property Carbon|null $sent_at
+ * @property Carbon|null $moderation_checked_at When the extension last read the review status
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -45,13 +49,16 @@ class AssetListing extends Model
         'asset_id',
         'marketplace_account_id',
         'external_id',
+        'external_url',
         'status',
+        'moderation_status',
         'warnings',
         'remote_filename',
         'metadata',
         'error',
         'attempts',
         'sent_at',
+        'moderation_checked_at',
     ];
 
     /**
@@ -67,10 +74,12 @@ class AssetListing extends Model
     {
         return [
             'status' => ListingStatus::class,
+            'moderation_status' => ModerationStatus::class,
             'warnings' => 'array',
             'metadata' => 'array',
             'attempts' => 'integer',
             'sent_at' => 'datetime',
+            'moderation_checked_at' => 'datetime',
         ];
     }
 

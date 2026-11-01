@@ -102,6 +102,15 @@ async function toggle(account, on) {
     });
 }
 
+async function setAutoSubmit(account, on) {
+    const response = await api.patch(`${MARKETPLACE_ACCOUNTS_API_URL}/${account.id}`, { auto_submit: on });
+    replace(response.data);
+    notify.info({
+        message: trans(on ? 'settings.marketplaces.toasts.auto_submit_on' : 'settings.marketplaces.toasts.auto_submit_off', { label: account.label }),
+        duration: 3000,
+    });
+}
+
 async function remove(account) {
     const confirmed = await notify.confirm({
         title: trans('settings.marketplaces.remove_confirm.title', { label: account.label }),
@@ -150,6 +159,7 @@ async function remove(account) {
                 :checking="checking"
                 @check="check"
                 @toggle="toggle"
+                @auto-submit="setAutoSubmit"
                 @edit="(account, replacePassword) => openDrawer({ account, replacePassword })"
                 @remove="remove"
             />
