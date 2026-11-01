@@ -8,6 +8,7 @@ use App\Models\AssetListing;
 use App\Models\User;
 use App\Notifications\Push\ReviewSubmittedNotification;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * "Works sent to review" browser notification. The works of one send reach review over several passes of the
@@ -29,7 +30,9 @@ class ReviewSubmittedNotifier
 
         if ($reached > 0) {
             Cache::add($key, 0, now()->addHours(config('extension.await_review_hours') + 1));
-            Cache::increment($key, $reached);
+            $total = Cache::increment($key, $reached);
+
+            Log::info('Works reached review', ['user' => $user->getKey(), 'reached' => $reached, 'total' => $total]);
         }
 
         if (! Cache::get($key) || $this->inProgress($user)) {
@@ -41,6 +44,8 @@ class ReviewSubmittedNotifier
 
         if ($count > 0 && $user->setting(UserSettingKey::NotifyReviewSubmitted) && $user->pushSubscriptions()->exists()) {
             $user->notify(new ReviewSubmittedNotification($count));
+
+            Log::info('Review submitted notification', ['user' => $user->getKey(), 'count' => $count]);
         }
     }
 
