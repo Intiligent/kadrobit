@@ -40,6 +40,37 @@ return [
         ],
     ],
 
+    'notifications' => [
+        'title' => 'Notifications',
+        'intro' => 'What Kadrobit tells you about, and where.',
+        'browser' => [
+            'title' => 'Browser notifications',
+            'text' => 'Arrive even when Kadrobit is closed, while the browser is running. Turned on for each browser separately.',
+            'on' => 'On in this browser',
+            'turn_on' => 'Turn on in this browser',
+            'turn_off' => 'Turn off',
+            'unsupported' => 'This browser does not support notifications from websites.',
+            'unavailable' => 'Browser notifications are not set up on this server yet.',
+            'blocked' => 'Notifications from Kadrobit are blocked in this browser. Allow them in the site settings (the icon to the left of the address), then reload the page.',
+        ],
+        'events' => [
+            'title' => 'Events',
+            'review_submitted' => [
+                'title' => 'Works sent to review',
+                'text' => 'When the works you sent have all reached review on the marketplaces. The Kadrobit extension submits them.',
+            ],
+            'example' => 'Show an example',
+            'example_hint' => 'Turn on notifications in this browser to see an example',
+        ],
+        'toasts' => [
+            'browser_on' => 'Notifications are on in this browser',
+            'browser_off' => 'Notifications are off in this browser',
+            'browser_failed' => 'Could not turn on notifications in this browser',
+            'event_on' => 'You will be notified: :event',
+            'event_off' => 'You won\'t be notified: :event',
+        ],
+    ],
+
     'metadata' => [
         'title' => 'Metadata defaults',
         'intro' => 'How Kadrobit fills in the title, description, keywords and categories of your works.',

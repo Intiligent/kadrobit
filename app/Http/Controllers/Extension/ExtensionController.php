@@ -12,6 +12,7 @@ use App\Models\MarketplaceAccount;
 use App\Models\MarketplaceCategory;
 use App\Services\Extension\ExtensionStats;
 use App\Services\Extension\ExtensionTokens;
+use App\Services\Extension\ReviewSubmittedNotifier;
 use App\Support\Realtime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,9 +103,10 @@ class ExtensionController extends Controller
     /**
      * Saves what the extension found: the work's ID and page on the marketplace, its review status, and that the
      * metadata on the marketplace is now the work's (metadata_hash from listings(); a work edited meanwhile stays
-     * outdated). Works of turned-off accounts are skipped. Answers how many works were updated.
+     * outdated). Works of turned-off accounts are skipped. Works that reached review count towards the "sent to
+     * review" browser notification (ReviewSubmittedNotifier). Answers how many works were updated.
      */
-    public function report(ReportListingsRequest $request): JsonResponse
+    public function report(ReportListingsRequest $request, ReviewSubmittedNotifier $notifier): JsonResponse
     {
         $reports = collect($request->validated('listings'))->keyBy('id');
 
@@ -118,8 +120,11 @@ class ExtensionController extends Controller
             ->get()
             ->filter(fn (AssetListing $listing) => $listing->account->marketplace->supportsExtension());
 
+        $reached = 0;
+
         foreach ($listings as $listing) {
             $report = $reports[$listing->id];
+            $awaited = $listing->awaitsReview();
             $listing->fill(collect($report)->only(['external_id', 'external_url'])->all());
 
             if (array_key_exists('moderation_status', $report)) {
@@ -135,11 +140,17 @@ class ExtensionController extends Controller
 
             $listing->save();
 
+            if ($awaited && $listing->moderation_status !== null) {
+                $reached++;
+            }
+
             // The library stops showing the work as being sent once its review status is known.
             if ($listing->wasChanged()) {
                 Realtime::changed($request->user(), 'asset', $listing->asset->ulid, 'listing');
             }
         }
+
+        $notifier->record($request->user(), $reached);
 
         return response()->json(['data' => ['updated' => $listings->count()]]);
     }

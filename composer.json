@@ -9,6 +9,7 @@
         "php": "^8.3",
         "ext-ftp": "*",
         "inertiajs/inertia-laravel": "^3.5",
+        "laravel-notification-channels/webpush": "^13.0",
         "laravel/framework": "^13.17",
         "laravel/passport": "^13.10",
         "laravel/socialite": "^5.31",

@@ -7,6 +7,7 @@ use App\Enums\AssetStatus;
 use App\Enums\ListingStatus;
 use App\Enums\MarketplaceAccountStatus;
 use App\Enums\ModerationStatus;
+use App\Enums\UserSettingKey;
 use App\Events\EntityChanged;
 use App\Http\Resources\Extension\ExtensionListingResource;
 use App\Models\Asset;
@@ -15,11 +16,13 @@ use App\Models\Marketplace;
 use App\Models\MarketplaceAccount;
 use App\Models\MarketplaceCategory;
 use App\Models\User;
+use App\Notifications\Push\ReviewSubmittedNotification;
 use App\Services\Extension\ExtensionTokens;
 use Database\Seeders\MarketplaceSeeder;
 use Database\Seeders\OauthSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Once;
 use Laravel\Passport\Client;
 use Laravel\Passport\Passport;
@@ -254,6 +257,80 @@ class ExtensionApiTest extends TestCase
         $this->assertFalse($listing($this->account('alamy'))->awaitsReview());
         $this->assertFalse($listing($this->account('shutterstock', ['label' => 'Old']), ['sent_at' => now()->subHours(25)])->awaitsReview());
         $this->assertFalse($listing($this->account('shutterstock', ['label' => 'Queued']), ['status' => ListingStatus::Queued])->awaitsReview());
+    }
+
+    /**
+     * The user with the extension connected and notifications on in a browser.
+     */
+    protected function notifiable(): void
+    {
+        Notification::fake();
+        app(ExtensionTokens::class)->issue($this->user);
+        $this->user->updatePushSubscription('https://fcm.googleapis.com/fcm/send/abc', 'key', 'token', 'aes128gcm');
+    }
+
+    protected function reportReview(AssetListing ...$listings): void
+    {
+        $this->postJson('/api/extension/listings/report', ['listings' => array_map(
+            fn (AssetListing $listing) => ['id' => $listing->id, 'moderation_status' => 'pending'],
+            $listings,
+        )])->assertOk();
+    }
+
+    public function test_one_notification_once_every_work_on_its_way_is_in_review(): void
+    {
+        $this->notifiable();
+        $account = $this->account();
+        [$first, $second, $third] = [$this->sent($account), $this->sent($account), $this->sent($account)];
+
+        $this->reportReview($first, $second);
+        Notification::assertNothingSent();
+
+        $this->reportReview($third);
+        Notification::assertSentToTimes($this->user, ReviewSubmittedNotification::class, 1);
+        Notification::assertSentTo($this->user, ReviewSubmittedNotification::class, fn ($notification) => $notification->count === 3);
+
+        // A later status of the same works is not news.
+        $this->postJson('/api/extension/listings/report', ['listings' => [['id' => $first->id, 'moderation_status' => 'accepted']]])->assertOk();
+        Notification::assertSentToTimes($this->user, ReviewSubmittedNotification::class, 1);
+    }
+
+    public function test_works_still_queued_hold_the_notification_back(): void
+    {
+        $this->notifiable();
+        $account = $this->account();
+        $listing = $this->sent($account);
+        $this->sent($account, ['status' => ListingStatus::Queued, 'sent_at' => null]);
+
+        $this->reportReview($listing);
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_no_notification_when_the_event_is_off_or_no_browser_has_them_on(): void
+    {
+        $this->notifiable();
+        $this->user->setSetting(UserSettingKey::NotifyReviewSubmitted, false);
+        $this->reportReview($this->sent($this->account()));
+
+        $this->user->setSetting(UserSettingKey::NotifyReviewSubmitted, true);
+        $this->user->pushSubscriptions()->delete();
+        $this->reportReview($this->sent($this->account('123rf')));
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_review_submitted_notification_reads_in_the_users_language(): void
+    {
+        $this->user->setSetting(UserSettingKey::GeneralLocale, 'ru');
+        $notification = new ReviewSubmittedNotification(5);
+
+        app()->setLocale($this->user->preferredLocale());
+        $message = $notification->toWebPush($this->user, $notification)->toArray();
+
+        $this->assertSame('Отправлено на проверку', $message['title']);
+        $this->assertSame('5 работ на проверке на стоках', $message['body']);
+        $this->assertSame(route('library'), $message['data']['url']);
     }
 
     public function test_report_keeps_a_work_edited_meanwhile_outdated(): void
